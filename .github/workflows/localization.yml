@@ -32,12 +32,19 @@ jobs:
         with:
           version: 0.16.0
       - uses: actions/cache@v4
+        id: build-cache
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             target
           key: zh-cn-windows-release-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'vendor/**', 'crates/**') }}
+      # Exact cache hits include the contents of both dependency source trees.
+      # A new checkout's timestamps must not force unchanged native dependencies
+      # to rebuild; application sources retain their fresh timestamps.
+      - name: Preserve cached dependency builds
+        if: steps.build-cache.outputs.cache-hit == 'true'
+        run: find vendor crates -exec touch -t 200001010000 {} +
       - name: Install Bun
         run: npm install --global bun
       - name: JavaScript and translation checks
@@ -50,7 +57,8 @@ jobs:
           mkdir -p dist/herdr-app-zh-CN
           cp target/release/herdr-app.exe assets/icons/herdr-app.ico LICENSE THIRD-PARTY-NOTICES README.zh-CN.md dist/herdr-app-zh-CN/
           cp assets/icons/herdr-ui-icon-clean.svg dist/herdr-app-zh-CN/herdr-app.svg
-          sha256sum dist/herdr-app-zh-CN/herdr-app.exe > dist/herdr-app-zh-CN/SHA256SUMS
+          cd dist/herdr-app-zh-CN
+          sha256sum herdr-app.exe > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: herdr-app-zh-CN-windows
