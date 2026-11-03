@@ -517,7 +517,7 @@ export default class Dialog {
               cx.notify();
             })
             .child(programIcon(u, t.program, 16))
-            .child(div().flex_1().truncate().child(`${t.name}${t.status ? ` (${t.status})` : ""}`))
+            .child(div().flex_1().truncate().child(`${t.name}${t.status ? ` (${tr(t.status)})` : ""}`))
             .child(div().text_color(i === this.sel ? C.selectText : C.gray).child(t.address)),
         ),
       );
@@ -666,7 +666,7 @@ export default class Dialog {
     for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
     const cal = v_flex()
       .bg(C.white)
-      .child(h_flex().bg(C.gray).text_color(C.white).children(["S", "M", "T", "W", "T", "F", "S"].map((x) => div().w(u(22)).flex().justify_center().child(x))))
+      .child(h_flex().bg(C.gray).text_color(C.white).children((settings().language === "zh-CN" ? ["日", "一", "二", "三", "四", "五", "六"] : ["S", "M", "T", "W", "T", "F", "S"]).map((x) => div().w(u(22)).flex().justify_center().child(x))))
       .children(
         weeks.map((w) =>
           h_flex().children(
@@ -683,8 +683,8 @@ export default class Dialog {
           ),
         ),
       );
-    const month = d.toLocaleDateString("en-US", { month: "long" });
-    const time = d.toLocaleTimeString("en-US");
+    const month = d.toLocaleDateString(settings().language === "zh-CN" ? "zh-CN" : "en-US", { month: "long" });
+    const time = d.toLocaleTimeString(settings().language === "zh-CN" ? "zh-CN" : "en-US");
     return v_flex()
       .p(u(10))
       .gap(u(10))

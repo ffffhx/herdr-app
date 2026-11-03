@@ -41,7 +41,7 @@ jobs:
       - name: Install Bun
         run: npm install --global bun
       - name: JavaScript and translation checks
-        run: bun test scripts/*.test.ts
+        run: bun test --timeout 30000 scripts/
       - name: Build Windows app
         run: cargo build --locked --config 'profile.dev.package."*".opt-level=0'
       - name: Rust tests

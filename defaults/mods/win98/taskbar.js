@@ -38,11 +38,11 @@ function clock(d) {
   const m = String(d.getMinutes()).padStart(2, "0");
   const pm = h >= 12;
   h = h % 12 || 12;
-  return `${h}:${m} ${pm ? "PM" : "AM"}`;
+  return settings().language === "zh-CN" ? `${String(d.getHours()).padStart(2, "0")}:${m}` : `${h}:${m} ${pm ? "PM" : "AM"}`;
 }
 
 function longDate(d) {
-  return d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  return d.toLocaleDateString(settings().language === "zh-CN" ? "zh-CN" : "en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 }
 
 /** Seconds since the Herdr app started (exec's parent), or null where ps can't say. */
@@ -349,7 +349,7 @@ export default class Taskbar {
       .gap(u(3))
       .when(open, (el) => el.child(dither(u)))
       .child(div().relative().child(icon(u, ico, 16)))
-      .child(div().relative().flex_1().min_w(0).truncate().when(open, (el) => el.font_weight(700)).child(name));
+      .child(div().relative().flex_1().min_w(0).truncate().when(open, (el) => el.font_weight(700)).child(tr(name)));
     return button(u, `tg-${key}`, face, () => setApp(key, open ? "min" : "open"), {
       toggled: open,
       pad: [0, 3],
@@ -407,7 +407,7 @@ export default class Taskbar {
           .id(`tray-${a.address}`)
           .relative()
           .flex_none()
-          .tooltip(`${a.program?.name ?? a.app ?? tr("Agent")}: ${a.status} - ${a.space_name} \\ ${a.tab_name}`)
+          .tooltip(`${a.program?.name ?? a.app ?? tr("Agent")}: ${tr(a.status ?? "")} - ${a.space_name} \\ ${a.tab_name}`)
           .on_click(() => run("agent.focus", { terminal: a.address }))
           .child(programIcon(u, a.program, 16))
           .when(Boolean(badge), (el) =>

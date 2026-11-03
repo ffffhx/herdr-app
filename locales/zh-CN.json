@@ -646,5 +646,12 @@
   "app show all": "显示全部",
   "window minimize": "最小化窗口",
   "window maximize": "最大化窗口",
-  "window close": "关闭窗口"
+  "window close": "关闭窗口",
+  "blocked": "需要你处理",
+  "done": "已完成",
+  "error": "错误",
+  "Layout unavailable": "布局暂不可用",
+  "Layout changed elsewhere": "布局已在其他窗口更改",
+  "The other screen's layout is shown.": "已显示另一个窗口更新的布局。",
+  "Could not change terminal pane": "无法更改终端面板"
 }

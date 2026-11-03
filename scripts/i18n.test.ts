@@ -22,7 +22,7 @@ test("all shipped JavaScript modules remain syntactically valid", async () => {
 test("palette changes language without changing command IDs, grouping, or English search", async () => {
   let language = "zh-CN";
   const source = (await readFile(new URL("../defaults/frame/palette/main.js", import.meta.url), "utf8"))
-    .replace(/^import .*;\n/gm, "").replace("export default class Palette", "return class Palette");
+    .replace(/^import .*;\r?\n/gm, "").replace("export default class Palette", "return class Palette");
   const values = {
     View: class {}, window: () => ({ platform: "windows" }), win: () => ({ platform: "windows" }),
     commands: () => ["tab.new", "app.settings", "pane.go", "layout.switch"].map(name => ({ name, args: [] })),

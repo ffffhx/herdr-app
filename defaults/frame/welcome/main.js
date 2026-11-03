@@ -85,6 +85,10 @@ export default class Welcome extends View {
 
   setAppearance(value, cx) {
     this.appearance = value;
+    this.setPreference("appearance", value, cx);
+  }
+
+  setPreference(key, value, cx) {
     cx.spawn(async (cx) => {
       const file = `${appHome()}/settings.json`;
       for (let i = 0; i < 3; i++) {
@@ -95,8 +99,8 @@ export default class Welcome extends View {
         } catch {
           return;
         }
-        if (value === null) delete p.appearance;
-        else p.appearance = value;
+        if (value === null) delete p[key];
+        else p[key] = value;
         try {
           await writeTextFile(file, JSON.stringify(p, null, 2) + "\n", raw);
           break;
@@ -290,6 +294,7 @@ export default class Welcome extends View {
       .child(this.feature(t, "layers", tr("Your other machines, in the same window"), tr("A server or a Mac mini runs its own herdr-core, so its agents keep going even while this laptop sleeps.")))
       .child(div().h(1).bg(t.border))
       .child(h_flex().gap(10).items_center().child(div().w(84).text_size(13).text_color(t.muted).child(tr("Appearance"))).child(this.segment(t, APPEARANCES, this.appearance, (v, cx) => this.setAppearance(v, cx))))
+      .child(h_flex().gap(10).items_center().child(div().w(84).text_size(13).text_color(t.muted).child(tr("Language"))).child(this.segment(t, [["zh-CN", "简体中文"], ["en", "English"]], settings().language ?? "zh-CN", (v, cx) => this.setPreference("language", v, cx))))
       .child(h_flex().gap(10).items_center().child(div().w(84).text_size(13).text_color(t.muted).child(tr("Size"))).child(this.sizeControl(t)))
       .child(this.comingFromHerdr(t));
   }

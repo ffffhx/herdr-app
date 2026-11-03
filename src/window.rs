@@ -1800,7 +1800,7 @@ impl AppWindow {
     }
 
     fn layout_notice(&mut self, title: &str, body: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let spec = json!({"kind":"toast", "notification":{"title":title,"body":body,"level":"info"}});
+        let spec = json!({"kind":"toast", "notification":{"title":tr(title, &[]),"body":tr(body, &[]),"level":"info"}});
         self.open_overlay(mods::new_overlay_id(), spec, window, cx);
     }
 
