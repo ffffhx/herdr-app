@@ -1,3 +1,4 @@
+import { english } from "./i18n-fixture";
 import { expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 
@@ -23,7 +24,7 @@ const source = await readFile(new URL("../defaults/mods/picker/main.js", import.
 const element = () => new Element();
 const commands: unknown[][] = [];
 const values: Record<string, any> = {
-  View: class {}, div: element, svg: element, v_flex: element, h_flex: element,
+  tr: english, View: class {}, div: element, svg: element, v_flex: element, h_flex: element,
   Input: { new: element }, InputState: { new: () => ({ on() {}, focus() {} }) },
   agents: () => [], spaces: () => [], terminals: () => [], theme: () => ({}),
   settings: () => ({ zoom: 1.2 }), props: () => ({}), shared: () => ({}),

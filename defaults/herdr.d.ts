@@ -324,6 +324,10 @@ export function sendFeedback(body: import("gpui-kit").HostValue, images?: string
 /** What the app runs with: the shown layout's look (theme name, fonts, sizes, terminal
  *  padding and opacity) with the person's zoom and sounds. */
 export function settings(): Record<string, unknown>;
+/** Translate a built-in interface message using settings.language (zh-CN or en).
+ * English is the fallback. {0}, {1}, ... interpolate literal values in one pass.
+ * Do not pass terminal output, code, paths, command identifiers or user-authored names. */
+export function tr(message: string, values?: (string | number)[]): string;
 
 /** Every key binding: { section, keys, action }. */
 export function keys(): { section: string; keys: string; action: string }[];

@@ -367,6 +367,8 @@ fn resolve(p: &Palette, overrides: &BTreeMap<String, String>) -> Theme {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Person {
+    /// Interface language; terminal contents and program input are never translated.
+    pub language: crate::i18n::Language,
     /// How big the whole app is drawn (1 = as designed). The zoom keys change it.
     pub zoom: f32,
     pub sounds: Sounds,
@@ -442,6 +444,7 @@ fn is_true(b: &bool) -> bool {
 impl Default for Person {
     fn default() -> Self {
         Person {
+            language: crate::i18n::Language::default(),
             zoom: 1.0,
             sounds: Sounds::default(),
             core: None,
@@ -465,6 +468,7 @@ impl Default for Person {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+    pub language: crate::i18n::Language,
     pub font_family: String,
     pub font_size: f32,
     pub font_ligatures: bool,
@@ -513,6 +517,7 @@ impl Default for Sounds {
 impl Default for Settings {
     fn default() -> Self {
         Settings {
+            language: crate::i18n::Language::default(),
             font_family: DEFAULT_FONT.into(),
             font_size: 14.0,
             font_ligatures: false,
@@ -550,6 +555,7 @@ impl Settings {
         };
         Settings {
             // The layout's own, else the person's, else Herdr's.
+            language: person.language,
             font_family: look.font.clone().or(person.font.clone()).unwrap_or(d.font_family),
             font_size: look.font_size.or(person.font_size).unwrap_or(d.font_size),
             font_ligatures: person.font_ligatures,

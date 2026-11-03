@@ -1,3 +1,4 @@
+import { english } from "./i18n-fixture";
 import { expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 
@@ -20,7 +21,7 @@ class Element {
 }
 const source = await readFile(new URL("../defaults/frame/palette/main.js", import.meta.url), "utf8");
 const element = () => new Element();
-const values = { View: class {}, div: element, svg: element, v_flex: element, h_flex: element, Input: { new: element }, theme: () => ({}), keys: () => [] };
+const values = { tr: english, View: class {}, div: element, svg: element, v_flex: element, h_flex: element, Input: { new: element }, theme: () => ({}), keys: () => [] };
 const Palette = new Function(...Object.keys(values), source.replace(/^import .*;\n/gm, "").replace("export default class Palette", "return class Palette"))(...Object.values(values));
 function find(root: Element, id: string): Element | undefined {
   if (root?.calls?.id?.[0] === id) return root;
@@ -34,7 +35,7 @@ test("palette follows small pixel movements and converted wheel deltas", () => {
   for (const delta of [-1, -3.9, -4, -48]) {
     const view = new Palette();
     view.query = "command"; view.at = 0; view.scroll = 0; view.input = {}; view.handle = {};
-    view.rows = () => Array.from({ length: 50 }, (_, i) => ({ e: { name: "test", title: `Command ${i}`, args: {} } }));
+    view.rows = () => Array.from({ length: 50 }, (_, i) => ({ e: { name: "test", title: `Command ${i}`, group: "App", args: {} } }));
     const list = find(view.render(), "palette-rows");
     expect(list).toBeDefined();
     list!.calls.on_scroll_wheel[0]({ delta: { y: delta } }, { notify() {} });

@@ -608,6 +608,13 @@ herdr-app commands    # every command and its arguments
 
 ## The person: `settings.json`
 
+- `language`: `"zh-CN"` (the Chinese fork's default) or `"en"`. Change it in
+  Settings > Look > Interface language. It persists across restarts and applies
+  to all built-in layouts. Terminal content and user names are untouched.
+- Mods import `tr(message, values?)` from `herdr`. The English message is its
+  fallback; positional placeholders (`{0}`, `{1}`) insert literal values.
+  Translate only interface text, never identifiers, commands, paths or user data.
+
 What's about the user, never a look:
 
 ```json

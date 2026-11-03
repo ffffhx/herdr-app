@@ -1,3 +1,4 @@
+import { english } from "./i18n-fixture";
 import { test, expect } from "bun:test";
 import { readFile, mkdtemp, mkdir, writeFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -5,7 +6,8 @@ import { join } from "node:path";
 
 const source = await readFile(new URL("../defaults/mods/files/main.js", import.meta.url), "utf8");
 const directorySource = source.slice(source.indexOf("async function directory("), source.indexOf("\nexport default class"));
-const directory = new Function("exec", "window", `${directorySource}; return directory;`)(
+const directory = new Function("tr", "exec", "window", `${directorySource}; return directory;`)(
+    english,
   async (command: string, args: string[]) => {
     // Hidden like the app's spawns: a visible console would give PowerShell UTF-8 and hide code page bugs.
     const p = Bun.spawn([command, ...args], { stdout: "pipe", stderr: "pipe", windowsHide: true });

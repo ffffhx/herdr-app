@@ -7,7 +7,7 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { commands, layouts, keys, run, theme, props, closeOverlay, openOverlay, shared, window as win } from "herdr";
+import { tr, commands, layouts, keys, run, theme, props, closeOverlay, openOverlay, shared, window as win } from "herdr";
 
 // The list keeps one height while you move: rows and group titles have fixed
 // heights, and the window shows as many as fit in LIST_H.
@@ -84,8 +84,8 @@ function entries() {
     .filter(([n]) => !(mac && n.startsWith("window.")))
     .map(([name, args, group, title, words]) => ({ name, args, group, title, words }));
   for (const l of layouts()) {
-    const t = { main: "Herdr", terminals: "Terminals", win98: "Herdr 98" }[l] ?? l.charAt(0).toUpperCase() + l.slice(1);
-    list.push({ name: "layout.switch", args: { name: l }, group: "Layout", title: `Layout: ${t}`, words: `look ${l}` });
+    const t = { main: "Herdr", terminals: tr("Terminals"), win98: "Herdr 98" }[l] ?? l.charAt(0).toUpperCase() + l.slice(1);
+    list.push({ name: "layout.switch", args: { name: l }, group: "Layout", title: tr("Layout: {0}", [String(t)]), words: `look ${l}` });
   }
   // Anything new in the app shows up too, until it gets a better name here.
   const named = new Set(NAMED.map(([n]) => n));
@@ -93,7 +93,7 @@ function entries() {
     if (named.has(c.name) || HIDDEN.has(c.name) || c.args.some((a) => a.required && a.name !== "name")) continue;
     list.push({ name: c.name, args: {}, ...titleOf(c.name), words: c.about });
   }
-  return list.map((e) => ({ ...e, id: `${e.name}:${JSON.stringify(e.args)}` }));
+  return list.map((e) => ({ ...e, title: tr(e.title), words: `${e.title} ${e.words}`, id: `${e.name}:${JSON.stringify(e.args)}` }));
 }
 
 // The key bound to an entry: `name` or `name:value` in keys.json.
@@ -131,7 +131,7 @@ function fuzzy(q, text) {
 export default class Palette extends View {
   init(_props, cx) {
     this.query = "";
-    this.input = InputState.new({ placeholder: "Type a command…" });
+    this.input = InputState.new({ placeholder: tr("Type a command…") });
     this.input.on("change", (_e, cx) => { this.query = this.input.value(); this.at = 0; cx.notify(); });
     this.input.on("submit", () => this.go(this.rows()[this.at]?.e));
     this.input.focus();
@@ -154,7 +154,7 @@ export default class Palette extends View {
     this.close();
     if (e.name === "mod.clone") {
       openOverlay({ mod: "prompt", kind: "dialog", width: 380, props: {
-        title: "Duplicate mod", hint: "Mod to copy; creates <name>-copy",
+        title: tr("Duplicate mod"), hint: tr("Mod to copy; creates <name>-copy"),
         command: { name: "mod.clone", args: {} },
       } });
     } else {
@@ -176,7 +176,7 @@ export default class Palette extends View {
     return all
       .map((e) => {
         const title = fuzzy(q, e.title);
-        const more = fuzzy(q, `${e.group} ${e.title} ${e.name} ${e.words}`);
+        const more = fuzzy(q, `${tr(e.group)} ${e.group} ${e.title} ${e.name} ${e.words}`);
         const best = title ?? (more && { score: more.score - 4, hits: [] });
         return best && { e, score: best.score, hits: best.hits };
       })
@@ -241,7 +241,7 @@ export default class Palette extends View {
     const list = [];
     rows.forEach((r, i) => {
       const { head, title, row } = tops[i];
-      if (head && visible(title, row)) list.push(place(h_flex(), title, row).px(14).pb(4).items_end().text_size(11).font_semibold().text_color(t.dim).child(r.head));
+      if (head && visible(title, row)) list.push(place(h_flex(), title, row).px(14).pb(4).items_end().text_size(11).font_semibold().text_color(t.dim).child(tr(r.head)));
       if (!visible(row, row + ROW_H)) return;
       const on = i === this.at;
       const k = keyOf(r.e, bound);
@@ -259,7 +259,7 @@ export default class Palette extends View {
           .hover((s) => s.bg(t.hover))
           .on_click(() => this.go(r.e))
           .child(div().flex_1().min_w(0).child(this.title(t, r.e.title, r.hits, on)))
-          .when(Boolean(this.query), (el) => el.child(div().text_size(11.5).text_color(t.dim).child(r.e.group)))
+          .when(Boolean(this.query), (el) => el.child(div().text_size(11.5).text_color(t.dim).child(tr(r.e.group))))
           .when(Boolean(k), (el) => el.child(key(k))),
       );
     });
@@ -314,7 +314,7 @@ export default class Palette extends View {
                 cx.notify();
               })
               .children(fixed ? list : [v_flex().children(list)])
-          : div().px(16).py(14).text_size(13).text_color(t.dim).child(`Nothing matches "${this.query}". Places are in the picker.`),
+          : div().px(16).py(14).text_size(13).text_color(t.dim).child(tr("Nothing matches \"{0}\". Places are in the picker.", [String(this.query)])),
       );
   }
 }

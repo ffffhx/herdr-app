@@ -1,3 +1,4 @@
+import { english } from "./i18n-fixture";
 import { test, expect, spyOn } from "bun:test";
 import { readFile } from "node:fs/promises";
 
@@ -15,7 +16,8 @@ function harness(replies: unknown[] = [], storage = new Map<string, string>(), s
     if (String(method).startsWith("on_")) handlers[String(method)] = args.at(-1);
     return element;
   } });
-  const Spaces = new Function("View", "hc", "localStorage", "spaces", "panes", "run", "v_flex", "h_flex", "div", "svg", "shared", "machines", `${source}; return Spaces;`)(
+  const Spaces = new Function("tr", "View", "hc", "localStorage", "spaces", "panes", "run", "v_flex", "h_flex", "div", "svg", "shared", "machines", `${source}; return Spaces;`)(
+    english,
     class {},
     async (args: string[]) => {
       calls.push(args);
