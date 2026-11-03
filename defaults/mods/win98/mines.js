@@ -119,7 +119,7 @@ export default class Mines {
       if (cmd === "marks" && !this.options.marks) this.cells.forEach((c) => { if (c.mark === 2) c.mark = 0; });
       this.save();
     } else if (cmd === "exit") { setApp("mines", null); this.reset(); }
-    else if (cmd === "best") openDialog("message", { title: tr("Fastest Mine Sweepers"), text: [tr("Beginner"), tr("Intermediate"), tr("Expert")].map((s) => `${s}: ${this.options.best[s.toLowerCase()] ?? 999} seconds`).join("\n") });
+    else if (cmd === "best") openDialog("message", { title: tr("Fastest Mine Sweepers"), text: [tr("Beginner"), tr("Intermediate"), tr("Expert")].map((s) => tr("{0}: {1} seconds", [s, this.options.best[s.toLowerCase()] ?? 999])).join("\n") });
   }
 
   menuItems(help) {

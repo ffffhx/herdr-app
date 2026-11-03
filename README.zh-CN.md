@@ -12,14 +12,14 @@
 
 ## Windows 构建
 
-本分支的 `localization` GitHub Actions 工作流构建 Windows x64 程序并运行测试。成功后可从该次运行的 Artifacts 下载 `herdr-app-zh-CN-windows`，解压后运行 `herdr-app.exe`。这是开发构建；不会自动用上游版本覆盖自身。运行终端仍需安装 herdr-core（`hc`）。
+本分支的 `localization` GitHub Actions 工作流构建经过优化的 Windows x64 程序并检查 JavaScript；`ci` 工作流在 Windows、macOS 和 Linux 运行 Rust 与渲染测试。成功后可从该次运行的 Artifacts 下载 `herdr-app-zh-CN-windows`，解压后运行 `herdr-app.exe`。这是自定义中文构建，不会自动用上游版本覆盖自身。运行终端仍需安装 herdr-core（`hc`）。
 
 已有官方安装时，建议先将中文构建解压到独立目录进行体验。设置和会话仍遵循 Herdr 原有的存储规则；测试时可用 `HERDR_APP_HOME` 指定独立配置目录。
 
 本地编译要求 Rust、Zig 和各平台依赖，详见 [上游构建说明](README.md#build-from-source)。运行：
 
 ```sh
-cargo build --locked
+cargo build --release --locked
 bun test scripts/
 cargo test --locked
 ```

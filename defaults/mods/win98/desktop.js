@@ -94,9 +94,9 @@ export default class Desktop {
               act: {
                 dialog: {
                   kind: "message",
-                  title: `${s.name} Properties`,
+                  title: tr("{0} Properties", [s.name]),
                   icon: "folder",
-                  text: tr("Type:  Space\nLocation:  {0}\nFolder:  {1}\nBranch:  {2}\nContains:  {3} tab(s)\nStatus:  {4}", [String(s.machine ?? tr("This computer")), String(s.folder || "~"), String(s.branch ?? "(none)"), String(s.tabs.length), String(s.status ?? "idle")]),
+                  text: tr("Type:  Space\nLocation:  {0}\nFolder:  {1}\nBranch:  {2}\nContains:  {3} tab(s)\nStatus:  {4}", [String(s.machine ?? tr("This computer")), String(s.folder || "~"), String(s.branch ?? tr("(none)")), String(s.tabs.length), tr(s.status ?? "idle")]),
                 },
               },
             },

@@ -267,7 +267,7 @@ export default class Worktree extends View {
         )
         .child(div().truncate().text_size(11.5).text_color(t.dim).child(tilde(c.path, this.userHome ?? "")));
     };
-    const count = rows.length === all.length ? `${all.length} checkouts` : `${rows.length}/${all.length} checkouts`;
+    const count = rows.length === all.length ? tr("{0} checkouts", [all.length]) : tr("{0}/{1} checkouts", [rows.length, all.length]);
     return v_flex()
       .id("worktree")
       .track_focus(this.handle)
@@ -277,7 +277,7 @@ export default class Worktree extends View {
       .gap(10)
       .bg(t.popover)
       .text_size(13)
-      .child(h_flex().child(div().flex_1().font_semibold().text_color(t.foreground).child(tr("Open worktree{0}", [String(r ? ` of ${r.name}` : "")]))).child(div().text_size(11).text_color(t.dim).child(r ? count : "")))
+      .child(h_flex().child(div().flex_1().font_semibold().text_color(t.foreground).child(tr("Open worktree{0}", [String(r ? tr(" of {0}", [r.name]) : "")]))).child(div().text_size(11).text_color(t.dim).child(r ? count : "")))
       .when(r === undefined || (r && this.list === undefined), (el) => el.child(div().text_color(t.muted).child("\u2026")))
       .when(r === null, (el) => el.child(div().text_color(t.muted).child(tr("{0} is not in a git repository.", [String(this.folder ? tilde(this.folder, this.userHome ?? "") : tr("This folder"))]))))
       .when(Boolean(r && this.list), (el) =>
@@ -308,7 +308,7 @@ export default class Worktree extends View {
     const remove = props()?.action === "remove";
     const s = this.space();
     const r = this.repo;
-    const title = remove ? tr("Remove worktree {0}?", [String(s?.name ?? "")]) : tr("New worktree{0}", [String(r ? ` of ${r.name}` : "")]);
+    const title = remove ? tr("Remove worktree {0}?", [String(s?.name ?? "")]) : tr("New worktree{0}", [String(r ? tr(" of {0}", [r.name]) : "")]);
     const detail =
       r === undefined
         ? "…"

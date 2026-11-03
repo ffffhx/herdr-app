@@ -759,7 +759,7 @@ export default class Dialog {
     }));
     items.push({ label: tr("Control Panel"), icon: "control", act: { run: ["app.settings", {}] } });
     items.push({ label: tr("Printers"), icon: "printer", act: { dialog: { kind: "message", title: tr("Printers"), icon: "error", text: tr("There are no printers installed.\nPrinting a terminal is a choice, not a feature.") } } });
-    return this.explorer(u, items, `${items.length} object(s)`);
+    return this.explorer(u, items, tr("{0} object(s)", [items.length]));
   }
 
   renderNetwork(u) {
@@ -772,7 +772,7 @@ export default class Dialog {
         act: { dialog: { kind: "prompt", title: tr("New Space on {0}", [String(m.name)]), text: tr("Type a name for the new space on {0}:", [String(m.name)]), icon: "netdrive", command: { name: "space.new", args: { machine: m.name } } } },
       })),
     ];
-    return this.explorer(u, items, `${items.length} object(s)`);
+    return this.explorer(u, items, tr("{0} object(s)", [items.length]));
   }
 
   renderWelcome(u) {

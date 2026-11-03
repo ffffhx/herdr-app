@@ -335,7 +335,7 @@ export default class MachineAdd extends View {
           .children(
             this.hosts === null
               ? [div().px(10).py(8).text_size(12.5).text_color(t.dim).child(tr("Reading ~/.ssh/config…"))]
-              : hosts.map((h) => this.row(t, h.alias, h.alias, [h.user, h.hostname].filter(Boolean).join("@") || (h.aliases.length ? `also ${h.aliases.join(", ")}` : ""))),
+              : hosts.map((h) => this.row(t, h.alias, h.alias, [h.user, h.hostname].filter(Boolean).join("@") || (h.aliases.length ? tr("also {0}", [h.aliases.join(", ")]) : ""))),
           ),
       )
       .child(div().pt(14).pb(6).text_size(11.5).font_medium().text_color(t.dim).child(tr("Or type how ssh reaches it")))

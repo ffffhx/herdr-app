@@ -301,6 +301,19 @@ fn chinese_shipped_descriptions(cx: &mut TestAppContext) {
             }
         }
     }
+    for section in ["look", "keyboard", "machines", "alerts", "updates", "privacy"] {
+        let mut p = props();
+        p["section"] = json!(section);
+        let mut values = fixture(true, p, updates("ready", "ready"));
+        values.get_mut("settings").unwrap()["language"] = json!("zh-CN");
+        values.get_mut("window").unwrap()["platform"] = json!("macos");
+        describe_with_values(cx, &staged, "frame/settings", values, None).unwrap();
+    }
+    for page in 1..=4 {
+        let mut values = fixture(true, props(), updates("current", "current"));
+        values.get_mut("settings").unwrap()["language"] = json!("zh-CN");
+        describe_with_values(cx, &staged, "frame/welcome", values, Some(&format!("this.page = {page};"))).unwrap();
+    }
 }
 
 #[gpui::test]
