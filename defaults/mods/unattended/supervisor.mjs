@@ -1,4 +1,4 @@
-import { CONTINUE, asksToContinue, exceptionFor } from "./policy.mjs";
+import { CONTINUE, asksToContinue, exceptionFor, needsHandBack } from "./policy.mjs";
 
 export class Supervisor {
   constructor({ enabled = true, exceptions = [], audit, output, state, refresh = () => {} }) {
@@ -85,6 +85,11 @@ export class Supervisor {
     this.refresh();
     this.audit({ type: "turn", status, error });
     if (status !== "completed") { this.setState(status === "interrupted" ? "idle" : "error"); if (error) this.output(`\n[Herdr] ${error}\n`); return; }
+    if (needsHandBack(text)) {
+      this.audit({ type: "pending", reason: "The controller requires the user to return control" });
+      this.output("\n[Herdr] Waiting for the user to return device control. Automatic approval cannot perform that action.\n");
+      this.setState("blocked"); return;
+    }
     if (this.enabled && asksToContinue(text) && !exceptionFor(text, this.exceptions)) {
       const fingerprint = text.trim().replace(/\s+/g, " ");
       const times = (this.repeated.get(fingerprint) ?? 0) + 1;

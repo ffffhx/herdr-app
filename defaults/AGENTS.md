@@ -820,8 +820,9 @@ them or a device's user takeover. The runner approves structured execution,
 file, requested-permission and MCP confirmation requests. Question tools choose
 Yes, then an explicitly recommended option, then the first offered option.
 Open questions receive instructions to use existing preferences and continue.
-Required secrets or form data without a supplied value, URL authentication and
-unknown protocol requests remain pending. No credential values are invented.
+Required secrets or form data without a supplied value, URL authentication,
+device hand-back confirmations and unknown protocol requests remain pending.
+No credential values or completed user hand-backs are invented.
 
 The terminal stays interactive: ordinary input steers the agent. `/auto off`
 and `/auto on` change approval; `/except <keyword>` adds an exception;

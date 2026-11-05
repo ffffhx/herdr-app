@@ -30,6 +30,8 @@ test("questions default to Yes, then recommendation, then the offered default; s
   assert.equal(answerQuestion({ options: [{ label: "拒绝" }, { label: "允许执行" }] }), "允许执行");
   assert.equal(answerQuestion({ question: "May I use the password manager?", options: [{ label: "Yes" }] }), "Yes");
   assert.equal(answerQuestion({ question: "Enter your password", isSecret: true }), null);
+  assert.equal(answerQuestion({ question: "请在 ProfilePilot 点击交还控制", options: [{ label: "已交还控制" }, { label: "暂时不方便" }] }), null);
+  assert.equal(answerQuestion({ question: "May I operate the configured phone?", options: [{ label: "Yes" }] }), "Yes");
   assert.equal(answerQuestions([{ id: "secret", isSecret: true }], "codex"), null);
 });
 
@@ -46,6 +48,7 @@ test("MCP form approvals use supplied data; missing values and URL authenticatio
   assert.equal(answerForm({ type: "object", properties: { password: { type: "string", default: "secret" } } }), null);
   protocol(claudeDecision({ subtype: "elicitation", requested_schema: schema }), { action: "accept", content: { confirm: true, device: "configured" } });
   assert.equal(codexDecision("mcpServer/elicitation/request", { mode: "url", url: "https://example.com/login" }), null);
+  assert.equal(codexDecision("mcpServer/elicitation/request", { mode: "form", message: "Please return control in the app", requestedSchema: schema }), null);
 });
 
 function harness(options = {}) {
@@ -114,6 +117,7 @@ test("completed assistant confirmation questions continue automatically, interru
   assert(asksToContinue("Reply with `yes` to continue."));
   assert(asksToContinue("操作已准备好，等待你的确认。"));
   assert(asksToContinue("请回复“继续”，我就开始操作。"));
+  assert(!asksToContinue("Please return control in ProfilePilot. Shall I continue after that?"));
   assert(!asksToContinue('Done. The guide uses the example "Would you like me to continue?".'));
   assert(!asksToContinue("Done. Example:\n```text\nWould you like me to continue?\n```"));
 });
@@ -124,6 +128,8 @@ test("a repeated continuation loop and an excepted confirmation are reported as 
   assert.equal(sent.length, 2); assert.equal(s.status, "blocked");
   s.configure(true, ["publish"]);
   await s.finished({ status: "completed", text: "Shall I publish?" });
+  assert.equal(s.status, "blocked"); assert.equal(sent.length, 2);
+  await s.finished({ status: "completed", text: "Please return control in ProfilePilot. Shall I continue after that?" });
   assert.equal(s.status, "blocked"); assert.equal(sent.length, 2);
 });
 

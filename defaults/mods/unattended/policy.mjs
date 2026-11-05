@@ -8,6 +8,11 @@ export function instructions(exceptions = []) {
 const affirmative = /^(?:(?:yes|accept|allow|approve|proceed|continue|confirm|ok(?:ay)?|go ahead)\b|是(?:的)?(?:[，。：（(、\s]|$)|同意|允许|批准|继续|确认)/i;
 const recommended = /\b(?:recommended|suggested)\b|推荐|建议/i;
 const secret = /password|passphrase|verification.code|one.time.code|api.key|access.token|密码|验证码|密钥/i;
+const handBack = /(?:交还|归还)控制|(?:return|hand(?:ed)? back|give back)\s+(?:the\s+)?control|control (?:returned|restored)/i;
+
+export function needsHandBack(text) {
+  return handBack.test(text) && /please|need|must|wait|paused|请|需要|等待|暂停|点击|方便时|才能/i.test(text);
+}
 
 export function exceptionFor(request, exceptions = []) {
   const text = (typeof request === "string" ? request : JSON.stringify(request)).toLocaleLowerCase();
@@ -15,6 +20,9 @@ export function exceptionFor(request, exceptions = []) {
 }
 
 export function answerQuestion(q) {
+  // A Yes cannot perform the user's required hand-back in a device controller.
+  // In particular, never select an offered "I returned control" as if it happened.
+  if (handBack.test(q.question ?? "") || (q.options ?? []).some(o => handBack.test(typeof o === "string" ? o : o.label))) return null;
   if (q.isSecret || (!(q.options?.length) && /(?:enter|provide|type|what is|输入|提供|填写)/i.test(q.question ?? "") && secret.test(q.question ?? ""))) return null;
   const options = (q.options ?? []).map(o => typeof o === "string" ? { label: o } : o);
   const yes = options.find(o => affirmative.test(o.label));
@@ -40,6 +48,7 @@ export function answerQuestions(questions, engine) {
 // or affirmative booleans/choices; unknown required values stay unanswered.
 export function answerForm(schema) {
   if (!schema || schema.type !== "object" || !schema.properties) return null;
+  if (handBack.test(JSON.stringify(schema))) return null;
   const result = Object.create(null);
   for (const [key, field] of Object.entries(schema.properties)) {
     if (secret.test(`${key} ${field.title ?? ""}`)) return null;
@@ -71,6 +80,7 @@ export function codexDecision(method, params) {
     return answers ? { answers } : null;
   }
   if (method === "mcpServer/elicitation/request" && ["form", "openai/form"].includes(params.mode)) {
+    if (handBack.test(params.message ?? "")) return null;
     const content = answerForm(params.requestedSchema);
     return content ? { action: "accept", content } : null;
   }
@@ -86,6 +96,7 @@ export function claudeDecision(request) {
     return { behavior: "allow", updatedInput: request.input ?? {} };
   }
   if (request.subtype === "elicitation" && (request.mode ?? "form") === "form") {
+    if (handBack.test(request.message ?? "")) return null;
     const content = answerForm(request.requested_schema);
     return content ? { action: "accept", content } : null;
   }
@@ -93,6 +104,7 @@ export function claudeDecision(request) {
 }
 
 export function asksToContinue(text) {
+  if (needsHandBack(text)) return false;
   // Only assistant final messages enter this function. Tool output never does.
   const tail = text.replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "")
     .replace(/^\s*>.*$/gm, "").replace(/"[^"\n]*"/g, "").trim().slice(-1800);
