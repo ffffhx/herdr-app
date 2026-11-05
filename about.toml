@@ -5,3 +5,11 @@ accepted = [
     "BSL-1.0", "Unlicense", "OFL-1.1", "Apache-2.0 WITH LLVM-exception",
     "bzip2-1.0.6", "CDLA-Permissive-2.0",
 ]
+
+# ProfilePilot's interprocess dependencies: checked the packaged LICENSE files
+# in doctest-file 1.1.1 (Copyright 2024 kotauskas) and recvmsg 1.0.0 (2023).
+[doctest-file]
+accepted = ["0BSD"]
+
+[recvmsg]
+accepted = ["0BSD"]

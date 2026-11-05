@@ -1,6 +1,6 @@
 # Release notices
 
-`THIRD-PARTY-NOTICES` ships with every release beside `LICENSE`. It includes Cargo licenses for the resolved graph on every platform (including build/dev dependencies), plus the native code, fonts and icons in `inventory.json`. Unused optional packages left in Cargo.lock are not linked into the app.
+`THIRD-PARTY-NOTICES` ships with every release beside `LICENSE`. It includes Cargo licenses for all app features on every platform (including build/dev dependencies), plus the native code, fonts and icons in `inventory.json`. Generation uses `--all-features` so the optional ProfilePilot bridge and its dependencies are covered even when the normal build does not link them. Unused optional packages left in Cargo.lock are not linked into the app.
 
 Install [cargo-about](https://github.com/EmbarkStudios/cargo-about) 0.9.3 and [Bun](https://bun.sh), then run:
 

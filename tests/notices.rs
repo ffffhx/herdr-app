@@ -157,4 +157,21 @@ fn third_party_notices_are_current_and_complete() {
     assert!(notices.contains("Cargo dependencies"));
     assert!(notices.contains("quickjs-jit-sys"));
     assert!(notices.contains("gpui-pre"));
+    // The optional bridge must be covered even when this test uses default features.
+    for name in [
+        "gpui-mcp",
+        "gpui-mcp-protocol",
+        "interprocess",
+        "directories",
+        "widestring",
+        "doctest-file",
+        "recvmsg",
+    ] {
+        assert!(
+            notices
+                .lines()
+                .any(|line| line.starts_with(&format!("  {name} "))),
+            "{name} missing from THIRD-PARTY-NOTICES; regenerate with all app features"
+        );
+    }
 }
