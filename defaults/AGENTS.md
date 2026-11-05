@@ -802,83 +802,66 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
 
 ### Unattended agents
 
-In a space, the + menu's **Unattended agents** opens the `unattended` mod. It starts a new
-interactive Codex or Claude Code session with automatic approval enabled. It
-does not change global agent permissions.
-The task machine needs Node.js 20+ and a signed-in agent CLI. Local and SSH
-spaces use that machine's existing agent configuration and credentials.
+In a space, the + menu's **Unattended agents** opens the `unattended` mod.
+New tasks start the normal interactive Codex or Claude Code terminal with a
+background automatic approval observer. Node.js 20+ and a signed-in agent CLI
+are required on the task machine; local and SSH spaces use that machine's
+configuration and credentials. Global agent permissions are unchanged.
 
 ```sh
 herdr-app do tab.new --name "Unattended agents" --mod unattended
 ```
 
-Enter the complete task, its working directory, and optional exception keywords
-(one literal per line, case-insensitive). Exceptions match the approval request,
-including tool names, commands and question text, and leave it pending. Keep
-task-specific restrictions in the task too; standing approval does not override
-them or a device's user takeover. The runner approves structured execution,
-file, requested-permission and MCP confirmation requests. Question tools choose
-Yes, then an explicitly recommended option, then the first offered option.
-Open questions receive instructions to use existing preferences and continue.
-Required secrets or form data without a supplied value, URL authentication,
-device hand-back confirmations and unknown protocol requests remain pending.
-No credential values or completed user hand-backs are invented.
+For an existing Codex or Claude Code terminal, choose **Switch to unattended**
+in its tab or pane's Herdr right-click menu. Confirm automatic approval once.
+The same terminal process, tab, pane, conversation history, scrollback and draft
+stay in place. The observer does not interrupt the agent, request its session ID,
+restart it, clear its composer or send a new task. It also works while the agent
+is working or waiting for approval. In a split tab, the menu names each eligible
+terminal separately and targets the clicked tab even when it is inactive.
 
-For an existing Codex or Claude Code terminal, the tab's right-click menu and
-the terminal pane's Herdr right-click menu both offer
-**Switch to unattended**. A single confirmation explains that the selected agent
-will restart, interrupting its current work and continuing the same conversation
-with automatic approval. Choose **Agree and switch**; there is no agent, folder,
-conversation, task or exceptions form. The agent and working folder are inherited,
-and the continuation preserves the conversation's instructions and restrictions.
-The helper obtains Codex's exact ID from that terminal's native `/status` card, or
-Claude's live process session registry. It never guesses from a directory or title.
-For Codex sessions loaded in its shared daemon, the runner reconnects through the
-CLI's control-socket proxy and WebSocket protocol; it does not stop that daemon.
-Only after confirmation may it interrupt the source and clear its unsent composer.
-It verifies saved history and terminal identity before stopping the source, then
-resumes that exact provider session. If identity or history cannot be verified,
-the source is not killed. If restart fails, the error appears in the new terminal
-and saved history remains. Do not run another writer on the selected conversation.
-The tab and pane header show **Unattended** while automatic approval is enabled;
-turning it off or ending the runner removes the badge.
-For split tabs with several eligible agents, the tab menu lists their terminal
-addresses separately; it always targets the clicked tab, even when inactive.
+The observer checks the exact terminal address, creation time, PID and reported
+agent. It reads only the current screen, without scrolling history. Only a
+reported permission wait with a recognized native confirmation card receives a
+single-use approval shortcut (Codex's Yes/proceed or Claude Code's Yes). It
+rechecks the card, terminal and policy before delivery and journals the decision
+first. It never chooses an always-allow option. A changed selection, unknown
+card, missing secret, device hand-back or matching exception stays visible for
+the person to handle in the original native interface. Free-form questions and
+ordinary assistant messages are not automatically submitted as new turns.
 
-The `unattended` mod also accepts props `{source:"t7", agent:"codex"|"claude",
-sourcePane:"p1", space:"s1"}` to open the same confirmation. On SSH spaces
-the source can be machine-qualified; discovery and handoff run on that machine.
-Per-source and per-conversation leases in `data/unattended/runs/session-locks`
-(or the SSH machine's `unattended-runs/session-locks`) prevent duplicate handoffs.
-Normal exit removes a lease. After a crash it is retained: inspect its PID and
-the agent's processes before removing a stale lease, then retry the saved ID.
+**Turn automatic approval off** in the same right-click menu stops future
+automatic decisions and removes the **Unattended** badge. The panel can also
+toggle it. Turning it off leaves the original terminal running and interactive;
+already delivered decisions cannot be undone. Slash commands retain their
+normal Codex or Claude Code meaning; native mode does not install `/auto` or
+replace `/status`, `/help` or `/quit`.
 
-The terminal stays interactive: ordinary input steers the agent. `/auto off`
-and `/auto on` change approval; `/except <keyword>` adds an exception;
-`/exceptions`, `/status` and `/help` inspect it. `/allow <request-id>` and
-`/deny <request-id>` settle a pending request once. `/answer <id> <text>` answers
-a question; for several questions use a JSON object keyed by Codex question ID
-or Claude question text. Other pending requests need their protocol response
-as JSON. `/interrupt` stops the current turn, and `/quit` ends this runner.
+For a new task, enter the working folder, task and optional exception keywords
+(one literal per line, case-insensitive) in the panel. Exceptions match the
+native confirmation and reported request text. The panel's **Open terminal**
+opens the original terminal. Closing the app window does not end terminals or
+their observers; the task machine must remain awake. An observer never ends
+its agent. A terminal exit or changed identity ends observation.
 
-Only assistant final continuation requests trigger an automatic follow-up,
-including “Please confirm” and “回复继续” without a question mark.
-Tool output never does. Two identical unsuccessful follow-ups leave the task
-blocked, not complete. Interrupted and failed turns are not restarted. An
-approval response is logged before delivery and is never resent for a repeated
-request ID. Disabling automatic approval cannot undo an already delivered reply.
+The mod accepts props `{source:"t7", agent:"codex"|"claude", sourcePane:"p1",
+space:"s1"}` for the confirmation. SSH discovery and observation run on the
+target machine, with machine-qualified addresses handled by the launcher.
+The `native.mjs` runtime and its state stay inside the mod; no core API or model
+extension is required. Each run has `task.json`, `control.json`, `state.json`,
+`started.json` and append-only `events.jsonl` under
+`data/unattended/runs/<id>/` (SSH: `~/.config/herdr-app/unattended-runs/<id>/`).
+Native state includes `native:true`, the original terminal and its creation time.
+Per-terminal leases in the adjacent `session-locks` directory prevent duplicate
+observers. After a crash inspect the recorded PID before removing a stale lease.
 
-The hc terminal owns the runner, so closing the panel or app window leaves it
-running; closing its terminal ends it. The task machine must remain awake.
-The panel lists the last 20 launches and can toggle approval or open a terminal.
-Its source is `mods/unattended/`; its process uses only Node built-ins, Codex
-app-server stdio (or its local daemon proxy) or Claude's streaming control protocol,
-with no network listener.
-Per-run `task.json`, `control.json`, `state.json`, `started.json` and append-only
-`events.jsonl` live under `data/unattended/runs/<id>/`. Remote launches copy the
-runner into `~/.config/herdr-app/unattended-runs/<id>/` on that machine instead.
-The journal contains request details and automatic decisions; manually entered
-answers are redacted. Do not reuse a run directory for another process.
+Older protocol-runner sessions and saved configurations remain supported by
+`runner.mjs`; new UI launches use native mode. Only legacy runner terminals
+handle `/auto on|off`, `/except <keyword>`, `/exceptions`, `/allow <id>`,
+`/deny <id>`, `/answer <id> <answer>`, `/status`, `/help`, `/interrupt` and
+`/quit`. Their structured protocol approvals, conversational continuation,
+exact-session resume and journals retain their existing behavior. Do not
+mistake delivery of an approval for completion of the task.
 
 ### Check before you finish
 

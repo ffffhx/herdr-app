@@ -834,7 +834,8 @@ fn unattended_resume_confirms_current_agent_without_configuration(cx: &mut TestA
     let staged = Staged::new();
     let tree = describe(cx, &staged, "mods/unattended", true, json!({"source":"t1","agent":"codex"}), updates("current", "current"), None).unwrap();
     assert!(tree.contains("Switch to unattended?") && tree.contains("Agree and switch"), "{tree}");
-    assert!(tree.contains("restarts the selected agent") && tree.contains("keeps this conversation"), "{tree}");
+    assert!(tree.contains("Keep the current terminal, conversation and input unchanged"), "{tree}");
+    assert!(!tree.contains("restarts") && !tree.contains("interrupted"), "{tree}");
     for removed in ["Working folder", "Exceptions to automatic approval", "Refresh conversations", "Claude Code", "Describe the complete task"] {
         assert!(!tree.contains(removed), "unexpected configuration {removed}: {tree}");
     }

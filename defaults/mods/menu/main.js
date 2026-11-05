@@ -24,10 +24,11 @@ async function checkout(folder, on) {
 function unattendedItem(term, pane, spaceId) {
   const app = term?.report?.app;
   const agent = app === "codex" ? "codex" : ["claude", "claude-code"].includes(app) ? "claude" : null;
-  const managed = term?.argv?.some(a => a.endsWith("/unattended/runner.mjs") || a.endsWith("\\unattended\\runner.mjs") || a.endsWith("/runner.mjs"));
+  const managed = !term?.labels?.["herdr.unattended.control"] && term?.argv?.some(a => a.endsWith("/unattended/runner.mjs") || a.endsWith("\\unattended\\runner.mjs") || a.endsWith("/runner.mjs"));
   if (!agent || managed) return null;
   const space = spaceId ?? spaces().find(s => s.tabs?.some(t => t.id === pane?.tab))?.id;
-  return [tr("Switch to unattended"), "tab.new", { space, mod: "unattended", props: { space, source: term.address, sourceCreated: term.created_ms, sourcePane: pane?.pane, agent } }];
+  const enabled = term?.labels?.["herdr.unattended"] === "on";
+  return [tr(enabled ? "Turn automatic approval off" : "Switch to unattended"), "tab.new", { space, mod: "unattended", props: { space, source: term.address, sourceCreated: term.created_ms, sourcePane: pane?.pane, agent, ...(enabled ? { disable: true } : {}) } }];
 }
 
 function items(p, git) {

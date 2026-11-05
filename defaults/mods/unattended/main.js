@@ -1,7 +1,7 @@
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex, Input, InputState, Textarea, TextareaState } from "gpui-base";
 import { tr, spaces, panes, props, run, theme, shared, setShared, readTextFile, closeOverlay } from "herdr";
-import { prepare, changePolicy, originalTerminal } from "./launch.js";
+import { prepare, observe, changeCurrent, changePolicy, originalTerminal } from "./launch.js";
 
 const HISTORY = "unattended.runs";
 const STATUS = { working: "Working", blocked: "Needs input", done: "Done", idle: "Idle", error: "Error" };
@@ -18,6 +18,7 @@ export default class Unattended extends View {
     if (this.sourceAddress) {
       this.confirmHandle.focus();
       cx.timer.every(1000, cx => this.checkSwitch(cx));
+      if (props()?.disable) this.startSwitch(cx);
       return;
     }
     this.folder = InputState.new({ value: props()?.folder ?? panes().find(p => p.focused)?.cwd ?? space?.folder ?? "", placeholder: tr("Working folder") });
@@ -37,10 +38,19 @@ export default class Unattended extends View {
         if (props()?.sourceCreated !== undefined && source.created_ms !== props().sourceCreated) throw new Error(tr("The selected terminal changed. Open its menu again."));
         const agent = source.app === "codex" ? "codex" : ["claude", "claude-code"].includes(source.app) ? "claude" : null;
         if (!agent || agent !== this.agent) throw new Error(tr("The selected agent is no longer running."));
-        const config = { agent, source, resumeOriginal: true, cwd: source.cwd, exceptions: [], on: this.on,
-          task: tr("Continue the existing task from this conversation, preserving its instructions and restrictions. Verify what is already complete before doing more work.") };
+        if (props()?.disable && !source.controlPath) throw new Error(tr("The automatic approval observer is no longer connected"));
+        if (source.controlPath) {
+          try {
+            await changeCurrent(source, !props()?.disable, this.on);
+            this.switched = true;
+            if (props()?.overlay) closeOverlay(props().overlay);
+            return;
+          } catch (error) { if (props()?.disable) throw error; }
+        }
+        const config = { agent, source, native: true, cwd: source.cwd, exceptions: [], on: this.on,
+          task: tr("Automatic approval in the existing terminal") };
         const entry = await prepare(config);
-        run("tab.new", { space: this.space, name: agent === "claude" ? "Claude Code" : "Codex", folder: config.cwd, argv: entry.argv });
+        await observe(entry);
         setShared(HISTORY, [entry, ...this.entries()].slice(0, 20));
         this.switchEntry = entry;
       } catch (error) { this.error = String(error); }
@@ -56,11 +66,8 @@ export default class Unattended extends View {
         const text = await readTextFile(`${entry.directory}/state.json`, { on: entry.on });
         const state = text ? JSON.parse(text) : null;
         if (state?.error) throw new Error(state.error);
-        // The hc terminal owns the handoff. Close only the clicked pane, and
-        // only after this exact conversation has initialized successfully.
-        if (state?.ready && state.sessionId === state.resumedFrom && state.running) {
+        if (state?.native && state.ready && state.terminal === entry.source.address && state.running) {
           this.switched = true;
-          if (props()?.sourcePane && panes().some(p => p.pane === props().sourcePane && p.terminal === this.sourceAddress)) run("pane.close", { pane: props().sourcePane });
           if (props()?.overlay) closeOverlay(props().overlay);
         }
       } catch (error) { this.error = String(error); }
@@ -85,7 +92,7 @@ export default class Unattended extends View {
     if (this.busy || !this.task.value().trim()) return;
     this.busy = true; this.error = "";
     const exceptions = this.exceptions.value().split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-    const config = { agent: this.agent, task: this.task.value(), cwd: this.folder.value(), exceptions, on: this.on };
+    const config = { agent: this.agent, task: this.task.value(), cwd: this.folder.value(), exceptions, on: this.on, native: true };
     cx.spawn(async cx => {
       try {
         const entry = await prepare(config);
@@ -127,9 +134,9 @@ export default class Unattended extends View {
       .child(input(Textarea.new(this.task)).h(140))
       .child(label("Exceptions to automatic approval"))
       .child(input(Textarea.new(this.exceptions)).h(64))
-      .child(div().text_size(11).text_color(t.dim).child(tr("Keywords match request contents without case sensitivity. Matching requests wait for you. You can add exceptions later with /except.")))
+      .child(div().text_size(11).text_color(t.dim).child(tr("Keywords match confirmation contents without case sensitivity. Matching or unrecognized prompts wait in the original terminal.")))
       .child(this.button("unattended-start", tr(this.busy ? "Starting…" : "Start with automatic approval"), cx => this.start(cx), true, !this.busy && Boolean(this.task.value().trim())))
-      .child(div().text_size(11).text_color(t.dim).child(tr("Runs in its own interactive terminal. Closing the Herdr window keeps it running. Type /auto off to stop automatic approval.")))
+      .child(div().text_size(11).text_color(t.dim).child(tr("Uses the normal agent terminal. Turn automatic approval off from its right-click menu or this panel.")))
       .when(Boolean(this.error), el => el.child(div().text_color(t.destructive).child(this.error)))
       .child(div().h(1).bg(t.border).my(4))
       .child(label("Recent unattended tasks"))
@@ -160,7 +167,7 @@ export default class Unattended extends View {
         cx.stop_propagation();
       })
       .child(div().text_size(16).font_semibold().child(tr(this.switched ? "Unattended mode is on" : "Switch to unattended?")))
-      .child(div().text_color(t.muted).child(tr("This restarts the selected agent and keeps this conversation. Its current work will be interrupted and continued with automatic approval.")))
+      .child(div().text_color(t.muted).child(tr("Keep the current terminal, conversation and input unchanged. Automatically accept recognized approval prompts in this terminal. Turn it off at any time from the right-click menu.")))
       .when(Boolean(this.error), el => el.child(div().text_color(t.destructive).child(this.error)))
       .child(div().flex_1())
       .child(h_flex().justify_end().gap(8)
