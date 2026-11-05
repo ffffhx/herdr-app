@@ -1,6 +1,27 @@
 import { appHome, exec, readTextFile, writeTextFile } from "herdr";
 
 const FILES = ["runner.mjs", "adapters.mjs", "supervisor.mjs", "policy.mjs", "transport.mjs"];
+// The host's direct exec does not resolve npm .cmd shims on Windows. Probe
+// through Node with the same Windows PATH treatment as the session transport.
+const probeCLI = `
+const {spawnSync}=require('node:child_process'),{existsSync}=require('node:fs');
+const agent=process.argv[1];
+if(!['codex','claude'].includes(agent))process.exit(2);
+const env={...process.env},win=process.platform==='win32';
+if(win){
+  const key=Object.keys(env).find(k=>k.toLowerCase()==='path'),seen=new Set();
+  if(key)env[key]=env[key].split(';').filter(p=>{
+    const normalized=p.toLowerCase();
+    if(seen.has(normalized)||(p&&!existsSync(p.replace(/^"|"$/g,''))))return false;
+    seen.add(normalized);return true;
+  }).join(';');
+}
+const r=spawnSync(win?(env.ComSpec||'cmd.exe'):agent,win?['/d','/s','/c',agent+' --version']:['--version'],{env,encoding:'utf8',windowsHide:true,timeout:15000});
+if(r.stdout)process.stdout.write(r.stdout);
+if(r.stderr)process.stderr.write(r.stderr);
+if(r.error)process.stderr.write(r.error.message);
+process.exit(r.status??1);
+`;
 const remoteCreate = "const fs=require('node:fs'),p=require('node:path'),os=require('node:os');const v=JSON.parse(process.argv[1]);const dir=p.join(os.homedir(),'.config','herdr-app','unattended-runs',v.id);fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(p.join(dir,'task.json'),JSON.stringify(v.config),{flag:'wx',mode:384});console.log(dir);";
 const remoteWrite = "const fs=require('node:fs'),p=require('node:path');const v=JSON.parse(process.argv[1]);fs.writeFileSync(p.join(v.dir,v.file),v.text,{flag:'wx',mode:384});";
 const remoteControl = "const fs=require('node:fs');const v=JSON.parse(process.argv[1]);if(fs.readFileSync(v.path,'utf8')!==v.expected)throw Error('Policy changed; refresh and try again');const tmp=v.path+'.'+process.pid+'.tmp';fs.writeFileSync(tmp,v.text,{mode:384});fs.renameSync(tmp,v.path);";
@@ -15,7 +36,7 @@ export async function prepare({ agent, task, cwd, exceptions, on }) {
   if (!["codex", "claude"].includes(agent) || !task.trim()) throw new Error("Choose an agent and enter a task");
   const version = await checked("node", ["--version"], on);
   if (Number(/^v(\d+)/.exec(version)?.[1] ?? 0) < 20) throw new Error("Node.js 20 or newer is required on the task machine");
-  await checked(agent, ["--version"], on);
+  await checked("node", ["-e", probeCLI, agent], on);
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const config = { agent, task, cwd: cwd || undefined, enabled: true, exceptions };
   let directory, runner;
