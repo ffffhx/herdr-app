@@ -6,6 +6,8 @@ mod commands;
 mod control;
 mod core_bin;
 mod files;
+#[cfg(feature = "profilepilot")]
+mod gpui_debug;
 mod hc;
 mod i18n;
 mod keys;

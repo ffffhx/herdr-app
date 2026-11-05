@@ -1,0 +1,50 @@
+[package]
+name = "gpui-mcp"
+description = "A hardened, cross-platform MCP automation bridge for GPUI applications"
+version.workspace = true
+edition.workspace = true
+# Apps link this crate, so it builds on an older Rust than the rest of the
+# workspace. The `msrv` CI job keeps it that way.
+rust-version = "1.95"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[features]
+default = ["gpui-pre"]
+zed = []
+gpui-pre = ["dep:gpui_pre"]
+gpui-ce = []
+# The public test-support API doesn't need GPUI's own test support; only this
+# crate's unit tests do. gpui_ce is deliberately left out: Cargo locks every
+# optional dependency named here, and gpui-ce pins `core-foundation = "=0.10.0"`,
+# which would constrain apps that never use it. To run the unit tests against
+# gpui-ce, add `--features gpui_ce/test-support`.
+test-support = ["gpui_pre?/test-support"]
+
+[dependencies]
+async-channel.workspace = true
+gpui_pre = { workspace = true, optional = true }
+gpui-mcp-protocol = { path = "../gpui-mcp-protocol" }
+interprocess.workspace = true
+rand.workspace = true
+raw-window-handle.workspace = true
+serde_json.workspace = true
+subtle.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+widestring.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSResponder", "NSView", "NSWindow"] }
+
+[dev-dependencies]
+tempfile = "3.23.0"
+tokio.workspace = true
+
+[lints]
+workspace = true

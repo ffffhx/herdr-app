@@ -346,6 +346,8 @@ struct Watched {
 }
 
 pub struct AppWindow {
+    #[cfg(feature = "profilepilot")]
+    _automation: Option<gpui_mcp::BridgeHandle>,
     core: Arc<Core>,
     runtime: Option<Rc<ShellRuntime>>,
     chrome: Node,
@@ -460,6 +462,8 @@ impl AppWindow {
         mods::note_fonts(cx);
         let seen = std::fs::read_to_string(file("seen.json")).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
         let mut w = AppWindow {
+            #[cfg(feature = "profilepilot")]
+            _automation: crate::gpui_debug::install(window, cx),
             core,
             runtime,
             chrome: default_layout("main"),

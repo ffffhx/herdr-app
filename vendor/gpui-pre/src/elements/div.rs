@@ -18,13 +18,14 @@
 use crate::{
     Action, AnyDrag, AnyElement, AnyTooltip, AnyView, App, Bounds, ClickEvent, DispatchPhase,
     Display, Element, ElementId, Entity, EntityId, ExternalDragPayload, ExternalDragPayloadSource,
-    FileDropEvent, FocusHandle, Global, GlobalElementId, Hitbox, HitboxBehavior, HitboxId,
-    InspectorElementId, IntoElement, IsZero, KeyContext, KeyDownEvent, KeyUpEvent, KeyboardButton,
-    KeyboardClickEvent, LayoutId, LongPressEvent, ModifiersChangedEvent, MouseButton,
-    MouseClickEvent, MouseDownEvent, MouseExitEvent, MouseMoveEvent, MousePressureEvent,
-    MouseUpEvent, OngoingScroll, Overflow, ParentElement, PinchEvent, Pixels, Point, Render,
-    ScrollWheelEvent, SharedString, Size, Style, StyleRefinement, Styled, Task, TooltipId,
-    TouchPhase, Visibility, Window, WindowControlArea, point, px, size,
+    FileDropEvent, FocusHandle, FrameAction, FrameNodeData, Global, GlobalElementId, Hitbox,
+    HitboxBehavior, HitboxId, InspectorElementId, IntoElement, IsZero, KeyContext, KeyDownEvent,
+    KeyUpEvent, KeyboardButton, KeyboardClickEvent, LayoutId, LongPressEvent,
+    ModifiersChangedEvent, MouseButton, MouseClickEvent, MouseDownEvent, MouseExitEvent,
+    MouseMoveEvent, MousePressureEvent, MouseUpEvent, OngoingScroll, Overflow, ParentElement,
+    PinchEvent, Pixels, Point, Render, ScrollWheelEvent, SharedString, Size, Style,
+    StyleRefinement, Styled, Task, TooltipId, TouchPhase, Visibility, Window, WindowControlArea,
+    point, px, size,
 };
 use collections::HashMap;
 use gpui_util::ResultExt;
@@ -34,6 +35,7 @@ use std::{
     any::{Any, TypeId},
     cell::{Cell, RefCell},
     cmp::Ordering,
+    collections::BTreeMap,
     fmt::Debug,
     marker::PhantomData,
     mem,
@@ -1435,6 +1437,49 @@ pub trait StatefulInteractiveElement: InteractiveElement {
         self
     }
 
+    /// Set whether the control rejects user input.
+    fn aria_disabled(mut self, disabled: bool) -> Self {
+        self.interactivity().aria.disabled = disabled;
+        self
+    }
+
+    /// Exclude this element and its descendants from accessibility tools.
+    /// Give the element a stable ID so GPUI can create an accessibility node.
+    fn aria_hidden(mut self, hidden: bool) -> Self {
+        self.interactivity().aria.hidden = hidden;
+        self
+    }
+
+    /// Set whether an editable control is read-only.
+    fn aria_read_only(mut self, read_only: bool) -> Self {
+        self.interactivity().aria.read_only = read_only;
+        self
+    }
+
+    /// Attach bounded non-secret context to rendered-frame tooling.
+    fn frame_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.interactivity()
+            .frame_metadata
+            .insert(key.into(), value.into());
+        self
+    }
+
+    /// Advertise an interaction implemented by the rendered control backend.
+    fn frame_action(mut self, action: FrameAction) -> Self {
+        if !self.interactivity().frame_actions.contains(&action) {
+            self.interactivity().frame_actions.push(action);
+        }
+        self
+    }
+
+    /// Mark this element's value for redaction by rendered-frame observers.
+    /// Text inside it is also withheld from ancestors' inferred labels and text.
+    /// The canonical AccessKit tree still exposes values to assistive technology.
+    fn frame_redacted(mut self, redacted: bool) -> Self {
+        self.interactivity().frame_redacted = redacted;
+        self
+    }
+
     /// Set the minimum numeric value for this element.
     fn aria_min_numeric_value(mut self, value: f64) -> Self {
         self.interactivity().aria.min_numeric_value = Some(value);
@@ -1908,10 +1953,23 @@ impl Element for Div {
         self.interactivity
             .override_role
             .filter(|role| *role != accesskit::Role::GenericContainer)
+            .or_else(|| {
+                (!self.interactivity.click_listeners.is_empty()).then_some(accesskit::Role::Button)
+            })
+            .or_else(|| {
+                self.interactivity
+                    .aria
+                    .hidden
+                    .then_some(accesskit::Role::Group)
+            })
     }
 
     fn write_a11y_info(&self, node: &mut accesskit::Node) {
         self.interactivity.write_a11y_info(node);
+    }
+
+    fn frame_node(&self) -> Option<FrameNodeData> {
+        Some(self.interactivity.frame_node())
     }
 
     fn a11y_synthetic_children(
@@ -2125,6 +2183,9 @@ pub(crate) struct AriaProperties {
     pub(crate) column_index: Option<usize>,
     pub(crate) row_count: Option<usize>,
     pub(crate) column_count: Option<usize>,
+    pub(crate) disabled: bool,
+    pub(crate) hidden: bool,
+    pub(crate) read_only: bool,
 }
 
 /// The interactivity struct. Powers all of the general-purpose
@@ -2196,6 +2257,9 @@ pub struct Interactivity {
     pub(crate) report_active_descendant_focus: bool,
     pub(crate) override_role: Option<accesskit::Role>,
     pub(crate) aria: AriaProperties,
+    pub(crate) frame_metadata: BTreeMap<String, String>,
+    pub(crate) frame_actions: Vec<FrameAction>,
+    pub(crate) frame_redacted: bool,
 
     #[cfg(any(feature = "inspector", debug_assertions))]
     pub(crate) source_location: Option<&'static core::panic::Location<'static>>,
@@ -2310,6 +2374,12 @@ impl Interactivity {
         f: impl FnOnce(&Style, Point<Pixels>, Option<Hitbox>, &mut Window, &mut App) -> R,
     ) -> R {
         self.content_size = content_size;
+        if window.next_frame.observed.is_enabled() {
+            window
+                .next_frame
+                .observed
+                .refine_interactivity(global_id, self.frame_node());
+        }
 
         #[cfg(any(feature = "inspector", debug_assertions))]
         window.with_inspector_state(
@@ -2762,6 +2832,7 @@ impl Interactivity {
         window: &mut Window,
         cx: &mut App,
     ) {
+        let painting_view = window.rendered_entity_stack.last().copied();
         let is_focused = self
             .tracked_focus_handle
             .as_ref()
@@ -2957,13 +3028,13 @@ impl Interactivity {
                     let pending_mouse_down = pending_mouse_down.clone();
                     let hitbox = hitbox.clone();
                     let has_aux_click_listeners = !aux_click_listeners.is_empty();
-                    move |event: &MouseDownEvent, phase, window, _cx| {
+                    move |event: &MouseDownEvent, phase, window, cx| {
                         if phase == DispatchPhase::Bubble
                             && (event.button == MouseButton::Left || has_aux_click_listeners)
                             && hitbox.is_hovered(window)
                         {
                             *pending_mouse_down.borrow_mut() = Some(event.clone());
-                            window.refresh();
+                            redraw_painting_view(painting_view, window, cx);
                         }
                     }
                 });
@@ -3091,7 +3162,7 @@ impl Interactivity {
                             let mut pending_mouse_down = pending_mouse_down.borrow_mut();
                             if pending_mouse_down.is_some() && hitbox.is_hovered(window) {
                                 captured_mouse_down = pending_mouse_down.take();
-                                window.refresh();
+                                redraw_painting_view(painting_view, window, cx);
                             } else if pending_mouse_down.is_some() {
                                 // Clear the pending mouse down event (without firing click handlers)
                                 // if the hitbox is not being hovered.
@@ -3099,7 +3170,7 @@ impl Interactivity {
                                 // immediately after being clicked.
                                 // See https://github.com/zed-industries/zed/issues/24600 for more details
                                 pending_mouse_down.take();
-                                window.refresh();
+                                redraw_painting_view(painting_view, window, cx);
                             }
                         }
                         // Fire click handlers during the bubble phase.
@@ -3239,10 +3310,10 @@ impl Interactivity {
 
             {
                 let active_state = active_state.clone();
-                window.on_mouse_event(move |_: &MouseUpEvent, phase, window, _cx| {
+                window.on_mouse_event(move |_: &MouseUpEvent, phase, window, cx| {
                     if phase == DispatchPhase::Capture && active_state.borrow().is_clicked() {
                         *active_state.borrow_mut() = ElementClickedState::default();
-                        window.refresh();
+                        redraw_painting_view(painting_view, window, cx);
                     }
                 });
             }
@@ -3253,7 +3324,7 @@ impl Interactivity {
                     .as_ref()
                     .and_then(|group_active| GroupHitboxes::get(&group_active.group, cx));
                 let hitbox = hitbox.clone();
-                window.on_mouse_event(move |_: &MouseDownEvent, phase, window, _cx| {
+                window.on_mouse_event(move |_: &MouseDownEvent, phase, window, cx| {
                     if phase == DispatchPhase::Bubble && !window.default_prevented() {
                         let group_hovered = active_group_hitbox
                             .is_some_and(|group_hitbox_id| group_hitbox_id.is_hovered(window));
@@ -3263,7 +3334,7 @@ impl Interactivity {
                                 group: group_hovered,
                                 element: element_hovered,
                             };
-                            window.refresh();
+                            redraw_painting_view(painting_view, window, cx);
                         }
                     }
                 });
@@ -3591,6 +3662,15 @@ impl Interactivity {
         if let Some(count) = self.aria.column_count {
             node.set_column_count(count);
         }
+        if self.aria.disabled {
+            node.set_disabled();
+        }
+        if self.aria.hidden {
+            node.set_hidden();
+        }
+        if self.aria.read_only {
+            node.set_read_only();
+        }
         if !self.click_listeners.is_empty() {
             node.add_action(accesskit::Action::Click);
         }
@@ -3599,6 +3679,43 @@ impl Interactivity {
         }
         for (action, _) in &self.a11y_action_listeners {
             node.add_action(*action);
+        }
+    }
+
+    pub(crate) fn frame_node(&self) -> FrameNodeData {
+        let mut actions = self.frame_actions.clone();
+        if self.hover_style.is_some()
+            || self.group_hover_style.is_some()
+            || self.hover_listener.is_some()
+            || !self.mouse_move_listeners.is_empty()
+            || self.tooltip_builder.is_some()
+        {
+            if !actions.contains(&FrameAction::Hover) {
+                actions.push(FrameAction::Hover);
+            }
+        }
+        if self.drag_listener.is_some() {
+            if !actions.contains(&FrameAction::Drag) {
+                actions.push(FrameAction::Drag);
+            }
+        }
+        if self.scroll_offset.is_some()
+            || self.tracked_scroll_handle.is_some()
+            || !self.scroll_wheel_listeners.is_empty()
+        {
+            if !actions.contains(&FrameAction::Scroll) {
+                actions.push(FrameAction::Scroll);
+            }
+        }
+        FrameNodeData {
+            actions,
+            metadata: self.frame_metadata.clone(),
+            redacted: self.frame_redacted,
+            fallback_role: if !self.click_listeners.is_empty() {
+                accesskit::Role::Button
+            } else {
+                accesskit::Role::Group
+            },
         }
     }
 }
@@ -3668,6 +3785,22 @@ pub(crate) enum ActiveTooltip {
     },
 }
 
+/// Redraw the view that painted an element whose own interaction state changed.
+///
+/// Such state (pressed, active, a tooltip to register) is read only while that
+/// view prepaints and paints the element, so notifying the view is enough, and
+/// every other cached view can replay its previous frame. An element painted
+/// outside any view has no view to notify, so the window refreshes instead.
+fn redraw_painting_view(painting_view: Option<EntityId>, window: &mut Window, cx: &mut App) {
+    match painting_view {
+        Some(view) => cx.notify(view),
+        None => window.refresh(),
+    }
+}
+
+// Hiding a tooltip needs a frame but no view to render: a replayed element
+// re-registers its old tooltip request, and the request's visibility check
+// reports the cleared tooltip as hidden.
 pub(crate) fn clear_active_tooltip(
     active_tooltip: &Rc<RefCell<Option<ActiveTooltip>>>,
     window: &mut Window,
@@ -3675,8 +3808,8 @@ pub(crate) fn clear_active_tooltip(
     match active_tooltip.borrow_mut().take() {
         None => {}
         Some(ActiveTooltip::WaitingForShow { .. }) => {}
-        Some(ActiveTooltip::Visible { .. }) => window.refresh(),
-        Some(ActiveTooltip::WaitingForHide { .. }) => window.refresh(),
+        Some(ActiveTooltip::Visible { .. }) => window.request_frame(),
+        Some(ActiveTooltip::WaitingForHide { .. }) => window.request_frame(),
     }
 }
 
@@ -3692,7 +3825,7 @@ pub(crate) fn clear_active_tooltip_if_not_hoverable(
     };
     if should_clear {
         active_tooltip.borrow_mut().take();
-        window.refresh();
+        window.request_frame();
     }
 }
 
@@ -3768,6 +3901,7 @@ pub(crate) fn register_tooltip_mouse_handlers(
                         &build_tooltip,
                         &check_is_hovered_during_prepaint,
                         Some(long_press_tooltip_active.clone()),
+                        current_view,
                         window,
                         cx,
                     ) {
@@ -3894,6 +4028,7 @@ fn handle_tooltip_mouse_move(
                             &build_tooltip,
                             &check_is_hovered_during_prepaint,
                             None,
+                            current_view,
                             window,
                             cx,
                         );
@@ -3911,11 +4046,14 @@ fn handle_tooltip_mouse_move(
     }
 }
 
+/// Show the tooltip and notify `current_view`, the view whose element registers
+/// the tooltip while it prepaints.
 fn show_tooltip(
     active_tooltip: &Rc<RefCell<Option<ActiveTooltip>>>,
     build_tooltip: &Rc<dyn Fn(&mut Window, &mut App) -> Option<(AnyView, bool)>>,
     check_is_hovered_during_prepaint: &Rc<dyn Fn(&Window) -> bool>,
     long_press_tooltip_active: Option<Rc<Cell<bool>>>,
+    current_view: EntityId,
     window: &mut Window,
     cx: &mut App,
 ) -> bool {
@@ -3951,7 +4089,7 @@ fn show_tooltip(
     });
     let did_show = new_tooltip.is_some();
     *active_tooltip.borrow_mut() = new_tooltip;
-    window.refresh();
+    cx.notify(current_view);
     did_show
 }
 
@@ -4013,7 +4151,7 @@ fn handle_tooltip_check_visible_and_update(
                         return;
                     };
                     if active_tooltip.borrow_mut().take().is_some() {
-                        cx.update(|window, _cx| window.refresh()).ok();
+                        cx.update(|window, _cx| window.request_frame()).ok();
                     }
                 }
             });
@@ -4114,6 +4252,14 @@ where
 
     fn write_a11y_info(&self, node: &mut accesskit::Node) {
         self.element.write_a11y_info(node);
+    }
+
+    fn frame_node(&self) -> Option<FrameNodeData> {
+        self.element.frame_node()
+    }
+
+    fn frame_text(&self) -> Option<&str> {
+        self.element.frame_text()
     }
 
     fn a11y_synthetic_children(

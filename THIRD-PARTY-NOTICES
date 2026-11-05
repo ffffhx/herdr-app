@@ -2,10 +2,10 @@ Herdr third-party notices
 =========================
 Regenerate with just notices. See licenses/README.md.
 
-Input-SHA256: 6a3b4177337bfb82680d2992e24b5f948c0c4ce524bafa5b1c8cf8090f45adba Cargo.lock
-Input-SHA256: 06fedafae0bff35d7357edc32b6a69f5be804de02c3c7a59587098efcc3c15d3 Cargo.toml
+Input-SHA256: 62f3252017a39e682f924ea9c6c29807133e9b5548ef054a7fdf1c8e463c3f1e Cargo.lock
+Input-SHA256: 107fce772455c9b476410cb23ac9659e479dab0e6ad13be7a6945d5526b71da9 Cargo.toml
 Input-SHA256: c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4 LICENSE
-Input-SHA256: e58cb0de2dde300bcda769ca993fde2737f42c0274082f038621ab22975a49e2 about.toml
+Input-SHA256: b5e2313af43e15f1f6d497c9c07ed1bee36fe8e8268c4e8f30cd9055b76ae9e2 about.toml
 Input-SHA256: 84a7a98c82140fb12c37fe42b93805baa16024cb3e5acc599b7ffe612c55d847 assets/fonts/LICENSE-SymbolsNerdFont.txt
 Input-SHA256: 30f0c136e3c88e422d0791acd97238870f9054a9729bc34cf2ff0d4ed8cac4ad assets/fonts/OFL-JetBrainsMono.txt
 Input-SHA256: e5e56b793839774266243b8dd89c618f2962f098a2076757a5f2839c27eaaabd assets/fonts/OFL.txt
@@ -20,7 +20,7 @@ Input-SHA256: 3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f l
 Input-SHA256: a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499 licenses/CC0-1.0.txt
 Input-SHA256: 22c1bd99806822d9b184c4e5079ff3845b1e9fcaaabfd3a6e48dd9f443fd4cff licenses/QuickJS-source.txt
 Input-SHA256: 96f73f9d2a16c21a36b418f06073be26e7d6d5e7c1bc99756b21a4f2c74ef171 licenses/QuickJS.txt
-Input-SHA256: a754355f3b49ef0cd20e2a65f29a45b3164693d1c929474fa90b4e635d9b90a4 licenses/README.md
+Input-SHA256: 198f7ae3f6ad679298633251b54be951c5549b42e5a6a4eb2d6c0454f68e88c2 licenses/README.md
 Input-SHA256: e7a93b009565cfce55919a381437ac4db883e9da2126fa28b91d12732bc53d96 licenses/Unicode.txt
 Input-SHA256: 0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594 licenses/Wuffs-LICENSE-APACHE.txt
 Input-SHA256: bb811a4b485eac3caeb8bdc58bbafb355fbcb6116010a7ea9179e5c70b0bc878 licenses/Wuffs-LICENSE-MIT.txt
@@ -28,15 +28,15 @@ Input-SHA256: f8ac2c75e7f629a87565c80d61ff9fe5aa15cdea0bda997d52a4dc13fdbd19cb l
 Input-SHA256: 5c537d6853e005298a285d508cff9ac7192cea23576c840d485b2b586a7ff177 licenses/Zig.txt
 Input-SHA256: d25e82e26acd42ca3ccc9993622631163425b869b9e16284226d534cff6470f2 licenses/highway-BSD3.txt
 Input-SHA256: 43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1 licenses/highway.txt
-Input-SHA256: 6f440b2e11f1729f94e191d7a2c106c6cbf5b5a40bae8915f321b5f361251d79 licenses/inventory.json
+Input-SHA256: c9165f0c0d300df5792cb9624d856b8061cad929dced62ef87ca283f2c027e6d licenses/inventory.json
 Input-SHA256: f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af licenses/musl.txt
 Input-SHA256: 204bbed08ddeeecb362b4da36d3479a0167b7356a9d6024a24f9833affbe228a licenses/simdutf-TH.txt
 Input-SHA256: fc8dbc04e03ad4efc08a647ffe7f995b811a95bc04c0e85a56d5277c6593fa5f licenses/simdutf.txt
 Input-SHA256: de219cece932aad5a817bf763393d8d149d378a15d2ad5320e3331eac07626dd licenses/uucode-LICENSE_Bjoern_Hoehrmann.txt
 Input-SHA256: 1eda5a3b026870c737b22e8bcd4954338612c790db688242e003f41a4fa95175 licenses/uucode-LICENSE_unicode.txt
 Input-SHA256: 312e901e142be2477b4ca859e9311f9e3f80d33372991759b7921c1893605f33 licenses/uucode.txt
-Input-SHA256: d78ac01638fd241bde2eb2952e75c40e5f5fc8dce026971b547265d3845e8333 scripts/notices.hbs
-Input-SHA256: b72254346b6bb1b9bf4debda3628dd4850e6a63f633629efc3ffc3e6ba9ca90b scripts/notices.ts
+Input-SHA256: cd08d2893685cc1703aa40c0a40ff674d21eb549cdfc51ae71a76c565676f003 scripts/notices.hbs
+Input-SHA256: 7e57fd21a46b07076df300a62504a4fe2a3a20c54990633b5fe5248366529efb scripts/notices.ts
 Input-SHA256: 386211873e5b7a02f663ae4d7adf96285999f91608f8f9f31fecfd0f4095e6f1 vendor/ghostty/LICENSE
 Input-SHA256: b878e4fc36f9c2b6c9ad82e5ceba58c91905fde89f0ac3d3cb7ab413ea029e39 vendor/ghostty/build.zig.zon
 Input-SHA256: 57103e0424e9ca660756bb2cd0475ca3057e61e7f2d4038aba2a90eae890b932 vendor/ghostty/pkg/highway/build.zig.zon
@@ -55,6 +55,10 @@ Input-SHA256: 81001a9f6c3d868140e0c7c66abcbff8deb4dc00e0fbb68d4a2506d2e2385ea8 v
 Input-SHA256: 2ca4d3969f5a62ea841f25868efe6a4c38866f244caffc0affa4af1b25400dad vendor/gpui-kit/crates/fps/Cargo.toml
 Input-SHA256: 3a6d0f6eb8adde4f5126933a5edd1ce72a1c84b994de27d6da12d918cc1b14ae vendor/gpui-kit/crates/shell/Cargo.toml
 Input-SHA256: cd6a0e1b53913eb4f2559b79aae3b7877b41e9c559c56a0231501cbd0fe2ad3a vendor/gpui-kit/crates/shell/rquickjs-compat/Cargo.toml
+Input-SHA256: 2cbf06448642ab819e3b653cd38af57b95cf4e9a17818860e65694c7905b9694 vendor/gpui-mcp/Cargo.toml
+Input-SHA256: c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4 vendor/gpui-mcp/LICENSE
+Input-SHA256: d3081478082d12db78c7c0d1eb36752a715685b0255a04a57508097b1e93dab6 vendor/gpui-mcp/crates/gpui-mcp-protocol/Cargo.toml
+Input-SHA256: 9bce7f872bb8d710483da74664e9788886c8572b0536fca3a6d18ce8e89c6b31 vendor/gpui-mcp/crates/gpui-mcp/Cargo.toml
 Input-SHA256: f00df50e0e437e56cd8475bc78289f57ef00e5d0af0a1a056bf215438bfe5529 vendor/gpui-pre-apple/Cargo.toml
 Input-SHA256: 752daf2fb234ca4a1fa372c073fe127f44b7b90fd2529ae44273a64f9d53da7a vendor/gpui-pre-apple/LICENSE-APACHE
 Input-SHA256: 0035e237c09464dce9426e0be2b66b1d69052a33c572c9114c31fb95c429b336 vendor/gpui-pre-linux/Cargo.toml
@@ -74,7 +78,46 @@ Input-SHA256: f97daf1a0124413dccf399a4e6626b4b74acd05282f80b6d64ac82225650b77a v
 
 Cargo dependencies
 ==================
-Generated with cargo-about 0.9.3. Includes all platforms and build/dev dependencies.
+Generated with cargo-about 0.9.3. Includes all app features, platforms and build/dev dependencies.
+
+----------------------------------------------------------------------
+BSD Zero Clause License (0BSD)
+  recvmsg 1.0.0
+
+BSD Zero Clause License
+
+Copyright (c) 2023 kotauskas
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+
+----------------------------------------------------------------------
+BSD Zero Clause License (0BSD)
+  doctest-file 1.1.1 — https://codeberg.org/Goat7658/doctest-file
+
+BSD Zero Clause License
+
+Copyright (c) 2024 kotauskas
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+
 
 ----------------------------------------------------------------------
 Apache License 2.0 (Apache-2.0)
@@ -2958,6 +3001,7 @@ Apache License 2.0 (Apache-2.0)
 
 ----------------------------------------------------------------------
 Apache License 2.0 (Apache-2.0)
+  herdr-app 0.1.12
   herdr-app 0.1.12
   codespan-reporting 0.13.1 — https://github.com/brendanzab/codespan
   crypto-primes 0.7.2 — https://github.com/entropyxyz/crypto-primes
@@ -11795,6 +11839,8 @@ Apache License 2.0 (Apache-2.0)
   ghostty-sys 0.0.0
   gpui-fps 0.7.1 — https://github.com/longbridge/gpui-kit/tree/main/crates/fps
   gpui-shell 0.7.1 — https://github.com/longbridge/gpui-kit
+  gpui-mcp 0.1.0 — https://github.com/themixednuts/gpui-mcp
+  gpui-mcp-protocol 0.1.0 — https://github.com/themixednuts/gpui-mcp
   accesskit 0.24.1 — https://github.com/AccessKit/accesskit
   accesskit_atspi_common 0.19.1 — https://github.com/AccessKit/accesskit
   accesskit_consumer 0.38.0 — https://github.com/AccessKit/accesskit
@@ -11808,7 +11854,9 @@ Apache License 2.0 (Apache-2.0)
   cranelift-bitset 0.116.1 — https://github.com/bytecodealliance/wasmtime
   cranelift-isle 0.116.1 — https://github.com/bytecodealliance/wasmtime/tree/main/cranelift/isle
   crc32c 0.6.8 — https://github.com/zowens/crc32c
+  directories 6.0.0 — https://github.com/soc/directories-rs
   dirs-sys 0.4.1 — https://github.com/dirs-dev/dirs-sys-rs
+  dirs-sys 0.5.0 — https://github.com/dirs-dev/dirs-sys-rs
   dirs 5.0.1 — https://github.com/soc/dirs-rs
   dispatch2 0.3.1 — https://github.com/madsmtm/objc2
   document-features 0.2.12 — https://github.com/slint-ui/document-features
@@ -11826,6 +11874,7 @@ Apache License 2.0 (Apache-2.0)
   ident_case 1.0.1 — https://github.com/TedDriggs/ident_case
   image-webp 0.2.4 — https://github.com/image-rs/image-webp
   image 0.25.10 — https://github.com/image-rs/image
+  interprocess 2.4.7 — https://github.com/kotauskas/interprocess
   inventory 0.3.24 — https://github.com/dtolnay/inventory
   itoa 1.0.18 — https://github.com/dtolnay/itoa
   jni-sys-macros 0.4.1 — https://github.com/jni-rs/jni-sys
@@ -11931,6 +11980,7 @@ Apache License 2.0 (Apache-2.0)
   wgpu-naga-bridge 29.0.4 — https://github.com/gfx-rs/wgpu
   wgpu-types 29.0.4 — https://github.com/gfx-rs/wgpu
   wgpu 29.0.4 — https://github.com/gfx-rs/wgpu
+  widestring 1.2.1 — https://github.com/VoidStarKat/widestring-rs
   winapi-i686-pc-windows-gnu 0.4.0 — https://github.com/retep998/winapi-rs
   winapi-x86_64-pc-windows-gnu 0.4.0 — https://github.com/retep998/winapi-rs
   zstd-safe 7.2.4 — https://github.com/gyscos/zstd-rs
@@ -17138,6 +17188,7 @@ THE SOFTWARE.
 ----------------------------------------------------------------------
 MIT License (MIT)
   redox_users 0.4.6 — https://gitlab.redox-os.org/redox-os/users
+  redox_users 0.5.3 — https://gitlab.redox-os.org/redox-os/users
 
 The MIT License (MIT)
 
@@ -18548,7 +18599,6 @@ Julian Seward, jseward@acm.org
 bzip2/libbzip2 version 1.1.0 of 6 September 2010
 
 --------------------------------------------------------------------------
-
 
 
 

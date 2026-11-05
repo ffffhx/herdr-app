@@ -1,5 +1,7 @@
-import { createHash } from "node:crypto";
-import { resolve } from "node:path";
+import { createHash, randomUUID } from "node:crypto";
+import { rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 process.chdir(resolve(import.meta.dir, ".."));
 const inventory = await Bun.file("licenses/inventory.json").json();
@@ -40,10 +42,19 @@ const version = Bun.spawnSync([tool, "--version"]);
 if (version.exitCode !== 0 || version.stdout.toString().trim() !== "cargo-about 0.9.3") {
   throw new Error("Install cargo-about 0.9.3 (see licenses/README.md)");
 }
-const generated = Bun.spawnSync([
-  tool, "generate", "--locked", "--fail", "scripts/notices.hbs",
-], { stdout: "pipe", stderr: "inherit" });
-if (generated.exitCode !== 0) throw new Error("cargo-about failed");
+// cargo-about refuses redirected stdout under PowerShell; use its UTF-8 file output.
+const generatedPath = join(tmpdir(), `herdr-cargo-notices-${randomUUID()}.txt`);
+let cargoNotices: string;
+try {
+  const generated = Bun.spawnSync([
+    tool, "generate", "--locked", "--all-features", "--fail",
+    "--output-file", generatedPath, "scripts/notices.hbs",
+  ], { stdout: "inherit", stderr: "inherit" });
+  if (generated.exitCode !== 0) throw new Error("cargo-about failed");
+  cargoNotices = await Bun.file(generatedPath).text();
+} finally {
+  await rm(generatedPath, { force: true });
+}
 
 let text = "Herdr third-party notices\n=========================\n"
   + "Regenerate with just notices. See licenses/README.md.\n\n";
@@ -55,7 +66,7 @@ for (const path of inputs) {
   const hash = createHash("sha256").update(input).digest("hex");
   text += `Input-SHA256: ${hash} ${path}\n`;
 }
-text += "\n" + generated.stdout.toString().replaceAll("\r\n", "\n");
+text += "\n" + cargoNotices.replaceAll("\r\n", "\n");
 for (const component of inventory.components) {
   text += `\n----------------------------------------------------------------------\n${component.name}\n${component.source}\n\n`;
   for (const path of component.files) {
