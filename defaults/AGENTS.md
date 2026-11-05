@@ -831,7 +831,8 @@ a question; for several questions use a JSON object keyed by Codex question ID
 or Claude question text. Other pending requests need their protocol response
 as JSON. `/interrupt` stops the current turn, and `/quit` ends this runner.
 
-Only assistant final continuation questions trigger an automatic follow-up.
+Only assistant final continuation requests trigger an automatic follow-up,
+including “Please confirm” and “回复继续” without a question mark.
 Tool output never does. Two identical unsuccessful follow-ups leave the task
 blocked, not complete. Interrupted and failed turns are not restarted. An
 approval response is logged before delivery and is never resent for a repeated

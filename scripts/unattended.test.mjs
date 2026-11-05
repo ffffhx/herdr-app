@@ -110,6 +110,10 @@ test("completed assistant confirmation questions continue automatically, interru
   await s.finished({ status: "completed", text: "The result is complete and verified." });
   assert.equal(s.status, "done");
   assert(asksToContinue("我已经准备好，是否继续操作手机？"));
+  assert(asksToContinue("Ready to run. Please confirm before I proceed."));
+  assert(asksToContinue("Reply with `yes` to continue."));
+  assert(asksToContinue("操作已准备好，等待你的确认。"));
+  assert(asksToContinue("请回复“继续”，我就开始操作。"));
   assert(!asksToContinue('Done. The guide uses the example "Would you like me to continue?".'));
   assert(!asksToContinue("Done. Example:\n```text\nWould you like me to continue?\n```"));
 });

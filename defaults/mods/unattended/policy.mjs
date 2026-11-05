@@ -98,6 +98,8 @@ export function asksToContinue(text) {
     .replace(/^\s*>.*$/gm, "").replace(/"[^"\n]*"/g, "").trim().slice(-1800);
   return /(?:would you like me to|shall I|should I|may I|can I|do you want me to)[^\n]{0,500}\?/i.test(tail)
     || /(?:if you (?:want|would like),? I can)[^\n]{0,500}[.!?]?\s*$/i.test(tail)
+    || /(?:please confirm(?:[^\n]{0,120}\b(?:proceed|continue|permission|approval)\b)?|(?:reply|respond|type)[^\n]{0,120}\b(?:proceed|continue|confirm|approve)\b)[^\n]{0,120}[.!:]?\s*$/i.test(tail)
     || /(?:要不要|能否|是否(?:需要|可以)?|需要我|要我|可以(?:让我|继续)?)[^\n]{0,250}[？?]/.test(tail)
-    || /如果你(?:愿意|需要|同意)[，,]?[^\n]{0,250}(?:我可以|我会)/.test(tail);
+    || /如果你(?:愿意|需要|同意)[，,]?[^\n]{0,250}(?:我可以|我会)/.test(tail)
+    || /(?:请(?:你)?确认|等待你的(?:确认|同意|授权)|等你(?:确认|同意|授权)|(?:请)?回复[^\n]{0,80}(?:继续|同意|确认|开始))[^\n]{0,120}[。！：]?\s*$/.test(tail);
 }
