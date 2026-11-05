@@ -1,6 +1,6 @@
 [workspace]
 members = ["crates/ghostty-sys"]
-exclude = ["vendor/gpui-kit", "vendor/gpui-pre", "vendor/gpui-pre-wgpu", "vendor/gpui-pre-apple", "vendor/gpui-pre-linux", "vendor/gpui-pre-macos", "vendor/gpui-pre-windows", "vendor/taffy", "vendor/quickjs-jit-runtime", "vendor/zed-xim", "vendor/xim-ctext"]
+exclude = ["vendor/gpui-mcp", "vendor/gpui-kit", "vendor/gpui-pre", "vendor/gpui-pre-wgpu", "vendor/gpui-pre-apple", "vendor/gpui-pre-linux", "vendor/gpui-pre-macos", "vendor/gpui-pre-windows", "vendor/taffy", "vendor/quickjs-jit-runtime", "vendor/zed-xim", "vendor/xim-ctext"]
 resolver = "2"
 
 [workspace.package]
@@ -15,7 +15,11 @@ edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+profilepilot = ["dep:gpui-mcp"]
+
 [dependencies]
+gpui-mcp = { path = "vendor/gpui-mcp/crates/gpui-mcp", default-features = false, features = ["gpui-pre"], optional = true }
 ghostty-sys = { path = "crates/ghostty-sys" }
 gpui = { package = "gpui-pre", version = "=0.3.8", features = ["render-to-image"] }
 gpui_platform = { package = "gpui-pre-platform", version = "=0.3.8", features = ["font-kit", "x11", "wayland", "runtime_shaders"] }

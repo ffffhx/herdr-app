@@ -994,3 +994,13 @@ including a small herdr-core skill you can install with the user's permission.
 - One mod per idea. Don't edit `AGENTS.md` or the `.d.ts` files (the app
   rewrites them). Don't touch other mods unless the request
   needs it.
+
+## Optional developer instrumentation
+
+In a development build compiled with `--features profilepilot`, setting
+`HERDR_GPUI_DEBUG=1` before launch enables ProfilePilot's authenticated local GPUI
+bridge. Discover the exact window using `ppilot gpui list`, then use its task
+session and current observations. Respect user takeover and finish that session
+when done. The bridge is disabled in ordinary builds and does not change `hc` or
+the existing window commands. Build instructions: `docs/profilepilot.md` in the
+source repository.

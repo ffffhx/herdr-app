@@ -35,7 +35,7 @@
 use crate::InspectorElementPath;
 use crate::{
     A11ySubtreeBuilder, App, ArenaBox, AvailableSpace, Bounds, Context, DispatchNodeId, ElementId,
-    FocusHandle, InspectorElementId, LayoutId, Pixels, Point, Size, Style, Window,
+    FocusHandle, FrameNodeData, InspectorElementId, LayoutId, Pixels, Point, Size, Style, Window,
     util::FluentBuilder, window::with_element_arena,
 };
 use derive_more::{Deref, DerefMut};
@@ -120,6 +120,25 @@ pub trait Element: 'static + IntoElement {
     ///
     /// See the [accessibility guide](crate::_accessibility) for an overview.
     fn write_a11y_info(&self, _node: &mut accesskit::Node) {}
+
+    /// Return rendered-element details used by frame observers.
+    ///
+    /// Accessibility semantics continue to come from [`Element::a11y_role`]
+    /// and [`Element::write_a11y_info`]. This hook only supplies interaction
+    /// provenance that AccessKit does not model.
+    fn frame_node(&self) -> Option<FrameNodeData> {
+        // Third-party elements and transparent wrappers already implement the
+        // standard accessibility hooks, even when they predate frame observers.
+        self.a11y_role().map(|role| FrameNodeData {
+            fallback_role: role,
+            ..FrameNodeData::default()
+        })
+    }
+
+    /// Return text that contributes to the nearest observed rendered element.
+    fn frame_text(&self) -> Option<&str> {
+        None
+    }
 
     /// Add synthetic child nodes to an [`Element`] that has an
     /// [`.id()`][Element::id] and a [`.role()`][Element::a11y_role].
@@ -364,6 +383,14 @@ impl<E: Element> Drawable<E> {
                 }
 
                 let bounds = window.layout_bounds(layout_id);
+                let entered_frame_node = window.next_frame.observed.enter(
+                    global_id.as_ref(),
+                    self.element.frame_node(),
+                    bounds,
+                );
+                if let Some(text) = self.element.frame_text() {
+                    window.next_frame.observed.add_text(text);
+                }
                 let mut pushed_a11y_node = false;
                 if window.a11y.is_active() {
                     if let Some(global_id) = global_id.as_ref() {
@@ -411,6 +438,7 @@ impl<E: Element> Drawable<E> {
                     window,
                     cx,
                 );
+                window.next_frame.observed.exit(entered_frame_node);
                 window.next_frame.dispatch_tree.pop_node();
 
                 if pushed_a11y_node {

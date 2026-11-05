@@ -209,8 +209,13 @@ impl A11y {
     ///
     /// See the docs for [`Self::active_flag`] and [`Self::active_this_frame`]
     /// for more commentary.
-    pub(crate) fn sync_active_flag(&mut self) {
-        self.active_this_frame = self.is_enabled() && self.active_flag.load(Ordering::SeqCst);
+    pub(crate) fn sync_active_flag(&mut self, observed: bool) {
+        self.active_this_frame =
+            self.is_enabled() && (observed || self.active_flag.load(Ordering::SeqCst));
+    }
+
+    pub(crate) fn platform_is_active(&self) -> bool {
+        self.is_enabled() && self.active_flag.load(Ordering::SeqCst)
     }
 
     pub(crate) fn is_enabled(&self) -> bool {
@@ -663,7 +668,7 @@ mod tests {
         for force_disabled in [false, true] {
             for active in [false, true] {
                 let mut a11y = A11y::new(Arc::new(AtomicBool::new(active)), force_disabled, None);
-                a11y.sync_active_flag();
+                a11y.sync_active_flag(false);
 
                 assert_eq!(a11y.is_enabled(), !force_disabled);
                 assert_eq!(a11y.is_active(), !force_disabled && active);

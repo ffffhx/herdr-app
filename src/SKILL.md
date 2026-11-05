@@ -13,6 +13,13 @@ Your terminal address is `$HC_TERMINAL_ID`; it is not a pane ID.
 
 ## Inspect before acting
 
+Development builds compiled with `--features profilepilot` can expose a local
+GPUI debugging bridge when started with `HERDR_GPUI_DEBUG=1`. Use the discovered
+instance from `ppilot gpui list` and follow ProfilePilot's claim, observation,
+takeover and completion rules. The bridge is off unless both options are set;
+ordinary `herdr-app` CLI commands keep their existing behavior. See
+`docs/profilepilot.md` for the build and isolated validation procedure.
+
 ```sh
 herdr-app ls          # spaces > tabs > terminals, including pane IDs
 herdr-app status      # current layout, focus, overlays, zoom and file/mod errors
