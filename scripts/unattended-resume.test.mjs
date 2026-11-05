@@ -14,6 +14,42 @@ const uuid = "bedde808-1c15-4fc4-b2fa-5b4ac37566e1";
 const source = { address: "t9", created_ms: 123 };
 const terminal = { ...source, reported: true, state: "live", status: { state: "idle", app: "codex" } };
 
+function menuItems(all, visiblePanes, target) {
+  const code = readFileSync(new URL("../defaults/mods/menu/main.js", import.meta.url), "utf8")
+    .replace(/^import .*;\r?\n/gm, "").replace("export default class", "class");
+  return new Function("View", "tr", "terminals", "panes", "spaces", `${code}; return items(arguments[5], null);`)(
+    class {}, text => text, () => all, () => visiblePanes, () => [], target);
+}
+
+test("an inactive tab's switch targets its own agent and SSH space, not the focused tab", () => {
+  const all = [
+    { address: "t1", report: { app: "codex" }, cwd: "/active", argv: ["codex"] },
+    { address: "remote/t9", report: { app: "claude-code" }, cwd: "/clicked", argv: ["claude"] },
+  ];
+  const rows = menuItems(all, [
+    { tab: "active", terminal: "t1", focused: true },
+    { tab: "clicked", terminal: "remote/t9", focused: false },
+  ], { tab: "tab", target: { id: "clicked", space: "remote-space" } });
+  const switches = rows.filter(row => row[2]?.mod === "unattended");
+  assert.equal(switches.length, 1);
+  assert.deepEqual(switches[0][2].props, { space: "remote-space", source: "remote/t9", agent: "claude", folder: "/clicked" });
+  assert(rows.some(row => row[1] === "tab.close" && row[2].id === "clicked"));
+});
+
+test("split tab menu lists each eligible agent and excludes shells, mods and managed runners", () => {
+  const all = [
+    { address: "t1", report: { app: "codex" }, argv: ["codex"] },
+    { address: "t2", report: { app: "claude-code" }, argv: ["claude"] },
+    { address: "t3", report: { app: "codex" }, argv: ["node", "/mods/unattended/runner.mjs"] },
+    { address: "t4", report: { app: "bash" }, argv: ["bash"] },
+  ];
+  const visiblePanes = [...all.map(t => ({ tab: "split", terminal: t.address })), { tab: "split", terminal: null, mod: "files" }];
+  const switches = menuItems(all, visiblePanes, { tab: "tab", target: { id: "split", space: "s1" } }).filter(row => row[2]?.mod === "unattended");
+  assert.deepEqual(switches.map(row => row[2].props.source), ["t1", "t2"]);
+  assert(switches[0][0].includes("t1") && switches[1][0].includes("t2"));
+  assert.equal(menuItems(all, visiblePanes, { tab: "tab", target: { id: "empty" } }).filter(row => row[2]?.mod === "unattended").length, 0);
+});
+
 for (const state of ["idle", "done", "blocked"]) test(`handoff of ${state} source verifies history before stopping and confirms exit`, async () => {
   const calls = []; let stopped = false;
   await handoff({ agent: "codex", source }, async args => {

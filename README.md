@@ -66,7 +66,7 @@ For long tasks, choose **+ → Unattended agents** to start Codex or Claude Code
 with automatic approval, exception keywords and a decision journal. The task
 machine needs Node.js 20+ and an authenticated CLI. The terminal stays interactive,
 and `/auto off` stops automatic replies. For an existing Codex or Claude Code
-terminal, right-click and choose **Switch to unattended**, then select its saved
+terminal, right-click its tab or terminal pane and choose **Switch to unattended**, then select its saved
 conversation. Herdr ends the original idle or blocked terminal and resumes its
 history with automatic approval. See the [unattended agent guide](defaults/AGENTS.md#unattended-agents).
 

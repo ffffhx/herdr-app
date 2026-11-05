@@ -841,4 +841,8 @@ fn unattended_resume_shows_history_and_agent_menu_entry(cx: &mut TestAppContext)
     values.insert("terminals".into(), json!([{"address":"t1","report":{"app":"codex"},"argv":["codex"],"cwd":"/fixture/project"}]));
     let tree = describe_with_values(cx, &staged, "mods/menu", values, None).unwrap();
     assert!(tree.contains("Switch to unattended"), "{tree}");
+    let mut tab_values = fixture(true, json!({"tab":"tab","target":{"id":"tab2","space":"s2"}}), updates("current", "current"));
+    tab_values.insert("terminals".into(), json!([{"address":"t2","report":{"app":"claude-code"},"argv":["claude"],"cwd":"/remote/project"}]));
+    let tree = describe_with_values(cx, &staged, "mods/menu", tab_values, None).unwrap();
+    assert!(tree.contains("Switch to unattended") && tree.contains("Rename") && tree.contains("Close"), "{tree}");
 }

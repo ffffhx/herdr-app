@@ -824,7 +824,8 @@ Required secrets or form data without a supplied value, URL authentication,
 device hand-back confirmations and unknown protocol requests remain pending.
 No credential values or completed user hand-backs are invented.
 
-For an existing Codex or Claude Code terminal, its Herdr right-click menu offers
+For an existing Codex or Claude Code terminal, the tab's right-click menu and
+the terminal pane's Herdr right-click menu both offer
 **Switch to unattended**. Select the matching saved conversation (IDs and titles
 are shown; Herdr never guesses the newest session in a shared folder), edit the
 continuation task or exceptions, and choose **Switch and continue with automatic
@@ -836,6 +837,8 @@ saved history and the original terminal's identity before stopping it, and refus
 to resume if that terminal does not stop. If startup fails, history remains saved
 and the error is shown in the new terminal. The original terminal's scrollback
 remains available. Do not run another writer on the selected conversation.
+For split tabs with several eligible agents, the tab menu lists their terminal
+addresses separately; it always targets the clicked tab, even when inactive.
 
 The `unattended` mod also accepts props `{source:"t7", agent:"codex"|"claude",
 folder:"/original/cwd", space:"s1"}` to open the same switch form. On SSH spaces
