@@ -3,6 +3,7 @@
 #
 #   scripts/package            -> dist/herdr-app-<os>-<arch>.tar.gz
 #   scripts/package <triple>   -> the same for another supported Rust target
+#   HERDR_APP_SELF_UPDATE=0 scripts/package -> a fork build updated manually
 #
 # Linux: a folder holding herdr-app and the icon.
 # macOS: Herdr.app, signed with APPLE_CERTIFICATE_P12 when available,
@@ -53,8 +54,14 @@ echo "package: herdr-app $version for $target"
 for notice in LICENSE THIRD-PARTY-NOTICES; do
   [[ -s $notice ]] || { echo "package: $notice is missing or empty" >&2; exit 1; }
 done
-# Only release builds update themselves (src/update.rs).
-HERDR_APP_RELEASE=1 cargo build --release --locked ${triple:+--target "$triple"}
+# Only official release builds should replace themselves from the upstream feed.
+# Unset the marker for fork builds, even if the caller already exported it.
+case "${HERDR_APP_SELF_UPDATE:-1}" in
+  1) export HERDR_APP_RELEASE=1 ;;
+  0) unset HERDR_APP_RELEASE ;;
+  *) echo 'package: HERDR_APP_SELF_UPDATE must be 0 or 1' >&2; exit 1 ;;
+esac
+cargo build --release --locked ${triple:+--target "$triple"}
 
 if [[ $os == linux ]]; then export TMPDIR=${TMPDIR:-/var/tmp}; fi
 work=$(mktemp -d)

@@ -24,6 +24,11 @@ from the same parts you have.
 
 `herdr-app` controls this app; `hc` controls herdr-core.
 
+This fork's packaged Chinese builds are distributed through
+https://github.com/ffffhx/herdr-app/releases and updated manually from there.
+They do not replace themselves with upstream official binaries. On first use,
+follow the app's installation prompt if herdr-core is missing.
+
 ## What you can and can't do
 
 You can: rearrange and restyle the whole window (layouts), rebind any key,
