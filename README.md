@@ -1,6 +1,6 @@
 # Herdr
 
-**中文版分支：** 默认简体中文，支持切换英文。使用及构建说明见 [README.zh-CN.md](README.zh-CN.md)。下方官方安装命令安装的是上游版本。
+**中文版分支：** 默认简体中文，支持切换英文。[下载预编译包](https://github.com/ffffhx/herdr-app/releases/latest)，使用及构建说明见 [README.zh-CN.md](README.zh-CN.md)。下方官方安装命令安装的是上游版本。
 
 Herdr is a desktop app for terminals and coding agents. Keep work in spaces, see which agents need you, and leave terminals running when you close the window.
 

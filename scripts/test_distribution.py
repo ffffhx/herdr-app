@@ -31,8 +31,13 @@ class DistributionTests(unittest.TestCase):
         path.write_text("#!/bin/sh\n" + body + "\n")
         path.chmod(0o755)
 
-    def run_script(self, script, os_name, arch, *args):
+    def run_script(self, script, os_name, arch, *args, env_overrides=None):
         env = dict(os.environ, PATH=f"{self.bin}:{os.environ['PATH']}", TEST_OS=os_name, TEST_ARCH=arch)
+        for name, value in (env_overrides or {}).items():
+            if value is None:
+                env.pop(name, None)
+            else:
+                env[name] = value
         return subprocess.run(
             [str(ROOT / script), *args], cwd=ROOT, env=env,
             capture_output=True, text=True, check=False,
@@ -218,6 +223,24 @@ printf 'dev PATH added' >> "$3"''')
                 self.assertEqual(result.returncode, 1)
                 self.assertIn("Intel Macs aren't supported; build from source", result.stderr)
                 self.assertNotIn("unexpected build", result.stderr)
+
+    def test_package_update_mode_controls_the_compiled_marker(self):
+        self.stub("cargo", 'printf "release-marker=%s\\n" "${HERDR_APP_RELEASE-unset}"; exit 97')
+        for os_name, arch in (("Linux", "x86_64"), ("Darwin", "arm64"), ("MINGW64_NT", "x86_64")):
+            for mode, expected in ((None, "1"), ("1", "1"), ("0", "unset")):
+                with self.subTest(os=os_name, mode=mode):
+                    result = self.run_script("scripts/package", os_name, arch, env_overrides={
+                        "HERDR_APP_SELF_UPDATE": mode,
+                        "HERDR_APP_RELEASE": "1",
+                    })
+                    self.assertEqual(result.returncode, 97, result.stdout + result.stderr)
+                    self.assertIn(f"release-marker={expected}", result.stdout)
+        result = self.run_script("scripts/package", "Linux", "x86_64", env_overrides={
+            "HERDR_APP_SELF_UPDATE": "invalid",
+        })
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("HERDR_APP_SELF_UPDATE must be 0 or 1", result.stderr)
+        self.assertNotIn("release-marker=", result.stdout)
 
     def test_supported_installers_still_try_download(self):
         for os_name, arch in (("Darwin", "arm64"), ("Linux", "x86_64"), ("Linux", "aarch64")):

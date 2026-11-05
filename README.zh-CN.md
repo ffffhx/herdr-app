@@ -10,6 +10,18 @@
 
 终端输出、Agent 回复、代码、文件路径、用户命名及第三方模组不自动翻译。上游在线发布说明保留原文。
 
+## 下载
+
+从本仓库的 [Releases](https://github.com/ffffhx/herdr-app/releases/latest) 下载预编译包，无需安装 Rust、Zig 或开启 Windows 开发者模式。
+
+- **Windows x64**：下载 `herdr-app-zh-CN-windows-x86_64.zip`，完整解压到普通文件夹后运行 `herdr-app.exe`。
+- **macOS Apple Silicon**：下载 `herdr-app-zh-CN-macos-aarch64.tar.gz`，解压后将 `Herdr.app` 拖入“应用程序”。不提供 Intel Mac 预编译包。
+- **Linux**：按 CPU 架构下载 `linux-x86_64` 或 `linux-aarch64` 的 `.tar.gz`，解压后运行目录内的 `herdr-app`；需要图形桌面和相应系统运行库。
+
+首次启动如提示缺少 herdr-core，按应用中的安装引导操作。发布包包含程序与开源声明，不内置 herdr-core。Windows 包未做代码签名，macOS 包采用临时签名且未公证，首次打开可能需要系统确认。
+
+这是独立维护的中文构建，不自动更新为上游官方版。更新时从本仓库 Releases 下载新版，退出旧窗口后替换程序文件。普通发布包不启用可选的 ProfilePilot 调试桥；需要它时参见 [开发构建说明](docs/profilepilot.md)。
+
 ## Windows 构建
 
 本分支的 `localization` GitHub Actions 工作流构建经过优化的 Windows x64 程序并检查 JavaScript；`ci` 工作流在 Windows、macOS 和 Linux 运行 Rust 与渲染测试。成功后可从该次运行的 Artifacts 下载 `herdr-app-zh-CN-windows`，解压后运行 `herdr-app.exe`。这是自定义中文构建，不会自动用上游版本覆盖自身。运行终端仍需安装 herdr-core（`hc`）。
@@ -23,6 +35,8 @@ cargo build --release --locked
 bun test scripts/
 cargo test --locked
 ```
+
+打包自定义中文版时使用 `HERDR_APP_SELF_UPDATE=0 scripts/package`（Windows 使用 Git Bash）。本仓库的打包工作流会自动设置该选项。
 
 ## 维护翻译
 
