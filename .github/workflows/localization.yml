@@ -1,0 +1,66 @@
+name: localization
+on:
+  push:
+    branches: [feat/zh-cn-localization]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: localization-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
+      LIBCLANG_PATH: 'C:\Program Files\LLVM\bin'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          submodules: true
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.95.0
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
+        with:
+          version: 0.16.0
+      - uses: actions/cache@v4
+        id: build-cache
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: zh-cn-windows-release-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'vendor/**', 'crates/**') }}
+      # Exact cache hits include the contents of both dependency source trees.
+      # A new checkout's timestamps must not force unchanged native dependencies
+      # to rebuild; application sources retain their fresh timestamps.
+      - name: Preserve cached dependency builds
+        if: steps.build-cache.outputs.cache-hit == 'true'
+        run: find vendor crates -exec touch -t 200001010000 {} +
+      - name: Install Bun
+        run: npm install --global bun
+      - name: JavaScript and translation checks
+        run: bun test --timeout 30000 scripts/
+      - name: Build Windows app
+        run: cargo build --release --locked
+      # Native Rust and rendering tests run on all three platforms in ci.yml.
+      - name: Package Chinese build
+        run: |
+          mkdir -p dist/herdr-app-zh-CN
+          cp target/release/herdr-app.exe assets/icons/herdr-app.ico LICENSE THIRD-PARTY-NOTICES README.zh-CN.md dist/herdr-app-zh-CN/
+          cp assets/icons/herdr-ui-icon-clean.svg dist/herdr-app-zh-CN/herdr-app.svg
+          cd dist/herdr-app-zh-CN
+          sha256sum herdr-app.exe > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: herdr-app-zh-CN-windows
+          path: dist/herdr-app-zh-CN
+          retention-days: 7

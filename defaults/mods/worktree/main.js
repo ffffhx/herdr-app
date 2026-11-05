@@ -3,7 +3,7 @@
 
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, Scrollbar } from "gpui-base";
-import { run, props, closeOverlay, theme, spaces, panes, exec, home } from "herdr";
+import { tr, run, props, closeOverlay, theme, spaces, panes, exec, home } from "herdr";
 
 // Where a space is now: its first terminal's live folder, else where it was made.
 function place(s) {
@@ -83,12 +83,12 @@ async function modules(gitDir, config, on, out = [], parent = "") {
 // fetches that by hash, so it is often on no remote branch here).
 async function submodules(top, on) {
   const gitDir = await git(top, ["rev-parse", "--absolute-git-dir"], on);
-  if (!gitDir.ok) throw new Error(gitDir.err || "git rev-parse failed.");
+  if (!gitDir.ok) throw new Error(gitDir.err || tr("git rev-parse failed."));
   const mods = await modules(gitDir.out, ["--file", `${top}/.gitmodules`], on);
   const unpushed = [];
   for (const m of mods) {
     const local = await git(gitDir.out, ["--git-dir", m.dir, "rev-list", "-n1", "--all", "--not", "--remotes", ...(m.pinned ? [m.pinned] : [])], on);
-    if (!local.ok) throw new Error(local.err || `Couldn't check submodule ${m.name}.`);
+    if (!local.ok) throw new Error(local.err || tr("Couldn't check submodule {0}.", [String(m.name)]));
     if (local.out) unpushed.push(m.name);
   }
   return { mods, unpushed };
@@ -112,7 +112,7 @@ export default class Worktree extends View {
     this.text = props()?.branch ?? "";
     this.list = undefined; // open: the checkouts, once read
     this.at = 0;
-    this.input = InputState.new({ value: this.text, placeholder: this.opening ? "filter worktrees" : "branch name" });
+    this.input = InputState.new({ value: this.text, placeholder: this.opening ? tr("filter worktrees") : tr("branch name") });
     this.input.on("change", (_e, cx) => { this.text = this.input.value(); this.error = ""; this.at = 0; cx.notify(); });
     this.input.on("submit", (_e, cx) => this.go(cx));
     this.inputFocused = true;
@@ -135,7 +135,7 @@ export default class Worktree extends View {
           let result;
           try { result = await exec("sh", ["-c", 'printf %s "$HOME"'], { on: this.on }); } catch {}
           if (!result || result.code !== 0 || !result.stdout.trim()) result = await exec("powershell.exe", ["-NoProfile", "-Command", "[Console]::Write($HOME)"], { on: this.on });
-          if (result.code !== 0 || !result.stdout.trim()) throw new Error("Could not find the remote home folder.");
+          if (result.code !== 0 || !result.stdout.trim()) throw new Error(tr("Could not find the remote home folder."));
           this.userHome = result.stdout.trim().replace(/\\/g, "/");
         }
         this.folder = props()?.folder || place(this.space()) || this.userHome;
@@ -181,12 +181,12 @@ export default class Worktree extends View {
 
   async create() {
     const branch = this.text.trim();
-    if (!branch) return "Type a branch name.";
+    if (!branch) return tr("Type a branch name.");
     const path = `${ROOT(this.userHome)}/${this.repo.name}/${slug(branch)}`;
     const exists = (await git(this.repo.main, ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`], this.on)).ok;
     const add = exists ? ["worktree", "add", path, branch] : ["worktree", "add", "-b", branch, path, "HEAD"];
     const r = await git(this.repo.top, add, this.on);
-    if (!r.ok) return r.err || "git worktree add failed.";
+    if (!r.ok) return r.err || tr("git worktree add failed.");
     const p = props();
     // Leave spaces unnamed so they follow the checkout folder and nest under the repo.
     run("space.new", { folder: path, machine: this.on, tab: p.tab, argv: p.argv });
@@ -209,7 +209,7 @@ export default class Worktree extends View {
   async remove() {
     const s = this.space();
     const status = await git(this.repo.top, ["--no-optional-locks", "-c", "core.fsmonitor=false", "status", "--porcelain"], this.on);
-    if (!status.ok) return status.err || "git status failed.";
+    if (!status.ok) return status.err || tr("git status failed.");
     // git refuses a worktree with submodules unless forced, because their
     // history goes with it. The popup already showed what's at risk; only
     // risk that appeared since it opened gets one more warning.
@@ -217,12 +217,12 @@ export default class Worktree extends View {
     const changed = (status.out && !this.dirty) || unpushed.some((name) => !this.unpushed.includes(name));
     this.dirty ||= status.out !== "";
     this.unpushed = [...new Set([...this.unpushed, ...unpushed])];
-    if (changed) return "It changed since this opened. Enter again removes it anyway.";
+    if (changed) return tr("It changed since this opened. Enter again removes it anyway.");
     // Terminals first: a shell sitting in the folder keeps it busy on Windows.
     run("space.close", { id: s.id, confirmed: true });
     const force = this.dirty || mods.length > 0;
     const r = await git(this.repo.main, ["worktree", "remove", ...(force ? ["--force"] : []), this.repo.top], this.on);
-    return r.ok ? "" : r.err || "git worktree remove failed.";
+    return r.ok ? "" : r.err || tr("git worktree remove failed.");
   }
 
   key(e, cx) {
@@ -261,13 +261,13 @@ export default class Worktree extends View {
             .gap(8)
             .items_center()
             .child(div().flex_1().min_w(0).truncate().text_color(t.foreground).child(c.branch ?? "detached"))
-            .when(c.main, (el) => el.child(div().flex_none().text_size(11).text_color(t.dim).child("main checkout")))
+            .when(c.main, (el) => el.child(div().flex_none().text_size(11).text_color(t.dim).child(tr("main checkout"))))
             .when(Boolean(there), (el) => el.child(div().flex_none().text_size(11).text_color(t.accent).child("open")))
             .when(!there && c.at > 0, (el) => el.child(div().flex_none().text_size(11).text_color(t.dim).child(ago(c.at)))),
         )
         .child(div().truncate().text_size(11.5).text_color(t.dim).child(tilde(c.path, this.userHome ?? "")));
     };
-    const count = rows.length === all.length ? `${all.length} checkouts` : `${rows.length}/${all.length} checkouts`;
+    const count = rows.length === all.length ? tr("{0} checkouts", [all.length]) : tr("{0}/{1} checkouts", [rows.length, all.length]);
     return v_flex()
       .id("worktree")
       .track_focus(this.handle)
@@ -277,9 +277,9 @@ export default class Worktree extends View {
       .gap(10)
       .bg(t.popover)
       .text_size(13)
-      .child(h_flex().child(div().flex_1().font_semibold().text_color(t.foreground).child(`Open worktree${r ? ` of ${r.name}` : ""}`)).child(div().text_size(11).text_color(t.dim).child(r ? count : "")))
+      .child(h_flex().child(div().flex_1().font_semibold().text_color(t.foreground).child(tr("Open worktree{0}", [String(r ? tr(" of {0}", [r.name]) : "")]))).child(div().text_size(11).text_color(t.dim).child(r ? count : "")))
       .when(r === undefined || (r && this.list === undefined), (el) => el.child(div().text_color(t.muted).child("\u2026")))
-      .when(r === null, (el) => el.child(div().text_color(t.muted).child(`${this.folder ? tilde(this.folder, this.userHome ?? "") : "This folder"} is not in a git repository.`)))
+      .when(r === null, (el) => el.child(div().text_color(t.muted).child(tr("{0} is not in a git repository.", [String(this.folder ? tilde(this.folder, this.userHome ?? "") : tr("This folder"))]))))
       .when(Boolean(r && this.list), (el) =>
         el
           .child(Input.new(this.input).h(32).px(10).items_center().rounded(6).border(1).border_color(this.inputFocused ? t.accent : t.input).bg(t.background).text_color(t.foreground))
@@ -294,12 +294,12 @@ export default class Worktree extends View {
                   .size_full()
                   .overflow_y_scroll()
                   .children(rows.map(row))
-                  .when(rows.length === 0, (el) => el.child(div().p(10).text_color(t.dim).child("No matching worktrees."))),
+                  .when(rows.length === 0, (el) => el.child(div().p(10).text_color(t.dim).child(tr("No matching worktrees.")))),
               )
               .child(Scrollbar.vertical("wt-list").absolute().inset_0()),
           ),
       )
-      .child(h_flex().justify_end().text_size(11).text_color(t.dim).child("\u2191\u2193 choose \u00b7 \u21b5 open \u00b7 esc close"));
+      .child(h_flex().justify_end().text_size(11).text_color(t.dim).child(tr("\u2191\u2193 choose \u00b7 \u21b5 open \u00b7 esc close")));
   }
 
   render(cx) {
@@ -308,17 +308,17 @@ export default class Worktree extends View {
     const remove = props()?.action === "remove";
     const s = this.space();
     const r = this.repo;
-    const title = remove ? `Remove worktree ${s?.name ?? ""}?` : `New worktree${r ? ` of ${r.name}` : ""}`;
+    const title = remove ? tr("Remove worktree {0}?", [String(s?.name ?? "")]) : tr("New worktree{0}", [String(r ? tr(" of {0}", [r.name]) : "")]);
     const detail =
       r === undefined
         ? "…"
         : r === null
-          ? `${this.folder ? tilde(this.folder, this.userHome) : "This folder"} is not in a git repository.`
+          ? tr("{0} is not in a git repository.", [String(this.folder ? tilde(this.folder, this.userHome) : tr("This folder"))])
           : remove
             ? !r.linked
-              ? "This is the repository's main checkout, not a worktree."
-              : `Closes the space and deletes ${tilde(r.top, this.userHome)}. The branch stays.`
-            : `A new space on a checkout in ${tilde(ROOT(this.userHome), this.userHome)}/${r.name}/. A branch that exists is checked out; a new one starts from here.`;
+              ? tr("This is the repository's main checkout, not a worktree.")
+              : tr("Closes the space and deletes {0}. The branch stays.", [String(tilde(r.top, this.userHome))])
+            : tr("A new space on a checkout in {0}/{1}/. A branch that exists is checked out; a new one starts from here.", [String(tilde(ROOT(this.userHome), this.userHome)), String(r.name)]);
     const blocked = !r || (remove && !r.linked);
     return v_flex()
       .id("worktree")
@@ -331,8 +331,8 @@ export default class Worktree extends View {
       .text_size(13)
       .child(div().font_semibold().text_color(t.foreground).child(title))
       .child(div().text_color(t.muted).child(detail))
-      .when(remove && this.dirty, (el) => el.child(div().text_color(t.blocked).child("It has uncommitted changes: they will be lost.")))
-      .when(remove && this.unpushed.length > 0, (el) => el.child(div().text_color(t.blocked).child(`Submodule ${this.unpushed.join(", ")} has commits that aren't pushed anywhere: they will be lost.`)))
+      .when(remove && this.dirty, (el) => el.child(div().text_color(t.blocked).child(tr("It has uncommitted changes: they will be lost."))))
+      .when(remove && this.unpushed.length > 0, (el) => el.child(div().text_color(t.blocked).child(tr("Submodule {0} has commits that aren't pushed anywhere: they will be lost.", [String(this.unpushed.join(", "))]))))
       .when(!remove && !blocked, (el) =>
         el.child(
           Input.new(this.input)
@@ -353,7 +353,7 @@ export default class Worktree extends View {
           .justify_end()
           .text_size(11)
           .text_color(t.dim)
-          .child(this.busy ? "working…" : blocked ? "esc close" : remove ? "↵ remove · esc cancel" : "↵ create · esc cancel"),
+          .child(this.busy ? "working…" : blocked ? tr("esc close") : remove ? tr("↵ remove · esc cancel") : tr("↵ create · esc cancel")),
       );
   }
 }

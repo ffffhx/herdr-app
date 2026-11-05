@@ -5,7 +5,7 @@
 
 import { View, div, image, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { agents, terminals, panes, run, theme, props, closeOverlay } from "herdr";
+import { tr, agents, terminals, panes, run, theme, props, closeOverlay } from "herdr";
 
 const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 // The icon from the app's program table: a one-color glyph or a picture.
@@ -62,11 +62,11 @@ export default class Peek extends View {
       .child(div().w(12).flex_none().text_color(t[st] ?? t.dim).when(st === "working", (el) => el.frames(SPIN, 90)).child(glyph))
       .when(Boolean(pic), (el) => el.child(pic))
       .child(div().truncate().font_semibold().text_color(t.foreground).child(k?.name || k?.template || k?.program?.name || terminal || ""))
-      .when(Boolean(st), (el) => el.child(div().flex_none().text_color(t[st] ?? t.dim).child(WORDS[st] ?? st)))
-      .when(Boolean(parent), (el) => el.child(div().truncate().text_color(t.dim).child(`from ${parent.name || parent.address}`)))
+      .when(Boolean(st), (el) => el.child(div().flex_none().text_color(t[st] ?? t.dim).child(WORDS[st] ? tr(WORDS[st]) : st)))
+      .when(Boolean(parent), (el) => el.child(div().truncate().text_color(t.dim).child(tr("from {0}", [parent.name || parent.address]))))
       .child(div().flex_1())
       .child(
-        this.button(t, "keep", home ? "↗ go to" : "↗ keep", () => {
+        this.button(t, "keep", home ? tr("↗ go to") : tr("↗ keep"), () => {
           run(home ? "pane.focus" : "terminal.keep", { terminal });
           closeOverlay(overlay);
         }),

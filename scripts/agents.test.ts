@@ -1,14 +1,16 @@
+import { english } from "./i18n-fixture";
 import { test, expect } from "bun:test";
 import { readFile } from "node:fs/promises";
 
 const source = (await readFile(new URL("../defaults/mods/agents/main.js", import.meta.url), "utf8"))
-  .replace(/^import .*;\n/gm, "").replace("export default class Agents", "class Agents");
+  .replace(/^import .*;\r?\n/gm, "").replace("export default class Agents", "class Agents");
 
 function harness(pins: string[]) {
   const data = new Map([["pins", JSON.stringify(pins)]]);
   const writes: unknown[] = [];
   const storage = { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => data.set(k, v), removeItem: (k: string) => data.delete(k) };
-  const Agents = new Function("View", "localStorage", "props", "run", `${source}; return Agents;`)(
+  const Agents = new Function("tr", "View", "localStorage", "props", "run", `${source}; return Agents;`)(
+    english,
     class {}, storage, () => ({}), (...args: unknown[]) => writes.push(args),
   );
   const agents = new Agents();
@@ -49,7 +51,7 @@ test("already shared pins need no write and pending writes survive restart", () 
 });
 
 test("an unnamed tab's row reads its terminal's title, not the tab number", () => {
-  const title = new Function("View", "localStorage", "props", "run", `${source}; return title;`)(class {}, {}, () => ({}), () => {});
+  const title = new Function("tr", "View", "localStorage", "props", "run", `${source}; return title;`)(english, class {}, {}, () => ({}), () => {});
   const claude = { program: { name: "claude", key: "claude" }, title: "Herdr session names" };
   expect(title({ name: "3", named: false }, claude)).toBe("Herdr session names");
   expect(title({ name: "claude", named: true }, claude)).toBe("Herdr session names");

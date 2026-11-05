@@ -8,6 +8,7 @@
 //! Then the main window opens.
 
 use crate::hc::{Core, Mismatch};
+use crate::i18n::tr;
 use crate::mods::Request;
 use crate::settings::{self, color as c};
 use gpui::prelude::FluentBuilder as _;
@@ -46,6 +47,10 @@ pub struct Setup {
 }
 
 pub fn open(need: Need, requests: async_channel::Receiver<Request>, cx: &mut App) {
+    // Setup opens before AppWindow composes the saved preferences.
+    let mut preferences = (*settings::get()).clone();
+    preferences.language = settings::load_person().unwrap_or_default().language;
+    settings::set(preferences);
     let options = WindowOptions {
         window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, size(px(620.0), px(460.0)), cx))),
         titlebar: Some(TitlebarOptions { title: Some("Herdr".into()), ..Default::default() }),
@@ -75,7 +80,7 @@ impl Setup {
                     self.state = State::Ready;
                 }
             },
-            Err(e) => self.state = State::Failed(format!("herdr-core is there but didn't start: {e:#}")),
+            Err(e) => self.state = State::Failed(tr("herdr-core is there but didn't start: {0}", &[format!("{e:#}")])),
         }
         cx.notify();
     }
@@ -111,13 +116,13 @@ impl Setup {
     }
 
     fn choose(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let paths = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: false, prompt: Some("Use this herdr-core".into()) });
+        let paths = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: false, prompt: Some(tr("Use this herdr-core", &[]).into()) });
         cx.spawn_in(window, async move |this, cx| {
             let Ok(Ok(Some(paths))) = paths.await else { return };
             let Some(bin) = paths.into_iter().next() else { return };
             let _ = this.update_in(cx, |this, window, cx| {
                 if crate::core_bin::version(&bin).is_none() {
-                    this.state = State::Failed(format!("{} isn't herdr-core (it should answer `--version` with `hc …`)", bin.display()));
+                    this.state = State::Failed(tr("{0} isn't herdr-core (it should answer `--version` with `hc …`)", &[bin.display().to_string()]));
                     cx.notify();
                     return;
                 }
@@ -136,24 +141,24 @@ impl Setup {
     fn words(&self) -> (String, String, String) {
         match &self.need {
             Need::Install => (
-                "Herdr needs herdr-core".into(),
-                "herdr-core runs your terminals and agents, and keeps them alive when this window closes. Herdr couldn't find it on this computer.".into(),
-                format!("Install it for me puts it in {CORE_PLACE} (with hc), like its own installer: {CORE_INSTALL}"),
+                tr("Herdr needs herdr-core", &[]),
+                tr("herdr-core runs your terminals and agents, and keeps them alive when this window closes. Herdr couldn't find it on this computer.", &[]),
+                tr("Install it for me puts it in {0} (with hc), like its own installer: {1}", &[CORE_PLACE.into(), CORE_INSTALL.into()]),
             ),
             Need::Fix(Mismatch::TooOld { have, need }) => (
-                "Herdr needs a newer herdr-core".into(),
-                format!("Yours is {have}; this Herdr needs {need} or newer. Updating keeps your terminals running."),
-                "Or update it yourself: hc update".into(),
+                tr("Herdr needs a newer herdr-core", &[]),
+                tr("Yours is {0}; this Herdr needs {1} or newer. Updating keeps your terminals running.", &[have.to_string(), need.to_string()]),
+                tr("Or update it yourself: hc update", &[]),
             ),
             Need::Fix(Mismatch::Missing(methods)) => (
-                "Herdr needs a newer herdr-core".into(),
-                format!("Your herdr-core can't do everything this Herdr needs ({}). Updating keeps your terminals running.", methods.join(", ")),
-                "Or update it yourself: hc update".into(),
+                tr("Herdr needs a newer herdr-core", &[]),
+                tr("Your herdr-core can't do everything this Herdr needs ({0}). Updating keeps your terminals running.", &[methods.join(", ")]),
+                tr("Or update it yourself: hc update", &[]),
             ),
             Need::Fix(Mismatch::Newer { generation }) => (
-                "This Herdr is older than your herdr-core".into(),
-                format!("Your herdr-core speaks a newer protocol (generation {generation}) than this Herdr understands. Update Herdr; your terminals keep running."),
-                format!("Update Herdr: {APP_INSTALL}"),
+                tr("This Herdr is older than your herdr-core", &[]),
+                tr("Your herdr-core speaks a newer protocol (generation {0}) than this Herdr understands. Update Herdr; your terminals keep running.", &[generation.to_string()]),
+                tr("Update Herdr: {0}", &[APP_INSTALL.into()]),
             ),
         }
     }
@@ -172,7 +177,7 @@ fn button(id: &'static str, label: &'static str, primary: bool) -> Stateful<Div>
         .font_weight(FontWeight::SEMIBOLD)
         .when(primary, |d| d.bg(c("accent")).text_color(c("accent_foreground")).hover(|s| s.opacity(0.9)))
         .when(!primary, |d| d.border_1().border_color(c("border")).text_color(c("foreground")).hover(|s| s.bg(c("raised"))))
-        .child(label)
+        .child(tr(label, &[]))
 }
 
 impl Render for Setup {
@@ -221,7 +226,7 @@ impl Render for Setup {
                     .child(div().text_size(px(12.5)).line_height(px(19.0)).text_color(c("dim")).child(foot))
                     .child(match &self.state {
                         State::Ready => div(),
-                        State::Busy(what) => div().text_size(px(13.0)).text_color(c("accent")).child(*what),
+                        State::Busy(what) => div().text_size(px(13.0)).text_color(c("accent")).child(tr(what, &[])),
                         State::Failed(e) => div().text_size(px(13.0)).text_color(c("blocked")).child(e.clone()),
                     }),
             )

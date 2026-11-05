@@ -5,7 +5,7 @@
 
 import { div, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { agents, run, shared, setShared, placement } from "herdr";
+import { tr, agents, run, shared, setShared, placement } from "herdr";
 import { C, ASSETS, unit, root, button, label, sfx, own } from "./kit.js";
 
 const TIPS = [
@@ -41,24 +41,24 @@ export default class Clippy {
     const right = placement()?.edge !== "left";
     let balloon = null;
     if (a) {
-      const name = a.program?.name ?? a.app ?? "Your agent";
+      const name = a.program?.name ?? a.app ?? tr("Your agent");
       const where = `'${a.space_name} \\ ${a.tab_name}'`;
       const text =
         a.status === "blocked"
-          ? `It looks like ${name} in\n${where} is waiting for you.\n\nWould you like help?`
-          : `It looks like ${name} finished\nin ${where}.\n\nWant to see what it did?`;
+          ? tr("It looks like {0} in\n{1} is waiting for you.\n\nWould you like help?", [String(name), String(where)])
+          : tr("It looks like {0} finished\nin {1}.\n\nWant to see what it did?", [String(name), String(where)]);
       balloon = this.balloon(u, text, [
-        ["Take me there", () => {
+        [tr("Take me there"), () => {
           run("agent.focus", { terminal: a.address });
           this.dismissed.add(`${a.address}:${a.status}`);
         }],
-        ["Not now", () => this.dismissed.add(`${a.address}:${a.status}`)],
+        [tr("Not now"), () => this.dismissed.add(`${a.address}:${a.status}`)],
       ]);
     } else if (this.tip !== null) {
-      balloon = this.balloon(u, TIPS[this.tip % TIPS.length], [
-        ["Next tip", () => (this.tip = (this.tip + 1) % TIPS.length)],
-        ["Close", () => (this.tip = null)],
-        ["Hide me", () => setShared("win98.clippy", "off")],
+      balloon = this.balloon(u, tr(TIPS[this.tip % TIPS.length]), [
+        [tr("Next tip"), () => (this.tip = (this.tip + 1) % TIPS.length)],
+        [tr("Close"), () => (this.tip = null)],
+        [tr("Hide me"), () => setShared("win98.clippy", "off")],
       ]);
     }
     // Clean the dismissed list once their agents moved on.

@@ -893,6 +893,11 @@ fn module(inst: Instance, copy: u64) -> HostModule {
     COMMANDS.with(|c| c.borrow_mut().push((copy, inst.name.clone(), cmd_tx)));
     HostModule::new("herdr")
         .declarations(DECLARATIONS)
+        .function("tr", |a| {
+            let values = a.get(1).map(from_host).and_then(|v| v.as_array().cloned()).unwrap_or_default();
+            let values: Vec<String> = values.iter().map(|v| v.as_str().map(str::to_owned).unwrap_or_else(|| v.to_string())).collect();
+            Ok(crate::i18n::tr(a.string(0)?, &values).into())
+        })
         .async_function("exec", |a| {
             let command = a.string(0)?.to_owned();
             Ok(exec_future(command, strings(a.get(1)), opt_str(a.get(2), "cwd"), opt_str(a.get(2), "on")))

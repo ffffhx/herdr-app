@@ -14,7 +14,7 @@
 
 import { div, svg, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import {
+import { tr,
   props, closeOverlay, run, shared, setShared, terminals, spaces, agents, updates, hc, layout, openOverlay, home, settings,
 } from "herdr";
 import {
@@ -125,10 +125,10 @@ export default class Dialog {
             .text_size(u(32))
             .line_height(`${u(40)}px`)
             .text_color("#ff9c00")
-            .child("It's now safe to turn off")
-            .child("your computer."),
+            .child(tr("It's now safe to turn off"))
+            .child(tr("your computer.")),
         );
-    const msg = this.p.mode === "shutdown" || this.stage === 0 ? "Herdr is shutting down..." : "Starting Herdr 98...";
+    const msg = this.p.mode === "shutdown" || this.stage === 0 ? tr("Herdr is shutting down...") : tr("Starting Herdr 98...");
     return div()
       .size_full()
       .relative()
@@ -316,8 +316,8 @@ export default class Dialog {
   }
 
   frame(u, title, body, o = {}) {
-    const controls = o.help === false ? [] : [["help", () => {}, "Help"]];
-    controls.push(["close", () => this.close(), "Close"]);
+    const controls = o.help === false ? [] : [["help", () => {}, tr("Help")]];
+    controls.push(["close", () => this.close(), tr("Close")]);
     return win(u, {
       id: "dlg",
       title,
@@ -335,13 +335,13 @@ export default class Dialog {
     const chips = this.machines.length
       ? v_flex()
           .gap(u(4))
-          .child(label("Computer:"))
+          .child(label(tr("Computer:")))
           .child(
             h_flex()
               .gap(u(10))
               .flex_wrap()
               .children([null, ...this.machines.map((m) => m.name)].map((m, i) =>
-                this.radio(u, `m${i}`, m ?? "This computer", this.machine === m, () => (this.machine = m)),
+                this.radio(u, `m${i}`, m ?? tr("This computer"), this.machine === m, () => (this.machine = m)),
               )),
           )
       : null;
@@ -356,12 +356,12 @@ export default class Dialog {
           .child(v_flex().flex_1().gap(u(8)).child(v_flex().children(lines(p.text))).child(this.input(u, this.text))),
       )
       .when(Boolean(chips), (el) => el.child(div().pl(u(44)).child(chips)))
-      .child(this.buttons(u, [this.btn(u, "ok", "OK", () => this.ok(), { default: true }), this.btn(u, "cancel", "Cancel", () => this.close())], "end"));
+      .child(this.buttons(u, [this.btn(u, "ok", tr("OK"), () => this.ok(), { default: true }), this.btn(u, "cancel", tr("Cancel"), () => this.close())], "end"));
   }
 
   renderConfirm(u) {
     const p = this.p;
-    const bs = p.buttons ?? [{ label: "OK", default: true }];
+    const bs = p.buttons ?? [{ label: tr("OK"), default: true }];
     return v_flex()
       .p(u(12))
       .gap(u(14))
@@ -394,13 +394,13 @@ export default class Dialog {
           .gap(u(12))
           .items_start()
           .child(icon(u, "run", 32))
-          .child(v_flex().flex_1().children(lines("Type the name of a program, and Herdr will\nopen it for you in a new window."))),
+          .child(v_flex().flex_1().children(lines(tr("Type the name of a program, and Herdr will\nopen it for you in a new window.")))),
       )
       .child(
         h_flex()
           .gap(u(8))
           .items_center()
-          .child(div().w(u(32)).child(label("&Open:")))
+          .child(div().w(u(32)).child(label(tr("&Open:"))))
           .child(
             h_flex()
               .flex_1()
@@ -415,15 +415,15 @@ export default class Dialog {
       )
       .child(
         this.buttons(u, [
-          this.btn(u, "ok", "OK", () => this.ok(), { default: true }),
-          this.btn(u, "cancel", "Cancel", () => this.close()),
-          this.btn(u, "browse", "&Browse...", null, { disabled: true }),
+          this.btn(u, "ok", tr("OK"), () => this.ok(), { default: true }),
+          this.btn(u, "cancel", tr("Cancel"), () => this.close()),
+          this.btn(u, "browse", tr("&Browse..."), null, { disabled: true }),
         ], "end"),
       );
   }
 
   renderShutdown(u) {
-    const opts = ["&Stand by", "Sh&ut down", "&Restart", "Restart in &DOS mode"];
+    const opts = [tr("&Stand by"), tr("Sh&ut down"), tr("&Restart"), tr("Restart in &DOS mode")];
     return v_flex()
       .p(u(10))
       .gap(u(12))
@@ -435,15 +435,15 @@ export default class Dialog {
           .child(
             v_flex()
               .gap(u(8))
-              .child("What do you want the computer to do?")
+              .child(tr("What do you want the computer to do?"))
               .children(opts.map((o, i) => this.radio(u, `sd${i}`, o, this.choice === i, () => (this.choice = i)))),
           ),
       )
       .child(
         this.buttons(u, [
-          this.btn(u, "ok", "OK", () => this.ok(), { default: true }),
-          this.btn(u, "cancel", "Cancel", () => this.close()),
-          this.btn(u, "help", "&Help", () => run("app.help", {})),
+          this.btn(u, "ok", tr("OK"), () => this.ok(), { default: true }),
+          this.btn(u, "cancel", tr("Cancel"), () => this.close()),
+          this.btn(u, "help", tr("&Help"), () => run("app.help", {})),
         ]),
       );
   }
@@ -452,8 +452,8 @@ export default class Dialog {
     return v_flex()
       .p(u(12))
       .gap(u(14))
-      .child(h_flex().gap(u(14)).items_center().child(icon(u, "logoff", 32)).child("Are you sure you want to log off?"))
-      .child(this.buttons(u, [this.btn(u, "yes", "&Yes", () => this.ok(), { default: true }), this.btn(u, "no", "&No", () => this.close())]));
+      .child(h_flex().gap(u(14)).items_center().child(icon(u, "logoff", 32)).child(tr("Are you sure you want to log off?")))
+      .child(this.buttons(u, [this.btn(u, "yes", tr("&Yes"), () => this.ok(), { default: true }), this.btn(u, "no", tr("&No"), () => this.close())]));
   }
 
   renderAbout(u) {
@@ -474,22 +474,22 @@ export default class Dialog {
               .flex_1()
               .gap(u(2))
               .child("Herdr 98")
-              .child(`Version ${up?.app?.version ?? "4.10.1998"} Second Edition`)
+              .child(tr("Version {0} Second Edition", [String(up?.app?.version ?? "4.10.1998")]))
               .child("Copyright \u00a9 1981-2026 The Herd Corp.")
               .child(div().h(u(6)))
-              .child("This product is licensed to:")
+              .child(tr("This product is licensed to:"))
               .child(div().pl(u(12)).child(userName()))
-              .child(div().pl(u(12)).child("Personal Use Edition"))
+              .child(div().pl(u(12)).child(tr("Personal Use Edition")))
               .child(div().h(u(6)))
               .child(etch(u))
               .child(div().h(u(4)))
-              .child(`Terminals running:  ${n}`)
-              .child(`Agents at work:  ${a}`)
+              .child(tr("Terminals running:  {0}", [String(n)]))
+              .child(tr("Agents at work:  {0}", [String(a)]))
               .child(`herdr-core:  ${up?.core?.version ?? "?"}`)
-              .child("Physical memory available to agents:  64.0 MB RAM"),
+              .child(tr("Physical memory available to agents:  64.0 MB RAM")),
           ),
       )
-      .child(this.buttons(u, [this.btn(u, "ok", "OK", () => this.close(), { default: true })], "end"));
+      .child(this.buttons(u, [this.btn(u, "ok", tr("OK"), () => this.close(), { default: true })], "end"));
   }
 
   renderTaskman(u) {
@@ -517,7 +517,7 @@ export default class Dialog {
               cx.notify();
             })
             .child(programIcon(u, t.program, 16))
-            .child(div().flex_1().truncate().child(`${t.name}${t.status ? ` (${t.status})` : ""}`))
+            .child(div().flex_1().truncate().child(`${t.name}${t.status ? ` (${tr(t.status)})` : ""}`))
             .child(div().text_color(i === this.sel ? C.selectText : C.gray).child(t.address)),
         ),
       );
@@ -527,22 +527,22 @@ export default class Dialog {
       .child(field(u, list, { pad: [1, 1] }))
       .child(
         v_flex()
-          .children(lines("WARNING: Pressing CTRL+ALT+DEL again will restart your\ncomputer. You will lose unsaved information in all\nprograms that are running.")),
+          .children(lines(tr("WARNING: Pressing CTRL+ALT+DEL again will restart your\ncomputer. You will lose unsaved information in all\nprograms that are running."))),
       )
       .child(
         this.buttons(u, [
-          this.btn(u, "end", "&End Task", () => this.endTask(), { default: true }),
-          this.btn(u, "sd", "Sh&ut Down", () => {
+          this.btn(u, "end", tr("&End Task"), () => this.endTask(), { default: true }),
+          this.btn(u, "sd", tr("Sh&ut Down"), () => {
             this.close();
             openDialog("shutdown", {});
           }),
-          this.btn(u, "cancel", "Cancel", () => this.close()),
+          this.btn(u, "cancel", tr("Cancel"), () => this.close()),
         ]),
       );
   }
 
   renderDisplay(u) {
-    const tabs = ["Background", "Effects", "Settings"];
+    const tabs = [tr("Background"), tr("Effects"), tr("Settings")];
     const tabRow = h_flex()
       .items_end()
       .pl(u(4))
@@ -576,7 +576,7 @@ export default class Dialog {
         }),
       );
     const desktop = shared("win98.desktop") ?? "#008080";
-    const colors = [["(None)", "#008080"], ["Black", "#000000"], ["Navy", "#000080"], ["Plum", "#5c3566"], ["Forest", "#004000"], ["Clouds", "clouds"]];
+    const colors = [["(None)", "#008080"], [tr("Black"), "#000000"], [tr("Navy"), "#000080"], [tr("Plum"), "#5c3566"], [tr("Forest"), "#004000"], [tr("Clouds"), "clouds"]];
     const scaleNow = scale();
     const page = [
       v_flex()
@@ -602,7 +602,7 @@ export default class Dialog {
                 ),
             ),
         )
-        .child(label("&Wallpaper:"))
+        .child(label(tr("&Wallpaper:")))
         .child(
           field(
             u,
@@ -624,18 +624,18 @@ export default class Dialog {
       v_flex()
         .gap(u(10))
         .p(u(6))
-        .child(this.check(u, "snd", "Play &sounds (startup, dialogs, games)", shared("win98.mute") !== true, () => setShared("win98.mute", shared("win98.mute") !== true)))
-        .child(this.check(u, "clippy", "Show the &Office Assistant", shared("win98.clippy") !== "off", () => setShared("win98.clippy", shared("win98.clippy") === "off" ? "on" : "off")))
+        .child(this.check(u, "snd", tr("Play &sounds (startup, dialogs, games)"), shared("win98.mute") !== true, () => setShared("win98.mute", shared("win98.mute") !== true)))
+        .child(this.check(u, "clippy", tr("Show the &Office Assistant"), shared("win98.clippy") !== "off", () => setShared("win98.clippy", shared("win98.clippy") === "off" ? "on" : "off")))
         .child(etch(u))
-        .child(v_flex().text_color(C.gray).children(lines("Sounds also follow Herdr's own setting\n(Control Panel > Alerts)."))),
+        .child(v_flex().text_color(C.gray).children(lines(tr("Sounds also follow Herdr's own setting\n(Control Panel > Alerts).")))),
       v_flex()
         .gap(u(10))
         .p(u(6))
-        .child(label("Font size:"))
-        .child(this.radio(u, "s1", "&Small Fonts (pixel perfect)", scaleNow === 1, () => setShared("win98.scale", 1)))
-        .child(this.radio(u, "s2", "&Large Fonts (every pixel doubled)", scaleNow === 2, () => setShared("win98.scale", 2)))
+        .child(label(tr("Font size:")))
+        .child(this.radio(u, "s1", tr("&Small Fonts (pixel perfect)"), scaleNow === 1, () => setShared("win98.scale", 1)))
+        .child(this.radio(u, "s2", tr("&Large Fonts (every pixel doubled)"), scaleNow === 2, () => setShared("win98.scale", 2)))
         .child(etch(u))
-        .child(v_flex().text_color(C.gray).children(lines(`Herdr's zoom is ${settings()?.zoom ?? 1}x; Herdr 98 draws whole\npixels at any zoom.`))),
+        .child(v_flex().text_color(C.gray).children(lines(tr("Herdr's zoom is {0}x; Herdr 98 draws whole\npixels at any zoom.", [String(settings()?.zoom ?? 1)])))),
     ][this.page];
     return v_flex()
       .p(u(8))
@@ -645,9 +645,9 @@ export default class Dialog {
       .child(div().h(u(10)))
       .child(
         this.buttons(u, [
-          this.btn(u, "ok", "OK", () => this.close(), { default: true }),
-          this.btn(u, "cancel", "Cancel", () => this.close()),
-          this.btn(u, "apply", "&Apply", null, { disabled: true }),
+          this.btn(u, "ok", tr("OK"), () => this.close(), { default: true }),
+          this.btn(u, "cancel", tr("Cancel"), () => this.close()),
+          this.btn(u, "apply", tr("&Apply"), null, { disabled: true }),
         ], "end"),
       );
   }
@@ -666,7 +666,7 @@ export default class Dialog {
     for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
     const cal = v_flex()
       .bg(C.white)
-      .child(h_flex().bg(C.gray).text_color(C.white).children(["S", "M", "T", "W", "T", "F", "S"].map((x) => div().w(u(22)).flex().justify_center().child(x))))
+      .child(h_flex().bg(C.gray).text_color(C.white).children((settings().language === "zh-CN" ? ["日", "一", "二", "三", "四", "五", "六"] : ["S", "M", "T", "W", "T", "F", "S"]).map((x) => div().w(u(22)).flex().justify_center().child(x))))
       .children(
         weeks.map((w) =>
           h_flex().children(
@@ -683,8 +683,8 @@ export default class Dialog {
           ),
         ),
       );
-    const month = d.toLocaleDateString("en-US", { month: "long" });
-    const time = d.toLocaleTimeString("en-US");
+    const month = d.toLocaleDateString(settings().language === "zh-CN" ? "zh-CN" : "en-US", { month: "long" });
+    const time = d.toLocaleTimeString(settings().language === "zh-CN" ? "zh-CN" : "en-US");
     return v_flex()
       .p(u(10))
       .gap(u(10))
@@ -700,8 +700,8 @@ export default class Dialog {
           )
           .child(v_flex().gap(u(6)).items_center().child(clockFace(u, d)).child(field(u, div().w(u(90)).flex().justify_center().child(time)))),
       )
-      .child(div().child(`Time zone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`))
-      .child(this.buttons(u, [this.btn(u, "ok", "OK", () => this.close(), { default: true }), this.btn(u, "cancel", "Cancel", () => this.close())], "end"));
+      .child(div().child(tr("Time zone: {0}", [String(Intl.DateTimeFormat().resolvedOptions().timeZone)])))
+      .child(this.buttons(u, [this.btn(u, "ok", tr("OK"), () => this.close(), { default: true }), this.btn(u, "cancel", tr("Cancel"), () => this.close())], "end"));
   }
 
   explorer(u, items, status) {
@@ -743,11 +743,11 @@ export default class Dialog {
             .h(u(200))
             .id("ex-scroll")
             .overflow_y_scroll()
-            .child(items.length ? grid : div().p(u(10)).text_color(C.gray).child("This folder is empty.")),
+            .child(items.length ? grid : div().p(u(10)).text_color(C.gray).child(tr("This folder is empty."))),
           { pad: [0, 0] },
         ),
       )
-      .child(h_flex().pt(u(2)).gap(u(2)).child(well(u, div().child(status)).flex_1()).child(well(u, h_flex().gap(u(4)).child(icon(u, "computer", 16)).child("My Computer")).w(u(120))));
+      .child(h_flex().pt(u(2)).gap(u(2)).child(well(u, div().child(status)).flex_1()).child(well(u, h_flex().gap(u(4)).child(icon(u, "computer", 16)).child(tr("My Computer"))).w(u(120))));
   }
 
   renderMyComputer(u) {
@@ -757,31 +757,31 @@ export default class Dialog {
       icon: s.machine ? "netdrive" : "drive",
       act: { run: ["space.select", { id: s.id }] },
     }));
-    items.push({ label: "Control Panel", icon: "control", act: { run: ["app.settings", {}] } });
-    items.push({ label: "Printers", icon: "printer", act: { dialog: { kind: "message", title: "Printers", icon: "error", text: "There are no printers installed.\nPrinting a terminal is a choice, not a feature." } } });
-    return this.explorer(u, items, `${items.length} object(s)`);
+    items.push({ label: tr("Control Panel"), icon: "control", act: { run: ["app.settings", {}] } });
+    items.push({ label: tr("Printers"), icon: "printer", act: { dialog: { kind: "message", title: tr("Printers"), icon: "error", text: tr("There are no printers installed.\nPrinting a terminal is a choice, not a feature.") } } });
+    return this.explorer(u, items, tr("{0} object(s)", [items.length]));
   }
 
   renderNetwork(u) {
     const items = [
-      { label: "Entire Network", icon: "network", act: null },
-      { label: "This computer", icon: "computer", act: { dialog: { kind: "prompt", title: "New Space", text: "Type a name for the new space:", icon: "folder", command: { name: "space.new", args: { machine: "" } } } } },
+      { label: tr("Entire Network"), icon: "network", act: null },
+      { label: tr("This computer"), icon: "computer", act: { dialog: { kind: "prompt", title: tr("New Space"), text: tr("Type a name for the new space:"), icon: "folder", command: { name: "space.new", args: { machine: "" } } } } },
       ...this.machines.map((m) => ({
         label: m.name,
         icon: "computer",
-        act: { dialog: { kind: "prompt", title: `New Space on ${m.name}`, text: `Type a name for the new space on ${m.name}:`, icon: "netdrive", command: { name: "space.new", args: { machine: m.name } } } },
+        act: { dialog: { kind: "prompt", title: tr("New Space on {0}", [String(m.name)]), text: tr("Type a name for the new space on {0}:", [String(m.name)]), icon: "netdrive", command: { name: "space.new", args: { machine: m.name } } } },
       })),
     ];
-    return this.explorer(u, items, `${items.length} object(s)`);
+    return this.explorer(u, items, tr("{0} object(s)", [items.length]));
   }
 
   renderWelcome(u) {
     const items = [
-      { icon: "programs", title: "Begin an Agent", text: "Herdr runs your coding agents in windows,\nlike it's 1998 and the future at once.\n\nStart one from Start > Programs > Agents,\nor open the Run box and type its name.", go: "&Run...", act: { dialog: { kind: "run", value: "claude" } } },
-      { icon: "help", title: "Discover Herdr 98", text: "The taskbar is your tabs. The folders on\nthe desktop are your spaces. Each window\nis a pane: double-click its title bar to\nmaximize it, or use _ to minimize the tab.\n\nCtrl+Esc opens the Start menu.", go: "&Help", act: { run: ["app.help", {}] } },
-      { icon: "mines", title: "Play Mines", text: "Your agent is thinking.\nYou've earned a break.\n\nSolitaire is on the desktop too.", go: "&Play", act: { app: "mines" } },
-      { icon: "taskman", title: "Maintain Your Computer", text: "See every program Herdr runs, and end\nthe ones you don't need anymore.\n\nCtrl+Shift+Esc opens it anytime.", go: "&Open", act: { dialog: { kind: "taskman" } } },
-      { icon: "logoff", title: "Leave Herdr 98", text: "Miss the future? Log Off takes you\nback to Herdr's normal layout.\nYour terminals keep running.", go: "&Log Off", act: { dialog: { kind: "logoff" } } },
+      { icon: "programs", title: tr("Begin an Agent"), text: tr("Herdr runs your coding agents in windows,\nlike it's 1998 and the future at once.\n\nStart one from Start > Programs > Agents,\nor open the Run box and type its name."), go: tr("&Run..."), act: { dialog: { kind: "run", value: "claude" } } },
+      { icon: "help", title: tr("Discover Herdr 98"), text: tr("The taskbar is your tabs. The folders on\nthe desktop are your spaces. Each window\nis a pane: double-click its title bar to\nmaximize it, or use _ to minimize the tab.\n\nCtrl+Esc opens the Start menu."), go: tr("&Help"), act: { run: ["app.help", {}] } },
+      { icon: "mines", title: tr("Play Mines"), text: tr("Your agent is thinking.\nYou've earned a break.\n\nSolitaire is on the desktop too."), go: tr("&Play"), act: { app: "mines" } },
+      { icon: "taskman", title: tr("Maintain Your Computer"), text: tr("See every program Herdr runs, and end\nthe ones you don't need anymore.\n\nCtrl+Shift+Esc opens it anytime."), go: tr("&Open"), act: { dialog: { kind: "taskman" } } },
+      { icon: "logoff", title: tr("Leave Herdr 98"), text: tr("Miss the future? Log Off takes you\nback to Herdr's normal layout.\nYour terminals keep running."), go: tr("&Log Off"), act: { dialog: { kind: "logoff" } } },
     ];
     const it = items[this.sel] ?? items[0];
     const show = shared("win98.welcome") !== "off";
@@ -800,7 +800,7 @@ export default class Dialog {
               .items_end()
               .gap(u(6))
               .child(icon(u, "start", 32))
-              .child(div().text_size(u(22)).line_height(`${u(26)}px`).text_color(C.navy).child("Welcome to"))
+              .child(div().text_size(u(22)).line_height(`${u(26)}px`).text_color(C.navy).child(tr("Welcome to")))
               .child(div().text_size(u(22)).line_height(`${u(26)}px`).font_weight(700).text_color(C.text).child("Herdr"))
               .child(div().text_size(u(22)).line_height(`${u(26)}px`).text_color("#d07000").child("98")),
           ),
@@ -815,7 +815,7 @@ export default class Dialog {
               .p(u(8))
               .gap(u(2))
               .bg("#000080")
-              .child(div().pb(u(4)).text_color("#ffff80").font_weight(700).child("CONTENTS"))
+              .child(div().pb(u(4)).text_color("#ffff80").font_weight(700).child(tr("CONTENTS")))
               .children(
                 items.map((x, i) =>
                   h_flex()
@@ -859,8 +859,8 @@ export default class Dialog {
           .p(u(8))
           .justify_between()
           .items_center()
-          .child(this.check(u, "wl-show", "&Show this screen each time Herdr 98 starts", show, () => setShared("win98.welcome", show ? "off" : "on")))
-          .child(this.btn(u, "close", "&Close", () => this.close())),
+          .child(this.check(u, "wl-show", tr("&Show this screen each time Herdr 98 starts"), show, () => setShared("win98.welcome", show ? "off" : "on")))
+          .child(this.btn(u, "close", tr("&Close"), () => this.close())),
       );
   }
 
@@ -868,7 +868,7 @@ export default class Dialog {
     return v_flex()
       .child(this.explorer(u, [], "0 object(s)"))
       .child(div().h(u(8)))
-      .child(this.buttons(u, [this.btn(u, "empty", "&Empty Recycle Bin", () => sfx("recycle"), { w: 120 })], "end"));
+      .child(this.buttons(u, [this.btn(u, "empty", tr("&Empty Recycle Bin"), () => sfx("recycle"), { w: 120 })], "end"));
   }
 
   render(_cx) {
@@ -892,7 +892,7 @@ export default class Dialog {
         network: () => this.renderNetwork(u),
         bin: () => this.renderBin(u),
         welcome: () => this.renderWelcome(u),
-      }[this.kind]?.() ?? div().p(u(10)).child(`Unknown dialog ${this.kind}`);
+      }[this.kind]?.() ?? div().p(u(10)).child(tr("Unknown dialog {0}", [String(this.kind)]));
     const explorerish = ["mycomputer", "network", "bin"].includes(this.kind);
     const iconFor = { mycomputer: "computer", network: "network", bin: "bin", display: "display", run: "run", taskman: "taskman", datetime: "clock" }[this.kind];
     return root(
@@ -904,7 +904,7 @@ export default class Dialog {
         .w_full()
         .min_h(0),
     ).child(
-      this.frame(u, p.title ?? KIND_TITLE[this.kind] ?? "Herdr", body, {
+      this.frame(u, p.title ?? tr(KIND_TITLE[this.kind] ?? "Herdr"), body, {
         icon: iconFor ? icon(u, iconFor, 16) : null,
         help: !explorerish,
       }),

@@ -1,6 +1,6 @@
 import { div, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { shared, setShared, props, openOverlay, closeOverlay } from "herdr";
+import { tr, shared, setShared, props, openOverlay, closeOverlay } from "herdr";
 import { unit, scale, root, win, icon, own, button, label, bevel, well, apps, setApp, openMenu, openDialog, sfx } from "./kit.js";
 
 const W = 596, H = 355, CW = 71, CH = 96;
@@ -134,8 +134,8 @@ export default class Solitaire {
     if (cmd === "undo" && this.undo) { this.g = this.undo; this.undo = null; this.pick = this.drag = this.press = null; this.trails = []; this.stop(); this.won = false; this.begin(cx); }
     if (cmd === "options" || cmd === "deck") this.open(cmd);
     if (cmd === "exit") setApp("sol", null);
-    if (cmd === "help") openDialog("message", { title: "Solitaire Help", text: "Build each suit from Ace to King in the four foundations. Build the columns down in alternating colors. Only a King can fill an empty column. Click or drag cards to move them. Double-click a card to send it home." });
-    if (cmd === "about") openDialog("message", { title: "About Solitaire", text: "Solitaire\nHerdr 98\n\nKlondike. A little patience goes a long way." });
+    if (cmd === "help") openDialog("message", { title: tr("Solitaire Help"), text: tr("Build each suit from Ace to King in the four foundations. Build the columns down in alternating colors. Only a King can fill an empty column. Click or drag cards to move them. Double-click a card to send it home.") });
+    if (cmd === "about") openDialog("message", { title: tr("About Solitaire"), text: tr("Solitaire\nHerdr 98\n\nKlondike. A little patience goes a long way.") });
     if (cmd === "autowin") { this.g.home = Array.from({ length: 4 }, (_, s) => Array.from({ length: 13 }, (_, r) => s * 13 + r)); this.g.stock = []; this.g.waste = []; this.g.tab = Array.from({ length: 7 }, () => []); this.victory(cx); }
   }
   card(u, c, up = true, selected = false) {
@@ -147,21 +147,21 @@ export default class Solitaire {
     const choice = (text, selected, fn) => own(div().id(`sol-opt-${text}`).py(u(5)).child(`${selected ? "◉" : "○"}  ${text}`).on_click(fn));
     let body = v_flex().p(u(15)).gap(u(4));
     if (kind === "options") {
-      body.child(div().font_weight(700).child("Draw"));
-      for (const n of [1, 3]) body.child(choice(n === 1 ? "Draw One" : "Draw Three", this.draw === n, (_e, cx) => { this.draw = n; cx.notify(); }));
-      body.child(div().mt(u(8)).font_weight(700).child("Scoring"));
-      for (const v of [true, false]) body.child(choice(v ? "Standard" : "None", this.scoring === v, (_e, cx) => { this.scoring = v; cx.notify(); }));
+      body.child(div().font_weight(700).child(tr("Draw")));
+      for (const n of [1, 3]) body.child(choice(n === 1 ? tr("Draw One") : tr("Draw Three"), this.draw === n, (_e, cx) => { this.draw = n; cx.notify(); }));
+      body.child(div().mt(u(8)).font_weight(700).child(tr("Scoring")));
+      for (const v of [true, false]) body.child(choice(v ? tr("Standard") : tr("None"), this.scoring === v, (_e, cx) => { this.scoring = v; cx.notify(); }));
     } else {
-      body.child(div().child("Select a card back:"));
+      body.child(div().child(tr("Select a card back:")));
       body.child(h_flex().gap(u(14)).children([0, 1].map(n => {
         const old = this.deck; this.deck = n; const card = this.card(u, 0, false); this.deck = old;
         return own(div().id(`sol-deck-${n}`).p(u(3)).border(u(2)).border_color(this.deck === n ? "#000080" : "#c0c0c0").child(card).on_click((_e, cx) => { this.deck = n; cx.notify(); }));
       })));
     }
-    body.child(h_flex().mt(u(12)).gap(u(8)).justify_end().child(button(u, "sol-ok", "OK", () => {
+    body.child(h_flex().mt(u(12)).gap(u(8)).justify_end().child(button(u, "sol-ok", tr("OK"), () => {
       setShared("win98.sol.draw", this.draw); setShared("win98.sol.scoring", this.scoring); setShared("win98.sol.deck", this.deck); closeOverlay(p.overlay);
-    }, { w: 75, h: 23, default: true })).child(button(u, "sol-cancel", "Cancel", () => closeOverlay(p.overlay), { w: 75, h: 23 })));
-    return root(u, win(u, { id: "sol-dialog", title: kind === "options" ? "Options" : "Select Card Back", body, controls: [["close", () => closeOverlay(p.overlay)]], w: 336 }));
+    }, { w: 75, h: 23, default: true })).child(button(u, "sol-cancel", tr("Cancel"), () => closeOverlay(p.overlay), { w: 75, h: 23 })));
+    return root(u, win(u, { id: "sol-dialog", title: kind === "options" ? tr("Options") : tr("Select Card Back"), body, controls: [["close", () => closeOverlay(p.overlay)]], w: 336 }));
   }
   render(cx) {
     const u = unit();
@@ -174,8 +174,8 @@ export default class Solitaire {
     if (apps().sol !== "open") { this.stop(); this.drag = this.press = null; return div(); }
     if (this.running && !this.won && !this.clock) this.begin(cx);
     const menu = own(h_flex().h(u(19)).items_center().gap(u(2)));
-    for (const name of ["Game", "Help"]) {
-      const entries = name === "Game" ? [ ["&Deal", "deal"], null, ["&Undo", "undo"], ["&Deck...", "deck"], ["&Options...", "options"], null, ["E&xit", "exit"] ] : [["&Contents", "help"], ["&About Solitaire...", "about"]];
+    for (const name of [tr("Game"), tr("Help")]) {
+      const entries = name === "Game" ? [ [tr("&Deal"), "deal"], null, [tr("&Undo"), "undo"], [tr("&Deck..."), "deck"], [tr("&Options..."), "options"], null, [tr("E&xit"), "exit"] ] : [[tr("&Contents"), "help"], [tr("&About Solitaire..."), "about"]];
       menu.child(bevel(u, this.menu === name && shared("win98.menu.owner") === "sol" ? "pressed" : "flat", label(`&${name}`), { pad: [1, 6] }).id(`sol-menu-${name}`).on_mouse_down("left", (e, cx) => {
         cx.stop_propagation(); this.menu = name;
         openMenu(entries.map(it => it ? { label: it[0], act: req(it[1]), disabled: it[1] === "undo" && !this.undo } : { sep: true }), { x: e.bounds.x, y: e.bounds.y + e.bounds.height }, { owner: "sol" }); cx.notify();
@@ -222,7 +222,7 @@ export default class Solitaire {
     }
     if (this.drag && this.press) this.cards(this.press.loc).forEach((c, i) => table.child(this.card(u, c).absolute().left(u(this.drag.x)).top(u(this.drag.y + i * 18))));
     for (const f of this.trails) table.child(this.card(u, f.c).absolute().left(u(f.x)).top(u(f.y)));
-    const status = own(h_flex().h(u(19)).gap(u(2)).child(well(u, div().child(this.won ? "You won!" : "")).flex_1()).child(well(u, div().child(`Score: ${this.scoring ? this.g.score : 0}`)).w(u(95))).child(well(u, div().child(`Time: ${this.seconds}`)).w(u(95))));
-    return root(u, win(u, { id: "sol", title: "Solitaire", icon: icon(u, "sol", 16), controls: [["min", () => setApp("sol", "min"), "Minimize"], ["close", () => setApp("sol", null), "Close"]], menu, body: table, status, w: 602 }));
+    const status = own(h_flex().h(u(19)).gap(u(2)).child(well(u, div().child(this.won ? tr("You won!") : "")).flex_1()).child(well(u, div().child(tr("Score: {0}", [String(this.scoring ? this.g.score : 0)]))).w(u(95))).child(well(u, div().child(tr("Time: {0}", [String(this.seconds)]))).w(u(95))));
+    return root(u, win(u, { id: "sol", title: tr("Solitaire"), icon: icon(u, "sol", 16), controls: [["min", () => setApp("sol", "min"), tr("Minimize")], ["close", () => setApp("sol", null), tr("Close")]], menu, body: table, status, w: 602 }));
   }
 }

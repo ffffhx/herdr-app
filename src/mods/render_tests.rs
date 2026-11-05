@@ -80,7 +80,7 @@ fn fixture(populated: bool, props: Value, update: Value) -> BTreeMap<String, Val
         ("layout".into(), serde_json::from_str(include_str!("../../defaults/layouts/main.json")).unwrap()),
         ("layouts".into(), json!(crate::window::shipped_layouts())),
         ("theme".into(), serde_json::to_value(&*crate::settings::theme()).unwrap()),
-        ("settings".into(), serde_json::to_value(crate::settings::Settings::default()).unwrap()),
+        ("settings".into(), serde_json::to_value(crate::settings::Settings { language: crate::i18n::Language::English, ..Default::default() }).unwrap()),
         ("themes".into(), json!([{"name":"graphite", "colors": &*crate::settings::theme()}])),  ("fonts".into(), json!(["Monospace", "Sans"])),
         ("updates".into(), update),
         ("telemetry".into(), json!({"enabled":true,"setting":true,"sends":true,"off_because":null,"endpoint":"https://invalid.example", "draft":{},"queued":[],"last_sent":null})),
@@ -108,6 +108,12 @@ fn fixture(populated: bool, props: Value, update: Value) -> BTreeMap<String, Val
 
 fn module(values: BTreeMap<String, Value>, calls: Rc<RefCell<Calls>>) -> HostModule {
     let mut module = HostModule::new("herdr");
+    let language = serde_json::from_value(values["settings"]["language"].clone()).unwrap();
+    module = module.function("tr", move |a| {
+        let values = a.get(1).map(from_host).and_then(|v| v.as_array().cloned()).unwrap_or_default();
+        let values: Vec<String> = values.iter().map(|v| v.as_str().map(str::to_owned).unwrap_or_else(|| v.to_string())).collect();
+        Ok(crate::i18n::translate(language, a.string(0)?, &values).into())
+    });
     for (name, value) in values {
         module = module.function(name, move |_| Ok(to_host(&value)));
     }
@@ -275,6 +281,39 @@ fn shipped_initial_descriptions(cx: &mut TestAppContext) {
         entries.len(),
         start.elapsed()
     );
+}
+
+#[gpui::test]
+fn chinese_shipped_descriptions(cx: &mut TestAppContext) {
+    cx.update(gpui_shell::init);
+    let staged = Staged::new();
+    for entry in staged.entries() {
+        for populated in [false, true] {
+            let mut values = fixture(populated, props(), updates("current", "current"));
+            values.get_mut("settings").unwrap()["language"] = json!("zh-CN");
+            let tree = describe_with_values(cx, &staged, &entry, values, None)
+                .unwrap_or_else(|e| panic!("Chinese {entry}: {e:#}"));
+            if entry == "frame/settings" {
+                assert!(tree.contains("界面语言"), "{tree}");
+            }
+            if entry == "mods/confirm" {
+                assert!(tree.contains("Fixture"), "user-provided title must stay literal: {tree}");
+            }
+        }
+    }
+    for section in ["look", "keyboard", "machines", "alerts", "updates", "privacy"] {
+        let mut p = props();
+        p["section"] = json!(section);
+        let mut values = fixture(true, p, updates("ready", "ready"));
+        values.get_mut("settings").unwrap()["language"] = json!("zh-CN");
+        values.get_mut("window").unwrap()["platform"] = json!("macos");
+        describe_with_values(cx, &staged, "frame/settings", values, None).unwrap();
+    }
+    for page in 1..=4 {
+        let mut values = fixture(true, props(), updates("current", "current"));
+        values.get_mut("settings").unwrap()["language"] = json!("zh-CN");
+        describe_with_values(cx, &staged, "frame/welcome", values, Some(&format!("this.page = {page};"))).unwrap();
+    }
 }
 
 #[gpui::test]

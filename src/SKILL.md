@@ -1,5 +1,10 @@
 # herdr-app: drive the person's window
 
+This fork defaults to Simplified Chinese. `settings.json` stores `language`
+(`zh-CN` or `en`), selectable in Settings > Look > Interface language.
+CLI commands, identifiers and JSON protocol fields stay in English. Use these
+stable identifiers when driving a Chinese window; do not translate user data.
+
 Herdr shows spaces, tabs and panes. herdr-core (`hc`) runs their terminals
 and keeps them alive when the window closes. Use `herdr-app` only to change
 what the person sees. For starting, reading, messaging, waiting on or cleaning

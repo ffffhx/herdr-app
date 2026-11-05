@@ -1,8 +1,9 @@
+import { english } from "./i18n-fixture";
 import { test, expect, spyOn } from "bun:test";
 import { readFile } from "node:fs/promises";
 
 const source = (await readFile(new URL("../defaults/mods/spaces/main.js", import.meta.url), "utf8"))
-  .replace(/^import .*;\n/gm, "").replace("export default class Spaces", "class Spaces").replace(/^export /gm, "");
+  .replace(/^import .*;\r?\n/gm, "").replace("export default class Spaces", "class Spaces").replace(/^export /gm, "");
 
 type Space = { id: string; folder: string; machine?: string | null };
 function harness(replies: unknown[] = [], storage = new Map<string, string>(), snapshot: Space[] = []) {
@@ -15,7 +16,8 @@ function harness(replies: unknown[] = [], storage = new Map<string, string>(), s
     if (String(method).startsWith("on_")) handlers[String(method)] = args.at(-1);
     return element;
   } });
-  const Spaces = new Function("View", "hc", "localStorage", "spaces", "panes", "run", "v_flex", "h_flex", "div", "svg", "shared", "machines", `${source}; return Spaces;`)(
+  const Spaces = new Function("tr", "View", "hc", "localStorage", "spaces", "panes", "run", "v_flex", "h_flex", "div", "svg", "shared", "machines", `${source}; return Spaces;`)(
+    english,
     class {},
     async (args: string[]) => {
       calls.push(args);
