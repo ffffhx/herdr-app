@@ -804,7 +804,7 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
 
 In a space, the + menu's **Unattended agents** opens the `unattended` mod. It starts a new
 interactive Codex or Claude Code session with automatic approval enabled. It
-does not take over existing sessions or change global agent permissions.
+does not change global agent permissions.
 The task machine needs Node.js 20+ and a signed-in agent CLI. Local and SSH
 spaces use that machine's existing agent configuration and credentials.
 
@@ -823,6 +823,27 @@ Open questions receive instructions to use existing preferences and continue.
 Required secrets or form data without a supplied value, URL authentication,
 device hand-back confirmations and unknown protocol requests remain pending.
 No credential values or completed user hand-backs are invented.
+
+For an existing Codex or Claude Code terminal, its Herdr right-click menu offers
+**Switch to unattended**. Select the matching saved conversation (IDs and titles
+are shown; Herdr never guesses the newest session in a shared folder), edit the
+continuation task or exceptions, and choose **Switch and continue with automatic
+approval**. This ends the original terminal and resumes the same provider session
+in an interactive unattended terminal; it is a process handoff, not a live change
+to the original TUI. Saved context and restrictions are retained. Working turns
+must finish first; idle, done and blocked terminals can switch. The helper checks
+saved history and the original terminal's identity before stopping it, and refuses
+to resume if that terminal does not stop. If startup fails, history remains saved
+and the error is shown in the new terminal. The original terminal's scrollback
+remains available. Do not run another writer on the selected conversation.
+
+The `unattended` mod also accepts props `{source:"t7", agent:"codex"|"claude",
+folder:"/original/cwd", space:"s1"}` to open the same switch form. On SSH spaces
+the source can be machine-qualified; discovery and handoff run on that machine.
+Per-conversation leases in `data/unattended/runs/session-locks` (or the SSH
+machine's `unattended-runs/session-locks`) prevent duplicate managed resumes.
+Normal exit removes a lease. After a crash it is retained: inspect its PID and
+the agent's processes before removing a stale lease, then retry the saved ID.
 
 The terminal stays interactive: ordinary input steers the agent. `/auto off`
 and `/auto on` change approval; `/except <keyword>` adds an exception;

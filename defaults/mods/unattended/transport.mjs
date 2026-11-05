@@ -25,11 +25,22 @@ export function childEnvironment(environment = process.env, platform = process.p
   return env;
 }
 
-export function startProcess(engine, { cwd, onMessage, onError, onExit, stderr, launch } = {}) {
-  const [command, args] = COMMANDS[engine] ?? [];
+export function commandFor(engine, resumeSessionId) {
+  const [command, defaults] = COMMANDS[engine] ?? [];
   if (!command) throw new Error(`Unsupported agent: ${engine}`);
+  const args = [...defaults];
+  if (engine === "claude" && resumeSessionId !== undefined) {
+    // UUIDs only: a Windows .cmd shim must never receive shell syntax.
+    if (typeof resumeSessionId !== "string" || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(resumeSessionId)) throw new Error("Invalid Claude session ID");
+    args.push("--resume", resumeSessionId);
+  }
+  return [command, args];
+}
+
+export function startProcess(engine, { cwd, resumeSessionId, onMessage, onError, onExit, stderr, launch } = {}) {
+  const [command, args] = commandFor(engine, resumeSessionId);
   // Windows npm installs expose .cmd shims. Only these constant, built-in
-  // command lines go through cmd; tasks, paths and model text travel on stdin.
+  // commands and validated UUIDs go through cmd; task text travels on stdin.
   const child = launch ? launch() : process.platform === "win32"
     ? spawn(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", `${command} ${args.join(" ")}`], { cwd, env: childEnvironment(), windowsHide: true, stdio: ["pipe", "pipe", "pipe"] })
     : spawn(command, args, { cwd, stdio: ["pipe", "pipe", "pipe"] });

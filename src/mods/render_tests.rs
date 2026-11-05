@@ -827,3 +827,18 @@ fn status_bar_shows_the_real_palette_key(cx: &mut TestAppContext) {
     assert!(tree.contains("commands"), "unbound hint still offers commands: {tree}");
     assert!(!tree.contains("Shift P"), "unbound hint must not invent a key: {tree}");
 }
+
+#[gpui::test]
+fn unattended_resume_shows_history_and_agent_menu_entry(cx: &mut TestAppContext) {
+    cx.update(gpui_shell::init);
+    let staged = Staged::new();
+    let tree = describe(cx, &staged, "mods/unattended", true, props(), updates("current", "current"), Some(
+        "this.sourceAddress = 't1'; this.sessions = [{id:'session-one',title:'Existing conversation',updated:1700000000000}]; this.selectedSession = 'session-one'; cx.notify();"
+    )).unwrap();
+    assert!(tree.contains("Existing conversation") && tree.contains("session-one"), "{tree}");
+    assert!(tree.contains("Switch and continue with automatic approval"), "{tree}");
+    let mut values = fixture(true, props(), updates("current", "current"));
+    values.insert("terminals".into(), json!([{"address":"t1","report":{"app":"codex"},"argv":["codex"],"cwd":"/fixture/project"}]));
+    let tree = describe_with_values(cx, &staged, "mods/menu", values, None).unwrap();
+    assert!(tree.contains("Switch to unattended"), "{tree}");
+}

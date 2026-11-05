@@ -2,6 +2,7 @@
 import { createInterface } from "node:readline";
 import assert from "node:assert/strict";
 const engine = process.argv[2];
+const resume = process.argv[3];
 const send = message => process.stdout.write(`${JSON.stringify(message)}\n`);
 const pending = new Map();
 let turn = 0;
@@ -42,14 +43,18 @@ createInterface({ input: process.stdin }).on("line", line => {
     if (engine === "codex") {
       if (m.method === "initialize") { send({ id: m.id, result: { userAgent: "fixture" } }); return; }
       if (m.method === "initialized") return;
-      if (m.method === "thread/start") { send({ id: m.id, result: { thread: { id: "thread-test" } } }); return; }
+      if (m.method === "thread/start" || m.method === "thread/resume") {
+        assert.equal(m.method, resume ? "thread/resume" : "thread/start");
+        if (resume) { assert.equal(m.params.threadId, resume); assert.equal(m.params.excludeTurns, true); }
+        send({ id: m.id, result: { thread: { id: "thread-test" } } }); return;
+      }
       if (m.method === "turn/start") { send({ id: m.id, result: { turn: { id: `turn-${turn + 1}` } } }); task(m.params.input[0].text); return; }
       assert(pending.has(m.id), `unexpected response ${m.id}`);
       assert.deepEqual(m.result, pending.get(m.id)); pending.delete(m.id);
     } else {
       if (m.type === "control_request" && m.request.subtype === "initialize") {
         send({ type: "control_response", response: { subtype: "success", request_id: m.request_id, response: {} } });
-        send({ type: "system", subtype: "init", session_id: "claude-test" }); return;
+        send({ type: "system", subtype: "init", session_id: resume || "claude-test" }); return;
       }
       if (m.type === "user") { task(m.message.content); return; }
       assert(pending.has(m.response.request_id));

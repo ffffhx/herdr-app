@@ -8,11 +8,15 @@ export class Codex {
     this.messages = new Map();
     this.activeTurn = null;
   }
-  async initialize(cwd) {
+  async initialize(cwd, resumeSessionId) {
     await this.rpc.call("initialize", { clientInfo: { name: "herdr_unattended", title: "Herdr unattended", version: "1.0.0" }, capabilities: { experimentalApi: true } });
     this.host.send({ method: "initialized", params: {} });
-    const result = await this.rpc.call("thread/start", { cwd, approvalPolicy: "on-request", approvalsReviewer: "user" });
+    const result = await this.rpc.call(resumeSessionId ? "thread/resume" : "thread/start", {
+      cwd, approvalPolicy: "on-request", approvalsReviewer: "user",
+      ...(resumeSessionId ? { threadId: resumeSessionId, excludeTurns: true } : {}),
+    });
     this.thread = result.thread.id;
+    if (resumeSessionId && this.thread !== resumeSessionId) throw new Error("Codex resumed a different conversation");
     this.host.session(this.thread);
   }
   async submit(text) {
@@ -88,7 +92,7 @@ export class Claude {
       this.host.send({ type: "control_request", request_id, request });
     });
   }
-  async initialize() { await this.control({ subtype: "initialize", hooks: {} }); }
+  async initialize(_cwd, resumeSessionId) { this.expectedSession = resumeSessionId; await this.control({ subtype: "initialize", hooks: {} }); }
   async submit(text) {
     this.finalText = "";
     this.host.state("working");
@@ -118,6 +122,7 @@ export class Claude {
     }
     if (message.type === "system" && message.subtype === "init") {
       this.session = message.session_id;
+      if (this.expectedSession && this.session !== this.expectedSession) throw new Error("Claude resumed a different conversation");
       this.host.session(this.session);
     }
     if (message.type === "assistant") {

@@ -1,6 +1,6 @@
 import { appHome, exec, readTextFile, writeTextFile } from "herdr";
 
-const FILES = ["runner.mjs", "adapters.mjs", "supervisor.mjs", "policy.mjs", "transport.mjs"];
+const FILES = ["runner.mjs", "adapters.mjs", "supervisor.mjs", "policy.mjs", "transport.mjs", "sessions.mjs"];
 // The host's direct exec does not resolve npm .cmd shims on Windows. Probe
 // through Node with the same Windows PATH treatment as the session transport.
 const probeCLI = `
@@ -32,13 +32,14 @@ async function checked(command, args, on) {
   return result.stdout.trim();
 }
 
-export async function prepare({ agent, task, cwd, exceptions, on }) {
+export async function prepare({ agent, task, cwd, exceptions, on, resumeSessionId, source }) {
   if (!["codex", "claude"].includes(agent) || !task.trim()) throw new Error("Choose an agent and enter a task");
   const version = await checked("node", ["--version"], on);
   if (Number(/^v(\d+)/.exec(version)?.[1] ?? 0) < 20) throw new Error("Node.js 20 or newer is required on the task machine");
   await checked("node", ["-e", probeCLI, agent], on);
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  const config = { agent, task, cwd: cwd || undefined, enabled: true, exceptions };
+  const config = { agent, task, cwd: cwd || undefined, enabled: true, exceptions,
+    ...(resumeSessionId ? { resumeSessionId, source } : {}) };
   let directory, runner;
   if (on) {
     directory = await checked("node", ["-e", remoteCreate, JSON.stringify({ id, config })], on);
@@ -53,7 +54,32 @@ export async function prepare({ agent, task, cwd, exceptions, on }) {
     await writeTextFile(`${directory}/task.json`, JSON.stringify(config), null);
     runner = `${appHome()}/mods/unattended/runner.mjs`;
   }
-  return { id, agent, task, directory, on: on ?? null, argv: ["node", runner, "--config", `${directory}/task.json`] };
+  return { id, agent, task, directory, on: on ?? null, ...(resumeSessionId ? { resumeSessionId, source } : {}), argv: ["node", runner, "--config", `${directory}/task.json`] };
+}
+
+export async function history({ agent, cwd, on }) {
+  // Stage just the read-only history helper on SSH machines. Existing runs keep
+  // their own runtime, and local history uses the installed mod directly.
+  let script = `${appHome()}/mods/unattended/sessions.mjs`;
+  if (on) {
+    const id = `history-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const dir = await checked("node", ["-e", remoteCreate, JSON.stringify({ id, config: {} })], on);
+    for (const file of ["sessions.mjs", "transport.mjs"]) {
+      const text = await readTextFile(`${appHome()}/mods/unattended/${file}`);
+      if (text === null) throw new Error(`Missing unattended runtime: ${file}`);
+      await checked("node", ["-e", remoteWrite, JSON.stringify({ dir, file, text })], on);
+    }
+    script = `${dir}/sessions.mjs`;
+  }
+  return JSON.parse(await checked("node", [script, JSON.stringify({ agent, cwd })], on));
+}
+
+export async function originalTerminal(address, on) {
+  // exec(on) runs on the task machine: do not pass the machine prefix twice.
+  const local = on && address.startsWith(`${on}/`) ? address.slice(on.length + 1) : address;
+  if (!/^t[0-9a-z]+$/.test(local)) throw new Error("Invalid original terminal");
+  const term = JSON.parse(await checked("hc", ["get", local, "--json"], on));
+  return { address: term.address, created_ms: term.created_ms };
 }
 
 export async function changePolicy(entry, enabled) {

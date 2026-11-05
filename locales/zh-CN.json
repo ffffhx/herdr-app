@@ -714,5 +714,14 @@
   "Open terminal": "打开终端",
   "Turn automatic approval off": "关闭自动审批",
   "Turn automatic approval on": "开启自动审批",
-  "Approval log": "审批记录"
+  "Approval log": "审批记录",
+  "Switch to unattended": "切换为无人值守",
+  "Continue an existing conversation": "接续已有对话",
+  "Original terminal": "原终端",
+  "Continue the existing task from this conversation, preserving its instructions and restrictions. Verify what is already complete before doing more work.": "接着这段对话继续完成原任务，保留已有指示和限制。先核实已经完成的工作，再继续执行。",
+  "Select the conversation used by the original terminal. Switching ends that terminal and resumes its saved history here. Wait until its current turn finishes; a pending approval can be resumed.": "选择原终端使用的对话。切换会结束原终端，保留已保存的历史并在新终端继续。请等当前一轮执行结束；等待审批的会话也可切换。",
+  "Loading conversations…": "正在读取对话…",
+  "Refresh conversations": "刷新对话列表",
+  "No saved conversations in this folder.": "此目录没有找到已保存的对话。",
+  "Switch and continue with automatic approval": "切换并自动审批继续"
 }

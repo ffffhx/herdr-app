@@ -15,7 +15,12 @@ The + menu's **Unattended agents** starts Codex or Claude Code with automatic
 approval and an approval journal. Open its panel with
 `herdr-app do tab.new --name "Unattended agents" --mod unattended`.
 It requires Node.js 20+ and an authenticated CLI on the task machine; it starts
-a separate interactive session, preserving existing sessions. The terminal's
+a separate interactive session. An existing Codex/Claude Code terminal's Herdr
+right-click menu offers **Switch to unattended**: select its saved conversation
+and continue with automatic approval. This ends the idle/done/blocked original
+terminal and resumes the same conversation with its history in a new terminal;
+working turns must finish first. It never guesses a session from its directory.
+The terminal's
 `/auto off`, `/auto on`, `/except <keyword>`, `/allow <request-id>`,
 `/deny <request-id>`, `/answer <id> <answer>`, `/exceptions`, `/status`, `/help`,
 `/interrupt` and `/quit` are runner commands, not `herdr-app do` commands.

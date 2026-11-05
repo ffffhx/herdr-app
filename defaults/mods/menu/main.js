@@ -32,7 +32,13 @@ function items(p, git) {
       const parent = term?.parent && all.find((t) => t.address === term.parent);
       // Once they go to the program, Shift+right-click still opens this menu.
       const toProgram = term?.labels?.["herdr.right-click"] === "program";
+      const app = term?.report?.app;
+      const agent = app === "codex" ? "codex" : ["claude", "claude-code"].includes(app) ? "claude" : null;
+      const pane = panes().find(p => p.pane === tg.pane);
+      const space = spaces().find(s => s.tabs?.some(t => t.id === pane?.tab));
+      const managed = term?.argv?.some(a => a.endsWith("/unattended/runner.mjs") || a.endsWith("\\unattended\\runner.mjs") || a.endsWith("/runner.mjs"));
       return [
+        ...(agent && !managed ? [[tr("Switch to unattended"), "tab.new", { space: space?.id, name: tr("Switch to unattended"), mod: "unattended", props: { space: space?.id, source: term.address, agent, folder: term.cwd } }]] : []),
         [tr("Split right"), "pane.split", { direction: "right", pane: tg.pane }],
         [tr("Split down"), "pane.split", { direction: "down", pane: tg.pane }],
         [tr("Zoom"), "pane.zoom", { pane: tg.pane }],

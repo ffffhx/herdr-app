@@ -67,9 +67,30 @@ test("missing agent prevents launch before a task directory is written", async (
   assert(!existsSync(join(home, "data")));
 });
 
+test("resuming records the exact conversation and source identity as data", async () => {
+  const { home, prepare } = harness();
+  const source = { address: "t9", created_ms: 1234 };
+  const entry = await prepare({ agent: "codex", task: "Continue", cwd: home, exceptions: ["publish"], resumeSessionId: "thread-one", source });
+  const config = JSON.parse(readFileSync(join(entry.directory, "task.json"), "utf8"));
+  assert.equal(config.resumeSessionId, "thread-one"); assert.deepEqual(config.source, source);
+  assert(!entry.argv.includes("thread-one")); assert.equal(entry.resumeSessionId, config.resumeSessionId);
+});
+
+test("remote source lookup strips only the selected machine prefix", async () => {
+  const calls = [];
+  const api = { exec: async (command, args, options) => {
+    calls.push({ command, args, options });
+    return { code: 0, stdout: JSON.stringify({ address: "t9", created_ms: 1234 }) };
+  } };
+  const { originalTerminal } = new Function(...Object.keys(api), `${source}; return {originalTerminal};`)(...Object.values(api));
+  assert.deepEqual(await originalTerminal("remote/t9", "remote"), { address: "t9", created_ms: 1234 });
+  assert.deepEqual(calls, [{ command: "hc", args: ["get", "t9", "--json"], options: { on: "remote" } }]);
+  await assert.rejects(originalTerminal("another/t9", "remote"), /Invalid original terminal/);
+});
+
 test("remote preparation copies a self-contained runtime and preserves literal Unicode task data", async () => {
   const { home, prepare, changePolicy } = harness({ remote: true });
-  const files = ["runner.mjs", "adapters.mjs", "supervisor.mjs", "policy.mjs", "transport.mjs"];
+  const files = ["runner.mjs", "adapters.mjs", "supervisor.mjs", "policy.mjs", "transport.mjs", "sessions.mjs"];
   mkdirSync(join(home, "mods", "unattended"), { recursive: true });
   for (const file of files) writeFileSync(join(home, "mods", "unattended", file), readFileSync(new URL(`../defaults/mods/unattended/${file}`, import.meta.url)));
   const task = "远程任务：\"hello\"; $(do not execute)\nsecond line";
