@@ -22,6 +22,14 @@
 
 这是独立维护的中文构建，不自动更新为上游官方版。更新时从本仓库 Releases 下载新版，退出旧窗口后替换程序文件。普通发布包不启用可选的 ProfilePilot 调试桥；需要它时参见 [开发构建说明](docs/profilepilot.md)。
 
+## 无人值守与自动审批
+
+点击标签栏 **+ → 无人值守 Agent**，选择 Codex 或 Claude Code，填写任务和工作目录，再点 **开启自动审批并开始**。任务机器需安装 Node.js 20+，并已登录对应的 Agent CLI。
+
+执行审批默认同意；选择题优先同意或推荐选项；“是否继续”会自动回复并续跑。例外框每行填写一个请求关键词，例如 `git push`，匹配后等待你处理。终端中可随时输入 `/auto off` 关闭、`/auto on` 开启，或 `/except 关键词` 添加例外。新会话使用原有 Agent 配置，不接管已有任务。
+
+进度显示在独立终端中，面板可查看审批次数和日志位置。关闭 Herdr 窗口后任务仍由 herdr-core 托管；任务机器需要保持运行。缺失凭据、认证页面和未识别的请求不会被假装完成，重复追问也会显示为未完成。完整说明见 [Agent 使用指南](defaults/AGENTS.md#unattended-agents)。
+
 ## Windows 构建
 
 本分支的 `localization` GitHub Actions 工作流构建经过优化的 Windows x64 程序并检查 JavaScript；`ci` 工作流在 Windows、macOS 和 Linux 运行 Rust 与渲染测试。成功后可从该次运行的 Artifacts 下载 `herdr-app-zh-CN-windows`，解压后运行 `herdr-app.exe`。这是自定义中文构建，不会自动用上游版本覆盖自身。运行终端仍需安装 herdr-core（`hc`）。

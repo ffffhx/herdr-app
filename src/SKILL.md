@@ -11,6 +11,18 @@ what the person sees. For starting, reading, messaging, waiting on or cleaning
 up agents and programs, read `hc --skill` and use hc.
 Your terminal address is `$HC_TERMINAL_ID`; it is not a pane ID.
 
+The + menu's **Unattended agents** starts Codex or Claude Code with automatic
+approval and an approval journal. Open its panel with
+`herdr-app do tab.new --name "Unattended agents" --mod unattended`.
+It requires Node.js 20+ and an authenticated CLI on the task machine; it starts
+a separate interactive session, preserving existing sessions. The terminal's
+`/auto off`, `/auto on`, `/except <keyword>`, `/allow <request-id>`,
+`/deny <request-id>`, `/answer <id> <answer>`, `/exceptions`, `/status`, `/help`,
+`/interrupt` and `/quit` are runner commands, not `herdr-app do` commands.
+See the installed AGENTS.md's Unattended agents section for behavior and files.
+Explicit exceptions and missing information remain pending; do not claim an
+unattended task finished just because an approval was delivered.
+
 ## Inspect before acting
 
 Development builds compiled with `--features profilepilot` can expose a local

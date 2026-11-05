@@ -62,6 +62,11 @@ The window arranges terminals. The core runs them.
 Closing the window leaves them running; closing a pane or tab ends its terminals.
 After a reboot or core crash, kept panes get fresh shells in their last folders, not their old programs.
 
+For long tasks, choose **+ → Unattended agents** to start Codex or Claude Code
+with automatic approval, exception keywords and a decision journal. The task
+machine needs Node.js 20+ and an authenticated CLI. The terminal stays interactive,
+and `/auto off` stops automatic replies. See the [unattended agent guide](defaults/AGENTS.md#unattended-agents).
+
 ## Work on another machine
 
 Add an SSH machine from Settings → Machines or the sidebar's Add machine action.

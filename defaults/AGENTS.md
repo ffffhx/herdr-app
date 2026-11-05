@@ -800,6 +800,54 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
   space's repo, branch, ahead/behind and uncommitted changes). Shipped mods
   are Herdr's; duplicate with `mod.clone` before editing.
 
+### Unattended agents
+
+The + menu's **Unattended agents** opens the `unattended` mod. It starts a new
+interactive Codex or Claude Code session with automatic approval enabled. It
+does not take over existing sessions or change global agent permissions.
+The task machine needs Node.js 20+ and a signed-in agent CLI. Local and SSH
+spaces use that machine's existing agent configuration and credentials.
+
+```sh
+herdr-app do tab.new --name "Unattended agents" --mod unattended
+```
+
+Enter the complete task, its working directory, and optional exception keywords
+(one literal per line, case-insensitive). Exceptions match the approval request,
+including tool names, commands and question text, and leave it pending. Keep
+task-specific restrictions in the task too; standing approval does not override
+them or a device's user takeover. The runner approves structured execution,
+file, requested-permission and MCP confirmation requests. Question tools choose
+Yes, then an explicitly recommended option, then the first offered option.
+Open questions receive instructions to use existing preferences and continue.
+Required secrets or form data without a supplied value, URL authentication and
+unknown protocol requests remain pending. No credential values are invented.
+
+The terminal stays interactive: ordinary input steers the agent. `/auto off`
+and `/auto on` change approval; `/except <keyword>` adds an exception;
+`/exceptions`, `/status` and `/help` inspect it. `/allow <request-id>` and
+`/deny <request-id>` settle a pending request once. `/answer <id> <text>` answers
+a question; for several questions use a JSON object keyed by Codex question ID
+or Claude question text. Other pending requests need their protocol response
+as JSON. `/interrupt` stops the current turn, and `/quit` ends this runner.
+
+Only assistant final continuation questions trigger an automatic follow-up.
+Tool output never does. Two identical unsuccessful follow-ups leave the task
+blocked, not complete. Interrupted and failed turns are not restarted. An
+approval response is logged before delivery and is never resent for a repeated
+request ID. Disabling automatic approval cannot undo an already delivered reply.
+
+The hc terminal owns the runner, so closing the panel or app window leaves it
+running; closing its terminal ends it. The task machine must remain awake.
+The panel lists the last 20 launches and can toggle approval or open a terminal.
+Its source is `mods/unattended/`; its process uses only Node built-ins, Codex
+app-server stdio or Claude's streaming control protocol, with no network listener.
+Per-run `task.json`, `control.json`, `state.json`, `started.json` and append-only
+`events.jsonl` live under `data/unattended/runs/<id>/`. Remote launches copy the
+runner into `~/.config/herdr-app/unattended-runs/<id>/` on that machine instead.
+The journal contains request details and automatic decisions; manually entered
+answers are redacted. Do not reuse a run directory for another process.
+
 ### Check before you finish
 
 ```sh
