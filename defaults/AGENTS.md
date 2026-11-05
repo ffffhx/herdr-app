@@ -802,7 +802,7 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
 
 ### Unattended agents
 
-The + menu's **Unattended agents** opens the `unattended` mod. It starts a new
+In a space, the + menu's **Unattended agents** opens the `unattended` mod. It starts a new
 interactive Codex or Claude Code session with automatic approval enabled. It
 does not take over existing sessions or change global agent permissions.
 The task machine needs Node.js 20+ and a signed-in agent CLI. Local and SSH
