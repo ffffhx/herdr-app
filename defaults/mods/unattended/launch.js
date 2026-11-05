@@ -16,7 +16,7 @@ if(win){
     seen.add(normalized);return true;
   }).join(';');
 }
-const r=spawnSync(win?(env.ComSpec||'cmd.exe'):agent,win?['/d','/s','/c',agent+' --version']:['--version'],{env,encoding:'utf8',windowsHide:true,timeout:15000});
+const r=spawnSync(win?(process.env.ComSpec||'cmd.exe'):agent,win?['/d','/s','/c',agent+' --version']:['--version'],{env,encoding:'utf8',windowsHide:true,timeout:15000});
 if(r.stdout)process.stdout.write(r.stdout);
 if(r.stderr)process.stderr.write(r.stderr);
 if(r.error)process.stderr.write(r.error.message);

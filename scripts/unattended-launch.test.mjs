@@ -50,6 +50,10 @@ test("CLI discovery resolves an installed launcher, including Windows npm shims 
   writeFileSync(file, win ? "@echo off\r\necho codex-test 1.0\r\n" : "#!/bin/sh\nprintf 'codex-test 1.0\\n'\n");
   if (!win) chmodSync(file, 0o755);
   const env = { ...process.env };
+  if (win) {
+    const shellKey = Object.keys(env).find(k => k.toLowerCase() === "comspec");
+    if (shellKey) { const shell = env[shellKey]; delete env[shellKey]; env.COMSPEC = shell; }
+  }
   const key = Object.keys(env).find(k => k.toLowerCase() === "path") ?? "PATH";
   env[key] = win ? `${Array.from({ length: 200 }, (_, i) => `${directory}/missing-${i}`).join(";")};${directory}` : directory;
   const result = spawnSync(process.execPath, ["-e", probeCLI, "codex"], { env, encoding: "utf8" });
