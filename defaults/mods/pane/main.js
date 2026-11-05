@@ -6,7 +6,7 @@
 
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { tr, panes, props, run, theme, home } from "herdr";
+import { tr, panes, terminals, props, run, theme, home } from "herdr";
 
 function icon(p, size, color) {
   if (!p?.icon) return null;
@@ -48,6 +48,7 @@ export default class Pane extends View {
     const pic = icon(p.program, 14, t.dim);
     const st = p.status;
     const pane = p.pane;
+    const unattended = terminals().some(t => t.address === (p.shown ?? p.terminal) && t.state !== "finished" && t.labels?.["herdr.unattended"] === "on");
     return h_flex()
       .id(`pane-head-${pane}`)
       .size_full()
@@ -62,6 +63,7 @@ export default class Pane extends View {
       .on_click(() => run("pane.focus", { pane }))
       .when(Boolean(pic), (el) => el.child(pic))
       .child(div().flex_none().truncate().max_w(260).font_medium().text_color(t.foreground).child(name))
+      .when(unattended, el => el.child(div().flex_none().px(5).py(2).rounded(4).bg(t.selected).text_color(t.foreground).text_size(10).child(tr("Unattended"))))
       .child(div().flex_1().truncate().text_color(t.dim).child(folder(p.cwd)))
       .when(st === "working", el => el.child(svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
       .when(st === "blocked", el => el.child(div().flex_none().px(6).h(18).flex().items_center().rounded(5).bg(t.blocked + "26").text_size(10.5).font_semibold().text_color(t.blocked).child(tr("Needs you"))))

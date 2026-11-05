@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import { existsSync } from "node:fs";
+import { websocket } from "./websocket.mjs";
 
 const COMMANDS = {
   codex: ["codex", ["app-server", "--listen", "stdio://"]],
@@ -25,10 +26,10 @@ export function childEnvironment(environment = process.env, platform = process.p
   return env;
 }
 
-export function commandFor(engine, resumeSessionId) {
+export function commandFor(engine, resumeSessionId, codexProxy = false) {
   const [command, defaults] = COMMANDS[engine] ?? [];
   if (!command) throw new Error(`Unsupported agent: ${engine}`);
-  const args = [...defaults];
+  const args = engine === "codex" && codexProxy ? ["app-server", "proxy"] : [...defaults];
   if (engine === "claude" && resumeSessionId !== undefined) {
     // UUIDs only: a Windows .cmd shim must never receive shell syntax.
     if (typeof resumeSessionId !== "string" || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(resumeSessionId)) throw new Error("Invalid Claude session ID");
@@ -37,8 +38,8 @@ export function commandFor(engine, resumeSessionId) {
   return [command, args];
 }
 
-export function startProcess(engine, { cwd, resumeSessionId, onMessage, onError, onExit, stderr, launch } = {}) {
-  const [command, args] = commandFor(engine, resumeSessionId);
+export function startProcess(engine, { cwd, resumeSessionId, codexProxy, onMessage, onError, onExit, stderr, launch } = {}) {
+  const [command, args] = commandFor(engine, resumeSessionId, codexProxy);
   // Windows npm installs expose .cmd shims. Only these constant, built-in
   // commands and validated UUIDs go through cmd; task text travels on stdin.
   const child = launch ? launch() : process.platform === "win32"
@@ -49,6 +50,7 @@ export function startProcess(engine, { cwd, resumeSessionId, onMessage, onError,
   child.on("close", (code, signal) => { ended = true; onExit?.(code, signal); });
   child.stdin.on("error", error => { if (!ended) onError?.(error); });
   child.stderr.on("data", data => stderr?.(data.toString()));
+  if (codexProxy) return { child, ...websocket(child.stdout, child.stdin, { message: onMessage, error: onError }) };
   const lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
   lines.on("line", line => {
     if (!line.trim()) return;

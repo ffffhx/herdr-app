@@ -826,25 +826,30 @@ No credential values or completed user hand-backs are invented.
 
 For an existing Codex or Claude Code terminal, the tab's right-click menu and
 the terminal pane's Herdr right-click menu both offer
-**Switch to unattended**. Select the matching saved conversation (IDs and titles
-are shown; Herdr never guesses the newest session in a shared folder), edit the
-continuation task or exceptions, and choose **Switch and continue with automatic
-approval**. This ends the original terminal and resumes the same provider session
-in an interactive unattended terminal; it is a process handoff, not a live change
-to the original TUI. Saved context and restrictions are retained. Working turns
-must finish first; idle, done and blocked terminals can switch. The helper checks
-saved history and the original terminal's identity before stopping it, and refuses
-to resume if that terminal does not stop. If startup fails, history remains saved
-and the error is shown in the new terminal. The original terminal's scrollback
-remains available. Do not run another writer on the selected conversation.
+**Switch to unattended**. A single confirmation explains that the selected agent
+will restart, interrupting its current work and continuing the same conversation
+with automatic approval. Choose **Agree and switch**; there is no agent, folder,
+conversation, task or exceptions form. The agent and working folder are inherited,
+and the continuation preserves the conversation's instructions and restrictions.
+The helper obtains Codex's exact ID from that terminal's native `/status` card, or
+Claude's live process session registry. It never guesses from a directory or title.
+For Codex sessions loaded in its shared daemon, the runner reconnects through the
+CLI's control-socket proxy and WebSocket protocol; it does not stop that daemon.
+Only after confirmation may it interrupt the source and clear its unsent composer.
+It verifies saved history and terminal identity before stopping the source, then
+resumes that exact provider session. If identity or history cannot be verified,
+the source is not killed. If restart fails, the error appears in the new terminal
+and saved history remains. Do not run another writer on the selected conversation.
+The tab and pane header show **Unattended** while automatic approval is enabled;
+turning it off or ending the runner removes the badge.
 For split tabs with several eligible agents, the tab menu lists their terminal
 addresses separately; it always targets the clicked tab, even when inactive.
 
 The `unattended` mod also accepts props `{source:"t7", agent:"codex"|"claude",
-folder:"/original/cwd", space:"s1"}` to open the same switch form. On SSH spaces
+sourcePane:"p1", space:"s1"}` to open the same confirmation. On SSH spaces
 the source can be machine-qualified; discovery and handoff run on that machine.
-Per-conversation leases in `data/unattended/runs/session-locks` (or the SSH
-machine's `unattended-runs/session-locks`) prevent duplicate managed resumes.
+Per-source and per-conversation leases in `data/unattended/runs/session-locks`
+(or the SSH machine's `unattended-runs/session-locks`) prevent duplicate handoffs.
 Normal exit removes a lease. After a crash it is retained: inspect its PID and
 the agent's processes before removing a stale lease, then retry the saved ID.
 
@@ -867,7 +872,8 @@ The hc terminal owns the runner, so closing the panel or app window leaves it
 running; closing its terminal ends it. The task machine must remain awake.
 The panel lists the last 20 launches and can toggle approval or open a terminal.
 Its source is `mods/unattended/`; its process uses only Node built-ins, Codex
-app-server stdio or Claude's streaming control protocol, with no network listener.
+app-server stdio (or its local daemon proxy) or Claude's streaming control protocol,
+with no network listener.
 Per-run `task.json`, `control.json`, `state.json`, `started.json` and append-only
 `events.jsonl` live under `data/unattended/runs/<id>/`. Remote launches copy the
 runner into `~/.config/herdr-app/unattended-runs/<id>/` on that machine instead.

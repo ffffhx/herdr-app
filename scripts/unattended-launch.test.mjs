@@ -83,14 +83,14 @@ test("remote source lookup strips only the selected machine prefix", async () =>
     return { code: 0, stdout: JSON.stringify({ address: "t9", created_ms: 1234 }) };
   } };
   const { originalTerminal } = new Function(...Object.keys(api), `${source}; return {originalTerminal};`)(...Object.values(api));
-  assert.deepEqual(await originalTerminal("remote/t9", "remote"), { address: "t9", created_ms: 1234 });
+  assert.deepEqual(await originalTerminal("remote/t9", "remote"), { address: "t9", created_ms: 1234, pid: undefined, cwd: undefined, app: undefined });
   assert.deepEqual(calls, [{ command: "hc", args: ["get", "t9", "--json"], options: { on: "remote" } }]);
   await assert.rejects(originalTerminal("another/t9", "remote"), /Invalid original terminal/);
 });
 
 test("remote preparation copies a self-contained runtime and preserves literal Unicode task data", async () => {
   const { home, prepare, changePolicy } = harness({ remote: true });
-  const files = ["runner.mjs", "adapters.mjs", "supervisor.mjs", "policy.mjs", "transport.mjs", "sessions.mjs"];
+  const files = ["runner.mjs", "adapters.mjs", "supervisor.mjs", "policy.mjs", "transport.mjs", "sessions.mjs", "binding.mjs", "websocket.mjs"];
   mkdirSync(join(home, "mods", "unattended"), { recursive: true });
   for (const file of files) writeFileSync(join(home, "mods", "unattended", file), readFileSync(new URL(`../defaults/mods/unattended/${file}`, import.meta.url)));
   const task = "远程任务：\"hello\"; $(do not execute)\nsecond line";

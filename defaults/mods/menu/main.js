@@ -27,7 +27,7 @@ function unattendedItem(term, pane, spaceId) {
   const managed = term?.argv?.some(a => a.endsWith("/unattended/runner.mjs") || a.endsWith("\\unattended\\runner.mjs") || a.endsWith("/runner.mjs"));
   if (!agent || managed) return null;
   const space = spaceId ?? spaces().find(s => s.tabs?.some(t => t.id === pane?.tab))?.id;
-  return [tr("Switch to unattended"), "tab.new", { space, name: tr("Switch to unattended"), mod: "unattended", props: { space, source: term.address, agent, folder: term.cwd } }];
+  return [tr("Switch to unattended"), "tab.new", { space, mod: "unattended", props: { space, source: term.address, sourceCreated: term.created_ms, sourcePane: pane?.pane, agent } }];
 }
 
 function items(p, git) {
@@ -127,6 +127,7 @@ export default class Menu extends View {
     if (!it) return;
     closeOverlay(props()?.overlay);
     if (it[1] === "worktree") openOverlay({ mod: "worktree", kind: "dialog", ...(it[2].action === "open" ? { width: 560, height: 480 } : { width: 440, height: 260 }), props: it[2] });
+    else if (it[2]?.mod === "unattended") openOverlay({ mod: "unattended", kind: "dialog", width: 490, height: 260, props: it[2].props });
     else run(it[1], it[2]);
   }
 

@@ -9,6 +9,7 @@ export class Codex {
     this.activeTurn = null;
   }
   async initialize(cwd, resumeSessionId) {
+    this.thread = resumeSessionId;
     await this.rpc.call("initialize", { clientInfo: { name: "herdr_unattended", title: "Herdr unattended", version: "1.0.0" }, capabilities: { experimentalApi: true } });
     this.host.send({ method: "initialized", params: {} });
     const result = await this.rpc.call(resumeSessionId ? "thread/resume" : "thread/start", {
@@ -33,6 +34,7 @@ export class Codex {
   async receive(message) {
     if (this.rpc.receive(message)) return;
     const p = message.params ?? {};
+    if (p.threadId && this.thread && p.threadId !== this.thread) return;
     if (message.id !== undefined && message.method) {
       this.host.request({
         id: message.id, kind: message.method, params: p,
@@ -45,7 +47,6 @@ export class Codex {
       });
       return;
     }
-    if (p.threadId && this.thread && p.threadId !== this.thread) return;
     switch (message.method) {
       case "turn/started":
         this.activeTurn = p.turn.id; this.messages.clear(); this.finalText = "";

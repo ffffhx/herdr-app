@@ -15,15 +15,30 @@ export function validateResume(agent, id) {
 }
 const sameFolder = (a, b) => process.platform === "win32" ? resolve(a).toLowerCase() === resolve(b).toLowerCase() : resolve(a) === resolve(b);
 
-async function codexRead(cwd, method, params) {
+async function codexRead(cwd, method, params, codexProxy = false) {
   let transport;
   const rpc = new Requests(message => transport.send(message));
-  transport = startProcess("codex", { cwd, onMessage: m => rpc.receive(m), onError: () => rpc.close(), onExit: () => rpc.close() });
+  transport = startProcess("codex", { cwd, codexProxy, onMessage: m => rpc.receive(m), onError: () => rpc.close(), onExit: () => rpc.close() });
   try {
     await rpc.call("initialize", { clientInfo: { name: "herdr_history", version: "1.0.0" } });
     transport.send({ method: "initialized", params: {} });
     return await rpc.call(method, params);
   } finally { rpc.close(); transport.close(); }
+}
+
+export async function codexUsesDaemon(cwd, id) {
+  // Newer Codex TUIs keep their writer in a shared daemon after disconnect.
+  // Reconnect through its supported stdio proxy instead of opening a competing
+  // writer or shutting down the daemon (which hosts other people's sessions).
+  try {
+    let cursor;
+    do {
+      const page = await codexRead(cwd, "thread/loaded/list", { cursor, limit: 100 }, true);
+      if (page.data.includes(id)) return true;
+      cursor = page.nextCursor;
+    } while (cursor);
+  } catch { /* Older CLIs and --no-daemon sessions use the private stdio server. */ }
+  return false;
 }
 
 export function claudeSessions(cwd, root = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude")) {
@@ -77,18 +92,26 @@ export async function hc(args) {
 
 export function sourceReady(current, source, agent) {
   if (!source || !/^t[0-9a-z]+$/.test(source.address) || current.address !== source.address || current.created_ms !== source.created_ms) throw new Error("Original terminal changed; open its menu again");
+  if ((source.pid && current.pid !== source.pid) || (source.turn !== undefined && current.turn !== source.turn) || (source.title !== undefined && current.title !== source.title)) throw new Error("Original agent changed after identification; open its menu again");
   if (current.state === "finished") return;
   const app = current.status?.app;
   if (!current.reported || (agent === "codex" ? app !== "codex" : !["claude", "claude-code"].includes(app))) throw new Error("Original terminal is no longer the selected agent");
   if (!["idle", "done", "blocked"].includes(current.status?.state)) throw new Error("The original agent is still working. Switch after this turn finishes.");
 }
 
-export async function handoff(config, call = hc, verify = verifySession) {
+export async function handoff(config, call = hc, verify = verifySession, sleep = ms => new Promise(resolve => setTimeout(resolve, ms))) {
   await verify(config); // Missing history must never stop a working terminal.
   if (!config.source) return;
   const current = await call(["get", config.source.address]);
   sourceReady(current, config.source, config.agent);
   if (current.state === "finished") return;
+  if (config.resumeOriginal) {
+    // Let the selected CLI flush and release its conversation before ending
+    // its containing shell. Never issue slash commands in an unverified shell.
+    await call(["keys", config.source.address, "ctrl+u"]);
+    await call(["send", config.source.address, config.agent === "codex" ? "/quit" : "/exit"]);
+    await sleep(1500);
+  }
   await call(["kill", config.source.address]);
   const stopped = await call(["get", config.source.address]);
   if (stopped.state !== "finished") throw new Error("Original terminal did not stop; the conversation was not resumed");

@@ -8,7 +8,8 @@ import { spawn } from "node:child_process";
 import { PassThrough, Writable } from "node:stream";
 import { answerQuestion, answerQuestions, answerForm, codexDecision, claudeDecision, asksToContinue, exceptionFor } from "../defaults/mods/unattended/policy.mjs";
 import { Supervisor } from "../defaults/mods/unattended/supervisor.mjs";
-import { run } from "../defaults/mods/unattended/runner.mjs";
+import { run as runAgent } from "../defaults/mods/unattended/runner.mjs";
+const run = (path, options) => runAgent(path, { terminal: null, ...options });
 import { startProcess, childEnvironment } from "../defaults/mods/unattended/transport.mjs";
 
 // Compare protocol values as JSON, where object prototypes have no meaning.

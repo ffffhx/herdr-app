@@ -8,7 +8,8 @@ import { Codex, Claude } from "./adapters.mjs";
 import { Supervisor } from "./supervisor.mjs";
 import { instructions } from "./policy.mjs";
 import { startProcess } from "./transport.mjs";
-import { handoff, lockSession } from "./sessions.mjs";
+import { handoff, lockSession, hc } from "./sessions.mjs";
+import { identifySession } from "./binding.mjs";
 
 const help = `Herdr unattended agent
   node runner.mjs --config <task.json> [--once]
@@ -30,6 +31,7 @@ During a session, type a message or:
 Commands are handled by Herdr; other input goes to the selected agent.
 To continue an existing conversation, task.json accepts resumeSessionId and
 source:{address,created_ms}. The idle/blocked source terminal ends before resume.
+resumeOriginal:true resolves the selected running agent after restart confirmation.
 Global agent settings are not modified.
 `;
 
@@ -47,7 +49,7 @@ function validatePolicy(value) {
   return { enabled: value.enabled, exceptions: value.exceptions.map(x => x.trim()).filter(Boolean) };
 }
 
-export async function run(configPath, { once = false, input = process.stdin, output = process.stdout, transportFactory = startProcess, handoffSession = handoff } = {}) {
+export async function run(configPath, { once = false, input = process.stdin, output = process.stdout, transportFactory = startProcess, handoffSession = handoff, identify = identifySession, core = hc, terminal = process.env.HC_TERMINAL_ID } = {}) {
   const path = resolve(configPath);
   const config = JSON.parse(readFileSync(path, "utf8"));
   if (!["codex", "claude"].includes(config.agent)) throw new Error("agent must be codex or claude");
@@ -66,6 +68,7 @@ export async function run(configPath, { once = false, input = process.stdin, out
   let sessionId = null, ended = false, ready = false, closing = false, transport, adapter, stateError = null;
   let approvalCount = 0, lastStatus = null, policyText = JSON.stringify(initial), exitCode = 0;
   const events = [];
+  let label = null, labelUpdates = Promise.resolve();
   const out = text => output.write(clean(text));
   const audit = event => {
     const record = { time: new Date().toISOString(), ...event };
@@ -77,10 +80,15 @@ export async function run(configPath, { once = false, input = process.stdin, out
     if (events.length > 40) events.shift();
   };
   const saveState = status => {
-    atomic(statePath, { agent: config.agent, pid: process.pid, running: !ended, terminal: process.env.HC_TERMINAL_ID ?? null, sessionId, resumedFrom: config.resumeSessionId ?? null, sourceTerminal: config.source?.address ?? null, status, enabled: supervisor.enabled, exceptions: supervisor.exceptions, approvalCount, pending: [...supervisor.pending.values()].map(r => ({ id: String(r.id), kind: r.kind })), events, updated: Date.now(), error: stateError });
+    atomic(statePath, { agent: config.agent, pid: process.pid, running: !ended, ready, terminal: terminal ?? null, sessionId, resumedFrom: config.resumeSessionId ?? null, sourceTerminal: config.source?.address ?? null, status, enabled: supervisor.enabled, exceptions: supervisor.exceptions, approvalCount, pending: [...supervisor.pending.values()].map(r => ({ id: String(r.id), kind: r.kind })), events, updated: Date.now(), error: stateError });
     if (lastStatus !== status) {
       lastStatus = status;
       output.write(`\x1b]7501;state=${status}:app=${config.agent === "claude" ? "claude-code" : "codex"}\x1b\\`);
+    }
+    const nextLabel = ended ? "off" : ready && supervisor.enabled && status !== "error" ? "on" : "off";
+    if (terminal && label !== nextLabel) {
+      label = nextLabel;
+      labelUpdates = labelUpdates.then(() => core(["label", terminal, `herdr.unattended=${nextLabel}`])).catch(error => out(`[Herdr] Cannot update mode badge: ${error.message}\n`));
     }
   };
   const refresh = () => {
@@ -161,6 +169,18 @@ export async function run(configPath, { once = false, input = process.stdin, out
   });
   lines.on("SIGINT", () => { if (ready) { setPolicy(false, supervisor.exceptions); adapter.interrupt().catch(fail); } });
   let releaseSession = () => {};
+  let releaseSource = () => {};
+  if (config.resumeOriginal) {
+    try {
+      releaseSource = lockSession("source", `${config.agent}-${config.source.address}-${config.source.created_ms}`, join(dirname(directory), "session-locks"));
+      out("[Herdr] Identifying and saving the selected agent conversation…\n");
+      const bound = await identify(config);
+      config.resumeSessionId = bound.id; config.source = bound.source; config.codexProxy = bound.codexProxy ?? false;
+      atomic(path, config);
+    } catch (error) {
+      ended = true; fail(error); lines.close(); releaseSource(); await labelUpdates; return 1;
+    }
+  }
   if (config.resumeSessionId) {
     try {
       releaseSession = lockSession(config.agent, config.resumeSessionId, join(dirname(directory), "session-locks"));
@@ -168,11 +188,11 @@ export async function run(configPath, { once = false, input = process.stdin, out
       await handoffSession({ ...config, cwd });
       audit({ type: "handoff", sessionId: config.resumeSessionId, sourceTerminal: config.source?.address ?? null });
     } catch (error) {
-      ended = true; fail(error); lines.close(); releaseSession(); return 1;
+      ended = true; fail(error); lines.close(); releaseSession(); releaseSource(); await labelUpdates; return 1;
     }
   }
   transport = transportFactory(config.agent, {
-    cwd, resumeSessionId: config.resumeSessionId, onMessage: message => adapter.receive(message), onError: fail,
+    cwd, resumeSessionId: config.resumeSessionId, codexProxy: config.codexProxy, onMessage: message => adapter.receive(message), onError: fail,
     stderr: text => out(text),
     onExit: (code, signal) => {
       ended = true; adapter.close(); lines.close();
@@ -190,6 +210,7 @@ export async function run(configPath, { once = false, input = process.stdin, out
     supervisor.setState("working");
     await adapter.initialize(cwd, config.resumeSessionId);
     ready = true;
+    saveState(supervisor.status);
     // Apply control commands typed during startup before starting any work.
     // Ordinary steering follows the initial task, in the order it was typed.
     for (const line of waitingInput.filter(line => line.trim().startsWith("/"))) await handle(line);
@@ -199,6 +220,8 @@ export async function run(configPath, { once = false, input = process.stdin, out
   const result = await closed;
   clearInterval(timer);
   releaseSession();
+  releaseSource();
+  await labelUpdates;
   return result;
 }
 

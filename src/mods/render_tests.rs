@@ -829,14 +829,15 @@ fn status_bar_shows_the_real_palette_key(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
-fn unattended_resume_shows_history_and_agent_menu_entry(cx: &mut TestAppContext) {
+fn unattended_resume_confirms_current_agent_without_configuration(cx: &mut TestAppContext) {
     cx.update(gpui_shell::init);
     let staged = Staged::new();
-    let tree = describe(cx, &staged, "mods/unattended", true, props(), updates("current", "current"), Some(
-        "this.sourceAddress = 't1'; this.sessions = [{id:'session-one',title:'Existing conversation',updated:1700000000000}]; this.selectedSession = 'session-one'; cx.notify();"
-    )).unwrap();
-    assert!(tree.contains("Existing conversation") && tree.contains("session-one"), "{tree}");
-    assert!(tree.contains("Switch and continue with automatic approval"), "{tree}");
+    let tree = describe(cx, &staged, "mods/unattended", true, json!({"source":"t1","agent":"codex"}), updates("current", "current"), None).unwrap();
+    assert!(tree.contains("Switch to unattended?") && tree.contains("Agree and switch"), "{tree}");
+    assert!(tree.contains("restarts the selected agent") && tree.contains("keeps this conversation"), "{tree}");
+    for removed in ["Working folder", "Exceptions to automatic approval", "Refresh conversations", "Claude Code", "Describe the complete task"] {
+        assert!(!tree.contains(removed), "unexpected configuration {removed}: {tree}");
+    }
     let mut values = fixture(true, props(), updates("current", "current"));
     values.insert("terminals".into(), json!([{"address":"t1","report":{"app":"codex"},"argv":["codex"],"cwd":"/fixture/project"}]));
     let tree = describe_with_values(cx, &staged, "mods/menu", values, None).unwrap();
@@ -845,4 +846,18 @@ fn unattended_resume_shows_history_and_agent_menu_entry(cx: &mut TestAppContext)
     tab_values.insert("terminals".into(), json!([{"address":"t2","report":{"app":"claude-code"},"argv":["claude"],"cwd":"/remote/project"}]));
     let tree = describe_with_values(cx, &staged, "mods/menu", tab_values, None).unwrap();
     assert!(tree.contains("Switch to unattended") && tree.contains("Rename") && tree.contains("Close"), "{tree}");
+}
+
+#[gpui::test]
+fn unattended_badge_follows_live_approval_label(cx: &mut TestAppContext) {
+    cx.update(gpui_shell::init);
+    let staged = Staged::new();
+    for module in ["mods/tabs", "mods/pane"] {
+        for (state, label, visible) in [("live", "on", true), ("live", "off", false), ("finished", "on", false)] {
+            let mut values = fixture(true, props(), updates("current", "current"));
+            values.insert("terminals".into(), json!([{"address":"t1","state":state,"labels":{"herdr.unattended":label}}]));
+            let tree = describe_with_values(cx, &staged, module, values, None).unwrap();
+            assert_eq!(tree.contains("Unattended"), visible, "{module}: {tree}");
+        }
+    }
 }

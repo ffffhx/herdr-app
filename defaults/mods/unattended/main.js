@@ -1,7 +1,7 @@
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex, Input, InputState, Textarea, TextareaState } from "gpui-base";
-import { tr, spaces, panes, props, run, theme, shared, setShared, readTextFile } from "herdr";
-import { prepare, changePolicy, history, originalTerminal } from "./launch.js";
+import { tr, spaces, panes, props, run, theme, shared, setShared, readTextFile, closeOverlay } from "herdr";
+import { prepare, changePolicy, originalTerminal } from "./launch.js";
 
 const HISTORY = "unattended.runs";
 const STATUS = { working: "Working", blocked: "Needs input", done: "Done", idle: "Idle", error: "Error" };
@@ -13,29 +13,58 @@ export default class Unattended extends View {
     this.on = space?.machine ?? null;
     this.sourceAddress = props()?.source ?? null;
     this.agent = props()?.agent === "claude" ? "claude" : "codex";
-    this.sessions = []; this.selectedSession = null; this.loadingHistory = false;
     this.busy = false; this.error = ""; this.states = {};
+    this.confirmHandle = cx.focus_handle();
+    if (this.sourceAddress) {
+      this.confirmHandle.focus();
+      cx.timer.every(1000, cx => this.checkSwitch(cx));
+      return;
+    }
     this.folder = InputState.new({ value: props()?.folder ?? panes().find(p => p.focused)?.cwd ?? space?.folder ?? "", placeholder: tr("Working folder") });
     this.task = TextareaState.new({ value: this.sourceAddress ? tr("Continue the existing task from this conversation, preserving its instructions and restrictions. Verify what is already complete before doing more work.") : "", placeholder: tr("Describe the complete task and how to verify it."), rows: 5 });
     this.exceptions = TextareaState.new({ value: (shared("unattended.exceptions") ?? []).join("\n"), placeholder: tr("For example: git push\nOne request keyword per line"), rows: 2 });
     this.task.on("change", (_e, cx) => cx.notify());
-    this.folder.on("change", (_e, cx) => { this.sessions = []; this.selectedSession = null; cx.notify(); });
-    if (this.sourceAddress) this.loadHistory(cx);
     this.refresh(cx);
     cx.timer.every(5000, cx => this.refresh(cx));
   }
   entries() { return shared(HISTORY) ?? []; }
-  loadHistory(cx) {
-    if (this.loadingHistory || this.busy) return;
-    this.loadingHistory = true; this.error = ""; this.selectedSession = null;
-    const cwd = this.folder.value();
+  startSwitch(cx) {
+    if (this.busy || this.switchEntry || this.switched) return;
+    this.busy = true; this.error = "";
     cx.spawn(async cx => {
       try {
-        if (!this.original) this.original = await originalTerminal(this.sourceAddress, this.on);
-        const sessions = await history({ agent: this.agent, cwd, on: this.on });
-        if (cwd === this.folder.value()) this.sessions = sessions;
+        const source = await originalTerminal(this.sourceAddress, this.on);
+        if (props()?.sourceCreated !== undefined && source.created_ms !== props().sourceCreated) throw new Error(tr("The selected terminal changed. Open its menu again."));
+        const agent = source.app === "codex" ? "codex" : ["claude", "claude-code"].includes(source.app) ? "claude" : null;
+        if (!agent || agent !== this.agent) throw new Error(tr("The selected agent is no longer running."));
+        const config = { agent, source, resumeOriginal: true, cwd: source.cwd, exceptions: [], on: this.on,
+          task: tr("Continue the existing task from this conversation, preserving its instructions and restrictions. Verify what is already complete before doing more work.") };
+        const entry = await prepare(config);
+        run("tab.new", { space: this.space, name: agent === "claude" ? "Claude Code" : "Codex", folder: config.cwd, argv: entry.argv });
+        setShared(HISTORY, [entry, ...this.entries()].slice(0, 20));
+        this.switchEntry = entry;
       } catch (error) { this.error = String(error); }
-      finally { this.loadingHistory = false; cx.notify(); }
+      finally { this.busy = false; cx.notify(); }
+    });
+  }
+  checkSwitch(cx) {
+    const entry = this.switchEntry;
+    if (!entry || this.switched || this.checking || this.error) return;
+    this.checking = true;
+    cx.spawn(async cx => {
+      try {
+        const text = await readTextFile(`${entry.directory}/state.json`, { on: entry.on });
+        const state = text ? JSON.parse(text) : null;
+        if (state?.error) throw new Error(state.error);
+        // The hc terminal owns the handoff. Close only the clicked pane, and
+        // only after this exact conversation has initialized successfully.
+        if (state?.ready && state.sessionId === state.resumedFrom && state.running) {
+          this.switched = true;
+          if (props()?.sourcePane && panes().some(p => p.pane === props().sourcePane && p.terminal === this.sourceAddress)) run("pane.close", { pane: props().sourcePane });
+          if (props()?.overlay) closeOverlay(props().overlay);
+        }
+      } catch (error) { this.error = String(error); }
+      finally { this.checking = false; cx.notify(); }
     });
   }
   refresh(cx) {
@@ -53,19 +82,14 @@ export default class Unattended extends View {
     });
   }
   start(cx) {
-    if (this.busy || !this.task.value().trim() || (this.sourceAddress && !this.selectedSession)) return;
+    if (this.busy || !this.task.value().trim()) return;
     this.busy = true; this.error = "";
     const exceptions = this.exceptions.value().split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     const config = { agent: this.agent, task: this.task.value(), cwd: this.folder.value(), exceptions, on: this.on };
-    if (this.sourceAddress) config.resumeSessionId = this.selectedSession;
     cx.spawn(async cx => {
       try {
-        if (this.sourceAddress) {
-          if (!this.original) throw new Error("Original terminal is unavailable");
-          config.source = this.original;
-        }
         const entry = await prepare(config);
-        run("tab.new", { space: this.space, name: `${entry.agent} · ${tr("Automatic approval")}`, folder: config.cwd || undefined, argv: entry.argv });
+        run("tab.new", { space: this.space, name: entry.agent === "claude" ? "Claude Code" : "Codex", folder: config.cwd || undefined, argv: entry.argv });
         setShared(HISTORY, [entry, ...this.entries()].slice(0, 20));
         setShared("unattended.exceptions", exceptions);
       } catch (error) { this.error = String(error); }
@@ -87,6 +111,7 @@ export default class Unattended extends View {
   }
   render() {
     const t = theme();
+    if (this.sourceAddress) return this.renderSwitch(t);
     const label = text => div().text_size(12).font_medium().text_color(t.dim).child(tr(text));
     const input = element => element.px(10).py(8).rounded(8).bg(t.background).border_1().border_color(t.input).text_color(t.foreground).text_size(13);
     return v_flex().id("unattended").size_full().min_h(0).overflow_y_scrollbar().p(24).gap(14).bg(t.chrome).text_color(t.foreground).text_size(13)
@@ -98,23 +123,12 @@ export default class Unattended extends View {
         .child(div().flex_1()).child(div().text_color(t.dim).child(this.on ?? tr("This computer"))))
       .child(label("Working folder"))
       .child(input(Input.new(this.folder)).h(36))
-      .when(Boolean(this.sourceAddress), el => el
-        .child(label("Continue an existing conversation"))
-        .child(div().text_color(t.dim).child(tr("Select the conversation used by the original terminal. Switching ends that terminal and resumes its saved history here. Wait until its current turn finishes; a pending approval can be resumed.")))
-        .child(div().text_size(11).text_color(t.dim).child(`${tr("Original terminal")}: ${this.sourceAddress}`))
-        .child(this.button("unattended-history", tr(this.loadingHistory ? "Loading conversations…" : "Refresh conversations"), cx => this.loadHistory(cx), false, !this.loadingHistory && !this.busy))
-        .when(!this.loadingHistory && this.sessions.length === 0, el => el.child(div().text_color(t.dim).child(tr("No saved conversations in this folder."))))
-        .child(v_flex().id("unattended-sessions").max_h(200).overflow_y_scrollbar().gap(4).children(this.sessions.map(session =>
-          v_flex().id(`session-${session.id}`).p(8).gap(3).rounded(6).cursor_pointer().bg(this.selectedSession === session.id ? t.selected : t.surface)
-            .on_click((_e, cx) => { if (!this.busy) { this.selectedSession = session.id; cx.notify(); } })
-            .child(div().truncate().child(session.title.slice(0, 180)))
-            .child(div().text_size(10).text_color(t.dim).child(`${session.id} · ${new Date(session.updated).toLocaleString()}`))))))
       .child(label("Task"))
       .child(input(Textarea.new(this.task)).h(140))
       .child(label("Exceptions to automatic approval"))
       .child(input(Textarea.new(this.exceptions)).h(64))
       .child(div().text_size(11).text_color(t.dim).child(tr("Keywords match request contents without case sensitivity. Matching requests wait for you. You can add exceptions later with /except.")))
-      .child(this.button("unattended-start", tr(this.busy ? "Starting…" : this.sourceAddress ? "Switch and continue with automatic approval" : "Start with automatic approval"), cx => this.start(cx), true, !this.busy && Boolean(this.task.value().trim()) && (!this.sourceAddress || Boolean(this.selectedSession))))
+      .child(this.button("unattended-start", tr(this.busy ? "Starting…" : "Start with automatic approval"), cx => this.start(cx), true, !this.busy && Boolean(this.task.value().trim())))
       .child(div().text_size(11).text_color(t.dim).child(tr("Runs in its own interactive terminal. Closing the Herdr window keeps it running. Type /auto off to stop automatic approval.")))
       .when(Boolean(this.error), el => el.child(div().text_color(t.destructive).child(this.error)))
       .child(div().h(1).bg(t.border).my(4))
@@ -135,5 +149,22 @@ export default class Unattended extends View {
             .child(this.button(`auto-${entry.id}`, tr(state?.enabled ? "Turn automatic approval off" : "Turn automatic approval on"), cx => this.toggle(entry, !state?.enabled, cx), false, Boolean(state) && state.running !== false && !stale)))
           .child(div().text_size(10.5).text_color(t.dim).child(`${tr("Approval log")}: ${entry.directory}/events.jsonl`));
       }));
+  }
+  renderSwitch(t) {
+    const switching = this.busy || Boolean(this.switchEntry && !this.error && !this.switched);
+    return v_flex().id("unattended-confirm").track_focus(this.confirmHandle).size_full().min_h(0).p(20).gap(14).bg(t.popover).text_color(t.foreground).text_size(13)
+      .on_key_down((event, cx) => {
+        if (event.key === "enter" && !this.switched) this.startSwitch(cx);
+        else if (event.key === "escape" && !this.busy && props()?.overlay) closeOverlay(props().overlay);
+        else return;
+        cx.stop_propagation();
+      })
+      .child(div().text_size(16).font_semibold().child(tr(this.switched ? "Unattended mode is on" : "Switch to unattended?")))
+      .child(div().text_color(t.muted).child(tr("This restarts the selected agent and keeps this conversation. Its current work will be interrupted and continued with automatic approval.")))
+      .when(Boolean(this.error), el => el.child(div().text_color(t.destructive).child(this.error)))
+      .child(div().flex_1())
+      .child(h_flex().justify_end().gap(8)
+        .child(this.button("unattended-cancel", tr(this.switchEntry ? "Close" : "Cancel"), () => { if (props()?.overlay) closeOverlay(props().overlay); }, false, !this.busy))
+        .child(this.button("unattended-confirm-yes", tr(switching ? "Switching…" : "Agree and switch"), cx => this.startSwitch(cx), true, !this.busy && !this.switchEntry && !this.switched)));
   }
 }
