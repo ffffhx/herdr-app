@@ -50,6 +50,8 @@ jobs:
         with:
           submodules: true
           persist-credentials: false
+      - name: Unattended agent tests
+        run: node --test scripts/unattended.test.mjs scripts/unattended-launch.test.mjs scripts/unattended-resume.test.mjs scripts/unattended-native.test.mjs
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}

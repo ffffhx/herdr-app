@@ -43,6 +43,7 @@ build:
     cargo build --locked
 
 test:
+    node --test scripts/unattended.test.mjs scripts/unattended-launch.test.mjs scripts/unattended-resume.test.mjs scripts/unattended-native.test.mjs
     bun test scripts/files.test.ts scripts/picker.test.ts scripts/palette.test.ts scripts/agents.test.ts scripts/spaces.test.ts
     cargo test --locked
 
