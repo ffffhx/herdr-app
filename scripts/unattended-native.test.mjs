@@ -1,9 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, mkdtempSync, writeFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, writeFileSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { nativeConfirmation, NativeApprovals, watch } from "../defaults/mods/unattended/native.mjs";
+import { eventFilter, subscribeTerminal } from "../defaults/mods/unattended/events.mjs";
+import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
 
 // Native Codex 0.166.0 and Claude Code 2.1.312 cards captured on Windows.
 const codex = `History remains above this card.
@@ -126,7 +129,7 @@ test("switching closes only the confirmation overlay and preserves the native ta
 test("native observer lifecycle labels the source, writes state, and never owns the agent process", async () => {
   const directory = mkdtempSync(join(tmpdir(), "herdr-native-test-")), path = join(directory, "task.json"), controller = new AbortController(), calls = [];
   writeFileSync(path, JSON.stringify({ agent: "codex", source, enabled: true }));
-  await watch(path, { signal: controller.signal, call: async args => {
+  await watch(path, { signal: controller.signal, subscribe: () => () => {}, call: async args => {
     calls.push(args);
     if (args[0] === "get") return { ...term, status: { app: "codex", state: "working" } };
     if (args[0] === "label") { if (args.includes("herdr.unattended=on")) controller.abort(); return {}; }
@@ -136,4 +139,136 @@ test("native observer lifecycle labels the source, writes state, and never owns 
   assert.equal(state.terminal, "t7"); assert.equal(state.native, true); assert.equal(state.running, false);
   assert(calls.some(a => a.includes("herdr.unattended=on")));
   assert(calls.some(a => a.includes("herdr.unattended=off")));
+});
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function until(condition, message) {
+  const deadline = Date.now() + 4000;
+  while (!condition()) { assert(Date.now() < deadline, message); await sleep(10); }
+}
+
+async function runningObserver({ enabled = true, heartbeatMs = 30000, fallbackMs = 30000, initial = "working" } = {}) {
+  const directory = mkdtempSync(join(tmpdir(), "herdr-native-events-")), controller = new AbortController();
+  const path = join(directory, "task.json"), calls = [];
+  writeFileSync(path, JSON.stringify({ agent: "codex", source, enabled }));
+  let hooks, closed = false;
+  const state = { term: { ...term, status: { ...term.status, state: initial } }, screen: codex };
+  const done = watch(path, { signal: controller.signal, heartbeatMs, fallbackMs, subscribe: (_address, callbacks) => {
+    hooks = callbacks; hooks.connection(true); return () => { closed = true; };
+  }, call: async args => {
+    calls.push(args);
+    if (args[0] === "get") return structuredClone(state.term);
+    if (args[0] === "read") return { text: state.screen };
+    if (args[0] === "keys") { state.term.status.state = "working"; hooks.change(); return {}; }
+    if (args[0] === "label") return {};
+    assert.fail(`Unexpected mutation: ${args}`);
+  } });
+  const read = () => JSON.parse(readFileSync(join(directory, "state.json"), "utf8"));
+  await until(() => calls.filter(a => a[0] === "get").length >= 2, "observer did not start");
+  return { state, calls, read, hooks, changePolicy(value) {
+    const temporary = join(directory, "new-policy.json");
+    writeFileSync(temporary, JSON.stringify({ enabled: value, exceptions: [] }));
+    renameSync(temporary, join(directory, "control.json"));
+  }, async stop() { controller.abort(); await done; assert(closed); } };
+}
+
+test("quiet observers neither poll the core nor rewrite unchanged state between heartbeats", async () => {
+  const h = await runningObserver();
+  try {
+    const initial = h.read();
+    await sleep(300);
+    assert.equal(h.calls.filter(a => a[0] === "get").length, 2);
+    assert.equal(h.calls.filter(a => a[0] === "read").length, 0);
+    assert.equal(h.read().updated, initial.updated);
+  } finally { await h.stop(); }
+});
+
+test("heartbeats keep state fresh without spawning status queries", async () => {
+  const h = await runningObserver({ heartbeatMs: 80 });
+  try {
+    const initial = h.read().updated;
+    await until(() => h.read().updated > initial, "no heartbeat");
+    assert.equal(h.calls.filter(a => a[0] === "get").length, 2);
+  } finally { await h.stop(); }
+});
+
+test("permission events wake immediately; delayed card painting gets a bounded retry", async () => {
+  const h = await runningObserver();
+  try {
+    h.state.term.status.state = "blocked"; h.state.screen = "Still painting";
+    h.hooks.change();
+    await until(() => h.calls.some(a => a[0] === "read"), "permission event was missed");
+    h.state.screen = codex;
+    await until(() => h.calls.some(a => a[0] === "keys"), "settling retry did not approve");
+    for (let i = 0; i < 100; i++) h.hooks.change();
+    await sleep(100);
+    assert.equal(h.calls.filter(a => a[0] === "keys").length, 1);
+    assert(h.calls.filter(a => a[0] === "get").length < 10, "burst was not coalesced");
+  } finally { await h.stop(); }
+});
+
+test("unknown cards stop short retries and return to the fallback interval", async () => {
+  const h = await runningObserver();
+  try {
+    h.state.term.status.state = "blocked"; h.state.screen = "An unknown permission UI"; h.hooks.change();
+    await until(() => h.calls.filter(a => a[0] === "read").length >= 3, "settling checks missing");
+    const count = h.calls.length;
+    await sleep(400);
+    assert.equal(h.calls.length, count); assert(!h.calls.some(a => a[0] === "keys"));
+  } finally { await h.stop(); }
+});
+
+test("atomic policy changes wake the observer without waiting for fallback", async () => {
+  const h = await runningObserver({ enabled: false, initial: "blocked" });
+  try {
+    h.changePolicy(true);
+    await until(() => h.calls.some(a => a[0] === "keys"), "enabling policy did not wake the observer");
+    h.changePolicy(false);
+    await until(() => !h.read().enabled && h.calls.some(a => a.includes("herdr.unattended=off")), "disabling policy did not clear the badge");
+    assert.equal(h.calls.filter(a => a[0] === "keys").length, 1);
+  } finally { await h.stop(); }
+});
+
+test("lost events still discover approval through the low-frequency fallback", async () => {
+  const h = await runningObserver({ fallbackMs: 80 });
+  try {
+    h.hooks.connection(false); h.state.term.status.state = "blocked";
+    await until(() => h.calls.some(a => a[0] === "keys"), "fallback did not inspect the terminal");
+    assert.equal(h.read().monitoring, "fallback");
+  } finally { await h.stop(); }
+});
+
+test("event filtering ignores unrelated activity, duplicate status and our badge writes", () => {
+  const accepts = eventFilter("t7");
+  const event = (seq, type, data, terminal = "t7") => ({ method: "event", params: { seq, type, data, terminal } });
+  assert(accepts({ seq: 20, terminals: [] }));
+  assert(!accepts(event(21, "status", term, "t8")));
+  assert(accepts(event(22, "status", { reported: true, status: term.status })));
+  assert(!accepts(event(23, "status", { reported: true, status: term.status })));
+  assert(!accepts(event(24, "labels", { labels: { "herdr.unattended": "on" } })));
+  assert(!accepts(event(25, "title", { title: "spinner" })));
+  assert(accepts(event(26, "finished", {})));
+  assert(!accepts(event(19, "restarted", {})));
+  assert(accepts({ method: "missed", params: { seq: 30, terminals: [] } }));
+  assert(accepts(event(31, "status", { reported: true, status: term.status })));
+});
+
+test("event clients reconnect after exit, accept fresh snapshots and close their own process", async () => {
+  const children = [], connections = []; let changes = 0;
+  const stop = subscribeTerminal("t7", { change: () => changes++, connection: value => connections.push(value), retryMs: 20, launch: (program, args, options) => {
+    assert.match(program, /^hc(?:\.exe)?$/); assert.deepEqual(args, ["events", "--json", "--terminal", "t7"]); assert.equal(options.windowsHide, true);
+    const child = new EventEmitter(); Object.assign(child, { stdout: new PassThrough(), stderr: new PassThrough(), killed: false, kill() {
+      if (this.killed) return; this.killed = true; this.stdout.end(); this.stderr.end(); this.emit("close", 0);
+    } });
+    children.push(child); return child;
+  } });
+  try {
+    children[0].stdout.write('{"seq":5,"term'); children[0].stdout.write('inals":[]}\n');
+    assert.equal(changes, 1); assert.deepEqual(connections, [true]);
+    children[0].kill();
+    await until(() => children.length === 2, "stream was not reconnected");
+    children[1].stdout.write('{"seq":1,"terminals":[]}\n');
+    assert.equal(changes, 2); assert.deepEqual(connections, [true, false, true]);
+  } finally { stop(); }
+  await sleep(50); assert.equal(children.length, 2); assert(children.every(c => c.killed));
 });

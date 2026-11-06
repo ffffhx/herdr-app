@@ -1,12 +1,13 @@
 // Automatic confirmation beside a native TUI. Never replace its renderer,
 // interrupt its turn, clear its composer, or submit a replacement task.
-import { readFileSync, writeFileSync, renameSync, mkdirSync, appendFileSync } from "node:fs";
-import { dirname, resolve, join } from "node:path";
+import { readFileSync, writeFileSync, renameSync, mkdirSync, appendFileSync, watch as watchDirectory } from "node:fs";
+import { dirname, resolve, join, basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 import { hc, lockSession } from "./sessions.mjs";
 import { childEnvironment } from "./transport.mjs";
 import { exceptionFor, needsHandBack } from "./policy.mjs";
+import { subscribeTerminal, Wakeups } from "./events.mjs";
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const agentApp = (agent, app) => agent === "codex" ? app === "codex" : ["claude", "claude-code"].includes(app);
@@ -55,10 +56,11 @@ export class NativeApprovals {
     const before = await this.call(["get", this.source.address]);
     if (!sameTerminal(before, this.source, this.agent)) return { ended: true, term: before };
     const policy = this.policy();
-    if (!policy.enabled || before.status?.state !== "blocked") return { term: before };
+    if (!policy.enabled || before.status?.state !== "blocked" || before.status.kind !== "permission") return { term: before };
     const screen = (await this.call(["read", this.source.address, "--lines", "0"])).text;
     const request = nativeConfirmation(this.agent, before, screen);
-    if (!request || exceptionFor(request.context, policy.exceptions)) return { term: before };
+    if (!request) return { term: before, retry: true };
+    if (exceptionFor(request.context, policy.exceptions)) return { term: before };
     const id = JSON.stringify([before.turn, before.status_ms, request.context]);
     if (this.answered.has(id)) return { term: before };
     await this.settle();
@@ -70,7 +72,7 @@ export class NativeApprovals {
     if (!sameTerminal(current, this.source, this.agent) || current.turn !== before.turn
       || current.status_ms !== before.status_ms || frame !== screen || !currentPolicy.enabled
       || !nativeConfirmation(this.agent, current, frame)
-      || exceptionFor(request.context, currentPolicy.exceptions)) return { term: current };
+      || exceptionFor(request.context, currentPolicy.exceptions)) return { term: current, retry: true };
     // Record before delivery. An uncertain delivery must never be replayed.
     this.audit({ type: "decision", source: "automatic", kind: request.kind, terminal: this.source.address, request: request.context, keys: request.keys });
     this.answered.add(id);
@@ -86,7 +88,7 @@ function atomic(path, value) {
   renameSync(temporary, path);
 }
 
-export async function watch(configPath, { call = hc, signal, waitForAgent = false } = {}) {
+export async function watch(configPath, { call = hc, signal, waitForAgent = false, subscribe = subscribeTerminal, fallbackMs = 10000, heartbeatMs = 5000 } = {}) {
   const path = resolve(configPath), directory = dirname(path);
   const config = JSON.parse(readFileSync(path, "utf8"));
   if (!["codex", "claude"].includes(config.agent)) throw new Error("Unknown native agent");
@@ -98,6 +100,8 @@ export async function watch(configPath, { call = hc, signal, waitForAgent = fals
   const controlPath = join(directory, "control.json"), statePath = join(directory, "state.json");
   atomic(controlPath, { enabled: config.enabled ?? true, exceptions: config.exceptions ?? [] });
   let ready = false, running = true, error = null, label = null, ownsSource = false, release = () => {};
+  let stopEvents = () => {}, controlWatch, connected = false, lastWrite = 0, lastState = "";
+  const wakeups = new Wakeups();
   const audit = event => appendFileSync(join(directory, "events.jsonl"), `${JSON.stringify({ time: new Date().toISOString(), ...event })}\n`, { mode: 0o600 });
   const policy = () => {
     const value = JSON.parse(readFileSync(controlPath, "utf8"));
@@ -107,8 +111,12 @@ export async function watch(configPath, { call = hc, signal, waitForAgent = fals
   const observer = new NativeApprovals({ agent: config.agent, source, call, policy, audit });
   const save = async term => {
     const p = error ? { enabled: false, exceptions: [] } : policy();
-    atomic(statePath, { agent: config.agent, native: true, pid: process.pid, running, ready, terminal, sourceTerminal: terminal, sourceCreated: source.created_ms,
-      status: error ? "error" : term?.status?.state ?? "idle", enabled: p.enabled, exceptions: p.exceptions, approvalCount: observer.approvalCount, pending: [], updated: Date.now(), error });
+    const state = { agent: config.agent, native: true, pid: process.pid, running, ready, terminal, sourceTerminal: terminal, sourceCreated: source.created_ms,
+      status: error ? "error" : term?.status?.state ?? "idle", enabled: p.enabled, exceptions: p.exceptions, approvalCount: observer.approvalCount, pending: [], monitoring: connected ? "events" : "fallback", error };
+    const serialized = JSON.stringify(state), now = Date.now();
+    if (serialized !== lastState || now - lastWrite >= heartbeatMs) {
+      atomic(statePath, { ...state, updated: now }); lastWrite = now; lastState = serialized;
+    }
     const next = running && ready && p.enabled && !error ? "on" : "off";
     if (ownsSource && label !== next) {
       label = next;
@@ -118,26 +126,46 @@ export async function watch(configPath, { call = hc, signal, waitForAgent = fals
   try {
     release = lockSession("native", `${terminal}-${source.created_ms}`, join(dirname(directory), "session-locks"));
     ownsSource = true;
+    stopEvents = subscribe(terminal, { change: () => wakeups.wake("event"), connection: value => { connected = value; wakeups.wake("connection"); } });
+    // Watch the directory so atomic replacement of control.json stays visible.
+    // Unsupported file watchers still pick up policy changes at the fallback.
+    try {
+      controlWatch = watchDirectory(directory, (_event, file) => { if (!file || basename(String(file)) === "control.json") wakeups.wake("policy"); });
+      controlWatch.on("error", () => { controlWatch.close(); wakeups.wake("policy"); });
+    } catch { /* The low-frequency fallback also reloads policy. */ }
     let term = await call(["get", terminal]);
     // A newly created native TUI may still be booting or showing its trust UI.
     // The watcher does not answer setup/trust screens or change the composer.
     const deadline = Date.now() + 120000;
     while (!sameTerminal(term, source, config.agent) && waitForAgent && !signal?.aborted
       && term.state === "live" && term.pid === source.pid && Date.now() < deadline) {
-      await save(term); await delay(500); term = await call(["get", terminal]);
+      await save(term); await wakeups.wait(Math.min(heartbeatMs, deadline - Date.now()), signal);
+      if (!signal?.aborted) term = await call(["get", terminal]);
     }
     if (!sameTerminal(term, source, config.agent)) throw new Error("The selected agent is no longer running");
     ready = true;
     audit({ type: "attached", agent: config.agent, terminal, created_ms: source.created_ms });
     await save(term);
+    let nextCheck = 0, nextRetry = Infinity, retries = 0;
     while (!signal?.aborted) {
-      const result = await observer.tick();
-      if (result.ended) break;
-      await save(result.term);
-      await delay(500);
+      const reasons = await wakeups.wait(Math.min(nextCheck, nextRetry, lastWrite + heartbeatMs) - Date.now(), signal);
+      if (signal?.aborted) break;
+      const now = Date.now(), changed = reasons.has("event") || reasons.has("policy");
+      if (changed || now >= nextCheck || now >= nextRetry) {
+        if (changed || now >= nextCheck) retries = 0;
+        const result = await observer.tick();
+        term = result.term;
+        if (result.ended) break;
+        // A status event can precede painting the permission card. Allow two
+        // short settling retries, then return to the low-frequency fallback.
+        nextRetry = result.retry && retries < 2 ? Date.now() + [250, 750][retries++] : Infinity;
+        nextCheck = Date.now() + fallbackMs;
+      }
+      await save(term);
     }
   } catch (reason) { error = reason.message; audit({ type: "error", error }); }
   finally {
+    stopEvents(); controlWatch?.close();
     running = false;
     try { await save(); } finally { release(); }
   }

@@ -25,6 +25,9 @@ visible for the person. Use **Turn automatic approval off** in the same right-cl
 menu or the Unattended agents panel. An **Unattended** badge on the original tab
 and pane header follows the approval state. All slash commands in native terminals
 keep their agent-defined meaning.
+Observers subscribe to terminal state events, with a 10-second fallback and
+automatic reconnection. Policy changes wake them immediately. State files update
+on change or a 5-second heartbeat, rather than on a half-second polling loop.
 Older protocol-runner sessions remain supported. Only those terminals use
 `/auto off`, `/auto on`, `/except <keyword>`, `/allow <request-id>`,
 `/deny <request-id>`, `/answer <id> <answer>`, `/exceptions`, `/status`, `/help`,

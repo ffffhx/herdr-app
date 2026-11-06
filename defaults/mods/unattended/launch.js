@@ -1,6 +1,6 @@
 import { appHome, exec, readTextFile, writeTextFile } from "herdr";
 
-const FILES = ["native.mjs", "runner.mjs", "adapters.mjs", "supervisor.mjs", "policy.mjs", "transport.mjs", "sessions.mjs", "binding.mjs", "websocket.mjs"];
+const FILES = ["native.mjs", "events.mjs", "runner.mjs", "adapters.mjs", "supervisor.mjs", "policy.mjs", "transport.mjs", "sessions.mjs", "binding.mjs", "websocket.mjs"];
 // The host's direct exec does not resolve npm .cmd shims on Windows. Probe
 // through Node with the same Windows PATH treatment as the session transport.
 const probeCLI = `

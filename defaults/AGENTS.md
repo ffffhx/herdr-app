@@ -821,7 +821,13 @@ is working or waiting for approval. In a split tab, the menu names each eligible
 terminal separately and targets the clicked tab even when it is inactive.
 
 The observer checks the exact terminal address, creation time, PID and reported
-agent. It reads only the current screen, without scrolling history. Only a
+agent. It keeps one `hc events --terminal` subscription: status changes trigger
+checks immediately, with a 10-second fallback when an event is lost or the stream
+disconnects. The stream reconnects with backoff. Atomic policy-file changes also
+wake it immediately. State is written only on change or a 5-second heartbeat;
+badge and title events do not trigger checks. A permission card that is still
+being painted gets at most two short retries before returning to the fallback.
+It reads only the current screen, without scrolling history. Only a
 reported permission wait with a recognized native confirmation card receives a
 single-use approval shortcut (Codex's Yes/proceed or Claude Code's Yes). It
 rechecks the card, terminal and policy before delivery and journals the decision
