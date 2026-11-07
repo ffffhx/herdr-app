@@ -185,6 +185,22 @@ parentheses and apostrophes, and preserves Unicode file and folder names
 (including Chinese). Directory links expand as folders; their contents load
 only when expanded.
 
+The main layout's status bar shows the focused local Codex or Claude agent's
+subscription quota: remaining percentages for the windows the provider reports,
+with reset times and last update in the tooltip. It checks every 30 seconds;
+click the quota to refresh. This uses the computer's CLI login and inherited
+`CODEX_HOME` / `CLAUDE_CONFIG_DIR`, not per-terminal account overrides. Remote
+agents report that quota is unavailable instead of showing the local account.
+The probe requires Node.js (18 or newer); Codex also needs its CLI on PATH.
+Claude with the official DeepSeek endpoint shows API account balance in CNY or
+USD instead of subscription percentages. It reads the inherited environment and
+global Claude `settings.json` environment, and queries DeepSeek's `/user/balance`;
+the tooltip includes top-up and granted balances. Missing/invalid API keys and
+unsupported API providers are explicit, not a subscription sign-in prompt.
+Claude subscriptions use the credential file, or the default macOS Keychain
+entry. Login and network failures can report unavailable. Unknown windows are
+never presented as 100% remaining. Credentials are not stored in mod state.
+
 **Herdr's own layouts and mods are read-only.** They are replaced whole
 on every start. Use settings.json for look (fonts, sizes, theme, colors,
 sounds), where the layout leaves them unset. Herdr (main) has no look of

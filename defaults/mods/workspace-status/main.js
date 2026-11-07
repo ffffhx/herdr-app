@@ -1,8 +1,23 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { tr, spaces, agents, theme, run, window, keys } from "herdr";
+import { tr, spaces, agents, theme, run, window, keys, readTextFile, appHome } from "herdr";
+import { Quota } from "./quota.js";
 
 export default class WorkspaceStatus extends View {
+  init(_props, cx) {
+    this.quota = new Quota(async () => {
+      // import.meta.url identifies this mod even when it is a personal clone.
+      const source = String(import.meta.url);
+      const directory = source.slice(0, source.lastIndexOf("/"));
+      try {
+        const folder = decodeURIComponent(directory.replace(/^file:\/\//, "")).replace(/^\/([A-Za-z]:\/)/, "$1");
+        const probe = await readTextFile(folder + "/quota-probe.cjs");
+        if (probe) return probe;
+      } catch { /* A packaged mod may report a relative module name. */ }
+      return readTextFile(appHome() + "/mods/workspace-status/quota-probe.cjs");
+    });
+    cx.timer.every(30000, (cx) => this.quota.refresh(cx));
+  }
   // The palette key as actually bound, not a hardcoded one; without a
   // binding the hint stays useful ("commands") instead of lying.
   hint(t) {
@@ -14,7 +29,7 @@ export default class WorkspaceStatus extends View {
     return key ? tr("{0}  commands", [key]) : "commands";
   }
 
-  render() {
+  render(cx) {
     const t = theme();
     const space = spaces().find(s => s.active);
     const list = agents();
@@ -26,6 +41,7 @@ export default class WorkspaceStatus extends View {
       .child(h_flex().gap(6).items_center().child(div().size(6).rounded(3).bg(t.dim)).child(tr("{0} agents", [list.length]))
         .when(needs > 0, el => el.child(div().text_color(t.blocked).child(tr("· {0} needs you", [String(needs)])))))
       .child(div().flex_1())
+      .when(Boolean(this.quota), el => { const quota = this.quota.render(cx, t); return quota ? el.child(quota) : el; })
       .child(div().id("palette").text_color(t.dim).on_click(() => run("app.palette")).child(this.hint(t)));
   }
 }

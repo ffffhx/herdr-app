@@ -114,6 +114,8 @@ jobs:
             threads=(-- --test-threads 4)
           fi
           cargo test --locked --config 'profile.dev.package."*".opt-level=0' "${only[@]}" "${threads[@]}"
+      - name: Quota mod tests
+        run: node --test scripts/quota.test.cjs
       # Windows runners lack an interactive desktop. Linux uses headless Vulkan
       # in the suite above; macOS exercises the native window renderer here.
       - name: Screenshot pixels

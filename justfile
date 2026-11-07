@@ -43,6 +43,7 @@ build:
     cargo build --locked
 
 test:
+    node --test scripts/quota.test.cjs
     bun test scripts/files.test.ts scripts/picker.test.ts scripts/palette.test.ts scripts/agents.test.ts scripts/spaces.test.ts
     cargo test --locked
 
