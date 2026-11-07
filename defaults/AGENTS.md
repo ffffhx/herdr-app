@@ -549,7 +549,8 @@ The main ones:
   `tab.rename {id?, name}` ("": its number again), `tab.move {id, index}`,
   `tab.select {index | id}`, `tab.next`, `tab.prev`,
   `tab.settle {id?}`, `tab.unsettle {id?}` (index, next and prev
-  skip settled tabs).
+  skip settled tabs). Scrolling the tab bar selects the adjacent visible tab
+  and stops at either end; `tab.next` and `tab.prev` still wrap around.
 - Panes: `pane.split {direction: "right" | "down", pane?, argv? | mod?, props?}` (a new
   terminal, or a mod pane), `pane.close {pane?}`,
   `pane.zoom {pane?}`, `pane.focus {pane | terminal}`, `pane.go {direction}`, `pane.swap {direction}`.
