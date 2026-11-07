@@ -90,10 +90,27 @@ CI runs on `main`. Commit messages: lowercase conventional commits, single line,
 no AI co-author lines. Publishing a release or tag still requires an explicit
 release request. Do not edit README files unless requested.
 
-On this Windows machine, `powershell.exe -NoProfile -ExecutionPolicy Bypass
+Develop and validate without replacing or restarting the person's daily app.
+Use a separate preview binary and process, an isolated `HERDR_APP_HOME` and
+`HC_SESSION`, and separate core configuration/data when changing those. A
+second process sharing the daily home is not isolated: settings, mods and
+layouts can reload in the running app. Reuse one preview per task, identify it,
+record its process/home/session, and clean up only the preview resources created
+by that task when validation ends. Keep previews independent of agent shells.
+
+On Windows, `scripts/build-daily-windows.ps1` builds without installing. Copy
+the output to a preview location before launching it so Windows file locking
+does not block the next build. Report validation results and ask whether to
+update the daily app; a current, explicit installation/restart approval can be
+used without asking again. This supersedes the earlier automatic-restart
+preference. Source edits alone do not require updating a running app, and
+documentation-only changes do not require launching or restarting it.
+
+After approval, `powershell.exe -NoProfile -ExecutionPolicy Bypass
 -File scripts/update-daily-windows.ps1` builds `main`, backs up the installed
 binary, closes only the daily window through its own command, and launches the
 updated window independently. It preserves herdr-core, terminals and agents.
+Ensure the installed source matches what was validated; revalidate if it changed.
 The installation's `development.json` records the branch, commit and binary hash;
 verify those and the live app after installing. Respect active control sessions
 and user takeover. On macOS, use the existing bundle installation/signing flow;
