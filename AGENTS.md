@@ -99,6 +99,11 @@ verify those and the live app after installing. Respect active control sessions
 and user takeover. On macOS, use the existing bundle installation/signing flow;
 the Windows daily installer does not apply.
 
+Keep one Windows Start menu shortcut, `Herdr`, pointing to this daily development
+build. Updates remove the old `Herdr (ProfilePilot)` duplicate instead of
+recreating it. Use `herdr-app` and `hc` / `herdr-core`; the legacy `herdr`
+terminal multiplexer is not the app used on this machine.
+
 CHANGELOG.md: every release gets a `## [x.y.z] - YYYY-MM-DD` section
 (`### New` / `### Fixed`), written at release time from the commits since the
 last tag; Herdr shows it as the update notes. One line per change, in user

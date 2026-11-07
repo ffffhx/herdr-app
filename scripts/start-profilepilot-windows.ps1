@@ -6,7 +6,7 @@ if (-not (Test-Path -LiteralPath $Executable -PathType Leaf)) { throw "Herdr exe
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($identity)
 if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    throw 'Open the Herdr (ProfilePilot) shortcut as an ordinary user so it shares the normal Herdr core.'
+    throw 'Open the Herdr shortcut as an ordinary user so it shares the normal Herdr core.'
 }
 
 # WMI starts a short-lived helper outside the caller's Job Object. The helper

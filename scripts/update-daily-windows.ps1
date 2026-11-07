@@ -76,18 +76,21 @@ try {
 }
 Copy-Item -LiteralPath (Join-Path $repo 'scripts/start-profilepilot-windows.ps1') -Destination (Join-Path $install 'start-profilepilot.ps1')
 $shell = New-Object -ComObject WScript.Shell
+$programs = [Environment]::GetFolderPath('Programs')
 foreach ($name in @('Herdr.lnk', 'Herdr (ProfilePilot).lnk')) {
-    $path = Join-Path ([Environment]::GetFolderPath('Programs')) $name
+    $path = Join-Path $programs $name
     if (Test-Path -LiteralPath $path) { Copy-Item -LiteralPath $path -Destination (Join-Path $backup $name) }
-    $link = $shell.CreateShortcut($path)
-    $link.TargetPath = $powershell
-    $link.Arguments = '-NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + (Join-Path $install 'start-profilepilot.ps1') + '"'
-    $link.WorkingDirectory = $env:USERPROFILE
-    $link.WindowStyle = 7
-    $link.Description = 'Herdr daily development build from main'
-    $link.IconLocation = (Join-Path $install 'herdr-app.ico') + ',0'
-    $link.Save()
 }
+$link = $shell.CreateShortcut((Join-Path $programs 'Herdr.lnk'))
+$link.TargetPath = $powershell
+$link.Arguments = '-NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + (Join-Path $install 'start-profilepilot.ps1') + '"'
+$link.WorkingDirectory = $env:USERPROFILE
+$link.WindowStyle = 7
+$link.Description = 'Herdr daily development build from main'
+$link.IconLocation = (Join-Path $install 'herdr-app.ico') + ',0'
+$link.Save()
+$legacyShortcut = Join-Path $programs 'Herdr (ProfilePilot).lnk'
+if (Test-Path -LiteralPath $legacyShortcut) { Remove-Item -LiteralPath $legacyShortcut -Force }
 $record = [ordered]@{channel='local-development';branch=$build.branch;commit=$build.commit;dirty=$build.dirty;builtAt=$build.builtAt;repository=$repo;source=$binary;sha256=$sourceHash;installedAt=[DateTime]::UtcNow.ToString('o');backup=$backup;home=$dailyHome}
 [IO.File]::WriteAllText((Join-Path $install 'development.json'), ($record | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
 [IO.File]::WriteAllText((Join-Path $install 'SHA256SUMS'), ($sourceHash.ToLowerInvariant() + "  herdr-app.exe`n"), (New-Object Text.UTF8Encoding($false)))
