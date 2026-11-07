@@ -1,7 +1,6 @@
 name: localization
 on:
-  push:
-    branches: [feat/zh-cn-localization]
+  # This packaging workflow is manual; routine main development uses ci.yml.
   workflow_dispatch:
 permissions:
   contents: read
