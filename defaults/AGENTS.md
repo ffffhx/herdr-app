@@ -816,6 +816,75 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
   space's repo, branch, ahead/behind and uncommitted changes). Shipped mods
   are Herdr's; duplicate with `mod.clone` before editing.
 
+### Unattended agents
+
+In a space, the + menu's **Unattended agents** opens the `unattended` mod.
+New tasks start the normal interactive Codex or Claude Code terminal with a
+background automatic approval observer. Node.js 20+ and a signed-in agent CLI
+are required on the task machine; local and SSH spaces use that machine's
+configuration and credentials. Global agent permissions are unchanged.
+
+```sh
+herdr-app do tab.new --name "Unattended agents" --mod unattended
+```
+
+For an existing Codex or Claude Code terminal, choose **Switch to unattended**
+in its tab or pane's Herdr right-click menu. Confirm automatic approval once.
+The same terminal process, tab, pane, conversation history, scrollback and draft
+stay in place. The observer does not interrupt the agent, request its session ID,
+restart it, clear its composer or send a new task. It also works while the agent
+is working or waiting for approval. In a split tab, the menu names each eligible
+terminal separately and targets the clicked tab even when it is inactive.
+
+The observer checks the exact terminal address, creation time, PID and reported
+agent. It keeps one `hc events --terminal` subscription: status changes trigger
+checks immediately, with a 10-second fallback when an event is lost or the stream
+disconnects. The stream reconnects with backoff. Atomic policy-file changes also
+wake it immediately. State is written only on change or a 5-second heartbeat;
+badge and title events do not trigger checks. A permission card that is still
+being painted gets at most two short retries before returning to the fallback.
+It reads only the current screen, without scrolling history. Only a
+reported permission wait with a recognized native confirmation card receives a
+single-use approval shortcut (Codex's Yes/proceed or Claude Code's Yes). It
+rechecks the card, terminal and policy before delivery and journals the decision
+first. It never chooses an always-allow option. A changed selection, unknown
+card, missing secret, device hand-back or matching exception stays visible for
+the person to handle in the original native interface. Free-form questions and
+ordinary assistant messages are not automatically submitted as new turns.
+
+**Turn automatic approval off** in the same right-click menu stops future
+automatic decisions and removes the **Unattended** badge. The panel can also
+toggle it. Turning it off leaves the original terminal running and interactive;
+already delivered decisions cannot be undone. Slash commands retain their
+normal Codex or Claude Code meaning; native mode does not install `/auto` or
+replace `/status`, `/help` or `/quit`.
+
+For a new task, enter the working folder, task and optional exception keywords
+(one literal per line, case-insensitive) in the panel. Exceptions match the
+native confirmation and reported request text. The panel's **Open terminal**
+opens the original terminal. Closing the app window does not end terminals or
+their observers; the task machine must remain awake. An observer never ends
+its agent. A terminal exit or changed identity ends observation.
+
+The mod accepts props `{source:"t7", agent:"codex"|"claude", sourcePane:"p1",
+space:"s1"}` for the confirmation. SSH discovery and observation run on the
+target machine, with machine-qualified addresses handled by the launcher.
+The `native.mjs` runtime and its state stay inside the mod; no core API or model
+extension is required. Each run has `task.json`, `control.json`, `state.json`,
+`started.json` and append-only `events.jsonl` under
+`data/unattended/runs/<id>/` (SSH: `~/.config/herdr-app/unattended-runs/<id>/`).
+Native state includes `native:true`, the original terminal and its creation time.
+Per-terminal leases in the adjacent `session-locks` directory prevent duplicate
+observers. After a crash inspect the recorded PID before removing a stale lease.
+
+Older protocol-runner sessions and saved configurations remain supported by
+`runner.mjs`; new UI launches use native mode. Only legacy runner terminals
+handle `/auto on|off`, `/except <keyword>`, `/exceptions`, `/allow <id>`,
+`/deny <id>`, `/answer <id> <answer>`, `/status`, `/help`, `/interrupt` and
+`/quit`. Their structured protocol approvals, conversational continuation,
+exact-session resume and journals retain their existing behavior. Do not
+mistake delivery of an approval for completion of the task.
+
 ### Check before you finish
 
 ```sh

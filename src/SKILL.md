@@ -11,6 +11,31 @@ what the person sees. For starting, reading, messaging, waiting on or cleaning
 up agents and programs, read `hc --skill` and use hc.
 Your terminal address is `$HC_TERMINAL_ID`; it is not a pane ID.
 
+The + menu's **Unattended agents** starts Codex or Claude Code with automatic
+approval and an approval journal. Open its panel with
+`herdr-app do tab.new --name "Unattended agents" --mod unattended`.
+It requires Node.js 20+ and an authenticated CLI on the task machine; it starts
+a separate native interactive session. An existing Codex/Claude Code terminal's
+Herdr tab or pane right-click menu offers **Switch to unattended**. This attaches
+a background approval observer to that exact terminal without restarting it,
+interrupting work, clearing a draft or changing the tab, pane or conversation.
+The original native agent interface remains fully interactive. Recognized native
+permission cards are accepted once; unknown prompts and exception matches remain
+visible for the person. Use **Turn automatic approval off** in the same right-click
+menu or the Unattended agents panel. An **Unattended** badge on the original tab
+and pane header follows the approval state. All slash commands in native terminals
+keep their agent-defined meaning.
+Observers subscribe to terminal state events, with a 10-second fallback and
+automatic reconnection. Policy changes wake them immediately. State files update
+on change or a 5-second heartbeat, rather than on a half-second polling loop.
+Older protocol-runner sessions remain supported. Only those terminals use
+`/auto off`, `/auto on`, `/except <keyword>`, `/allow <request-id>`,
+`/deny <request-id>`, `/answer <id> <answer>`, `/exceptions`, `/status`, `/help`,
+`/interrupt` and `/quit` as runner commands, not `herdr-app do` commands.
+See the installed AGENTS.md's Unattended agents section for behavior and files.
+Explicit exceptions and missing information remain pending; do not claim an
+unattended task finished just because an approval was delivered.
+
 ## Inspect before acting
 
 Development builds compiled with `--features profilepilot` can expose a local

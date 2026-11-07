@@ -62,6 +62,18 @@ The window arranges terminals. The core runs them.
 Closing the window leaves them running; closing a pane or tab ends its terminals.
 After a reboot or core crash, kept panes get fresh shells in their last folders, not their old programs.
 
+For long tasks, choose **+ → Unattended agents** to start Codex or Claude Code
+with automatic approval, exception keywords and a decision journal. The task
+machine needs Node.js 20+ and an authenticated CLI. The terminal stays interactive,
+and its right-click menu turns automatic approval off. For an existing Codex or Claude Code
+terminal, right-click its tab or terminal pane and choose **Switch to unattended**, then confirm.
+The original agent, history, composer and current task stay in place, without a setup form.
+Its tab and pane header show **Unattended**. The observer subscribes to status changes,
+checks every 10 seconds as a fallback, and writes a heartbeat every 5 seconds.
+Recognized native permission cards are accepted once; free-form questions stay in the terminal.
+Existing protocol-runner sessions still support `/auto off`.
+See the [unattended agent guide](defaults/AGENTS.md#unattended-agents).
+
 ## Work on another machine
 
 Add an SSH machine from Settings → Machines or the sidebar's Add machine action.

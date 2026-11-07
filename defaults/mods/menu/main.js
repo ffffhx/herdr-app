@@ -21,6 +21,16 @@ async function checkout(folder, on) {
   return common.stdout.trim() === `${top.stdout.trim()}/.git` ? "main" : "linked";
 }
 
+function unattendedItem(term, pane, spaceId) {
+  const app = term?.report?.app;
+  const agent = app === "codex" ? "codex" : ["claude", "claude-code"].includes(app) ? "claude" : null;
+  const managed = !term?.labels?.["herdr.unattended.control"] && term?.argv?.some(a => a.endsWith("/unattended/runner.mjs") || a.endsWith("\\unattended\\runner.mjs") || a.endsWith("/runner.mjs"));
+  if (!agent || managed) return null;
+  const space = spaceId ?? spaces().find(s => s.tabs?.some(t => t.id === pane?.tab))?.id;
+  const enabled = term?.labels?.["herdr.unattended"] === "on";
+  return [tr(enabled ? "Turn automatic approval off" : "Switch to unattended"), "tab.new", { space, mod: "unattended", props: { space, source: term.address, sourceCreated: term.created_ms, sourcePane: pane?.pane, agent, ...(enabled ? { disable: true } : {}) } }];
+}
+
 function items(p, git) {
   p = p ?? {};
   const tg = p.target ?? {};
@@ -32,7 +42,10 @@ function items(p, git) {
       const parent = term?.parent && all.find((t) => t.address === term.parent);
       // Once they go to the program, Shift+right-click still opens this menu.
       const toProgram = term?.labels?.["herdr.right-click"] === "program";
+      const pane = panes().find(p => p.pane === tg.pane);
+      const unattended = unattendedItem(term, pane);
       return [
+        ...(unattended ? [unattended] : []),
         [tr("Split right"), "pane.split", { direction: "right", pane: tg.pane }],
         [tr("Split down"), "pane.split", { direction: "down", pane: tg.pane }],
         [tr("Zoom"), "pane.zoom", { pane: tg.pane }],
@@ -47,12 +60,21 @@ function items(p, git) {
         [tr("Close pane"), "pane.close", { pane: tg.pane }],
       ];
     }
-    case "tab":
+    case "tab": {
+      // Use the clicked tab, including inactive tabs. A split tab offers each
+      // eligible terminal explicitly instead of guessing the focused agent.
+      const all = terminals();
+      const unattended = panes().filter(pane => pane.tab === tg.id)
+        .map(pane => unattendedItem(all.find(t => t.address === pane.terminal), pane, tg.space))
+        .filter(Boolean);
+      if (unattended.length > 1) for (const item of unattended) item[0] += ` · ${item[2].props.source}`;
       return [
+        ...unattended,
         [tr("Rename"), "tab.rename", { id: tg.id }],
         [tr("New tab"), "tab.new", { space: tg.space }],
         [tr("Close"), "tab.close", { id: tg.id }],
       ];
+    }
     case "space":
       return [
         [tr("Rename"), "space.rename", { id: tg.id }],
@@ -106,6 +128,7 @@ export default class Menu extends View {
     if (!it) return;
     closeOverlay(props()?.overlay);
     if (it[1] === "worktree") openOverlay({ mod: "worktree", kind: "dialog", ...(it[2].action === "open" ? { width: 560, height: 480 } : { width: 440, height: 260 }), props: it[2] });
+    else if (it[2]?.mod === "unattended") openOverlay({ mod: "unattended", kind: "dialog", width: 490, height: 260, props: it[2].props });
     else run(it[1], it[2]);
   }
 
