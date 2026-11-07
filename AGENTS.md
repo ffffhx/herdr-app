@@ -81,9 +81,23 @@ down` when done.
 
 ## Contributing
 
-Work on a branch and open a pull request to `master`. CI must pass and Can
-approves; merges are squashed. Commit messages: lowercase conventional
-commits, single line, no AI co-author lines. Only Can releases (a `v*` tag).
+This personal fork is developed directly on `main`, as requested by its owner.
+Use the primary `herdr-app` checkout for development, commit and push to
+`origin/main`, and build the daily app from that same branch. Do not create
+feature branches, worktrees or PRs for routine work unless the user asks.
+Keep existing work when integrating changes; old feature worktrees are archival.
+CI runs on `main`. Commit messages: lowercase conventional commits, single line,
+no AI co-author lines. Publishing a release or tag still requires an explicit
+release request. Do not edit README files unless requested.
+
+On this Windows machine, `powershell.exe -NoProfile -ExecutionPolicy Bypass
+-File scripts/update-daily-windows.ps1` builds `main`, backs up the installed
+binary, closes only the daily window through its own command, and launches the
+updated window independently. It preserves herdr-core, terminals and agents.
+The installation's `development.json` records the branch, commit and binary hash;
+verify those and the live app after installing. Respect active control sessions
+and user takeover. On macOS, use the existing bundle installation/signing flow;
+the Windows daily installer does not apply.
 
 CHANGELOG.md: every release gets a `## [x.y.z] - YYYY-MM-DD` section
 (`### New` / `### Fixed`), written at release time from the commits since the

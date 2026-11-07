@@ -5,9 +5,7 @@
 # sees a version whose files aren't there yet.
 #
 # Caches: a tag's own cache is visible only to that tag, so tags restore
-# master's. Master keeps them warm by building (without publishing) when
-# what the build depends on changes: Cargo.lock, the vendored crates, the
-# toolchain, this workflow. Let that run finish before tagging.
+# main's. A manual build on main warms them without publishing.
 #
 # The cache is the whole target/, with scripts/ci-sources keeping unchanged
 # files fresh to Cargo: the vendored crates (gpui-kit, taffy, ghostty) are
@@ -16,38 +14,19 @@
 # Tests (the native screenshot test too) run only in ci.yml: a tag publishes
 # once ci.yml has passed for its commit.
 name: build and release
-# Master pushes only build (to keep the cache warm); tags publish.
+# Ordinary main pushes run CI only; manual runs build and tags publish.
 run-name: ${{ github.ref_type == 'tag' && format('release {0}', github.ref_name) || format('build {0}', github.ref_name) }}
 
 on:
   push:
     tags: ["v*"]
-    branches: [master]
-    paths:
-      - Cargo.lock
-      - Cargo.toml
-      - vendor/**
-      - crates/**
-      - scripts/package
-      - scripts/notices.*
-      - tests/notices.rs
-      - about.toml
-      - licenses/**
-      - LICENSE
-      - THIRD-PARTY-NOTICES
-      - scripts/mac-sign
-      - scripts/macos-entitlements.plist
-      - scripts/mac-dmg
-      - distribution/macos/dmg/**
-      - scripts/ci-sources
-      - .github/workflows/release.yml
   # Builds only; publishing needs a tag.
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Never cancel: a cancelled master build saves no cache, a cancelled tag no release.
+# Never cancel: a cancelled manual build saves no cache, a cancelled tag no release.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -141,10 +120,10 @@ jobs:
           tar -xOf "$archive" "$prefix/THIRD-PARTY-NOTICES" | cmp - THIRD-PARTY-NOTICES
           tar -xOf "$archive" "$prefix/LICENSE" | cmp - LICENSE
       - name: Note the sources the cache was built from
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/main'
         run: scripts/ci-sources record
       - name: Save build cache
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/main'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: *cache-paths
@@ -156,7 +135,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # ci.yml runs when the tagged commit reaches master; wait for its result.
+  # ci.yml runs when the tagged commit reaches main; wait for its result.
   # A newer push cancels it: rerun it and this job carries on.
   ci-passed:
     if: github.event_name == 'push' && github.ref_type == 'tag'
