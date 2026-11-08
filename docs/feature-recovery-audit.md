@@ -35,8 +35,10 @@ source/history evidence was found, not exhaustive parity with every Herdr 0.9 AP
 
 Windows recovery uses PowerShell quoting, native executable paths and Codex
 `--no-daemon`. Unix uses shell-safe arguments and process ancestry via `ps`; macOS
-retains the existing login-shell/PATH behavior. Regression tests run in CI on
-Windows, macOS and Linux; local interactive validation is Windows only.
+retains the existing login-shell/PATH behavior. Regression checks are configured
+in CI for Windows, macOS and Linux, but GitHub rejected dispatch because Actions
+is disabled for this repository. Local interactive validation is Windows only;
+macOS and Linux runtime validation remains outstanding.
 
 Provider hook contracts: [Codex hooks](https://learn.chatgpt.com/docs/hooks).
 Runtime verification uses the installed Codex 0.167.0. Its startup hook may be
@@ -59,8 +61,9 @@ Validation completed locally:
   event observer after a holder loss. The real recovery panel's Chinese rendering
   and persistent enable/disable switch were checked through ProfilePilot.
 
-No daily app, default core, existing conversation, release or installation was
-changed during validation. The preview control session's automatic idle pause
-must be explicitly returned before further UI validation/cleanup; it is not
-bypassed through another route. Final daily installation is a separate approval
-under the repository's local rules.
+After the user explicitly returned preview control, the final committed build
+passed another real-conversation recovery check without an additional user turn.
+The preview control session was completed and its window, core and test agents
+were stopped. No daily app, default core, existing conversation, release or
+installation was changed during validation. Final daily installation is a
+separate approval under the repository's local rules.
