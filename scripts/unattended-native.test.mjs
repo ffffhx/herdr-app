@@ -20,6 +20,19 @@ const codex = `History remains above this card.
   3. No, and tell Codex what to do differently (esc)
 
   Press enter to confirm or esc to cancel`;
+// Child-agent approvals in the parent Codex TUI include a thread navigation key.
+const codexChild = `
+  Would you like to run the following command?
+
+  Thread: Agent (12a0c2d1a049)
+
+  Environment: local
+
+  $ node capture-agent-main.cjs
+
+› 1. Yes, proceed (y)
+  2. No, and tell Codex what to do differently (esc)
+  Press enter to confirm or esc to cancel or o to open thread`;
 const claude = `PowerShell command
   Set-Content native-proof.txt VERIFIED
  Do you want to proceed?
@@ -55,6 +68,41 @@ test("native permission cards choose a single once-only shortcut, never persiste
     assert.equal(nativeConfirmation("codex", { ...term, status }, codex), null);
   }
   assert.equal(nativeConfirmation("codex", term, codex.replace("Write the test file", "Please return control in ProfilePilot")), null);
+});
+
+test("Codex child-agent cards recognize thread navigation with LF, CRLF and wrapped footers", () => {
+  for (const screen of [codexChild, codexChild.replaceAll("\n", "\r\n"), codexChild.replace(" or o to open thread", "\n  or o to open thread")]) {
+    const request = nativeConfirmation("codex", term, screen);
+    assert.deepEqual(request?.keys, ["y"]);
+    assert.match(request.context, /Thread: Agent \(12a0c2d1a049\)/);
+  }
+});
+
+test("Codex thread navigation does not permit unknown footers, drafts or manual selections", () => {
+  for (const screen of [
+    codexChild + "\n› draft",
+    codexChild + " or a to always allow",
+    codexChild.replace("or o to open thread", "or o to open settings"),
+    codexChild.replace("› 1.", "  1."),
+    codexChild.replace("2. No, and tell Codex what to do differently (esc)", ""),
+    codexChild.replace("node capture-agent-main.cjs", "Please return control in ProfilePilot"),
+  ]) assert.equal(nativeConfirmation("codex", term, screen), null);
+  assert.equal(nativeConfirmation("codex", { ...term, status: { state: "blocked", kind: "question" } }, codexChild), null);
+});
+
+test("Codex child-agent approvals are delivered and journaled once, with exceptions respected", async () => {
+  const { state, observer } = harness(); state.screen = codexChild;
+  assert.equal((await observer.tick()).approved, true);
+  await observer.tick();
+  assert.deepEqual(state.calls.filter(a => a[0] === "keys"), [["keys", source.address, "y"]]);
+  assert.equal(state.events.length, 1);
+  assert.match(state.events[0].request, /Thread: Agent \(12a0c2d1a049\)/);
+  for (const options of [{ enabled: false }, { exceptions: ["capture-agent-main.cjs"] }, { exceptions: ["12a0c2d1a049"] }]) {
+    const h = harness(options); h.state.screen = codexChild;
+    await h.observer.tick();
+    assert(!h.state.calls.some(a => a[0] === "keys"));
+    assert.equal(h.state.events.length, 0);
+  }
 });
 
 for (const agent of ["codex", "claude"]) test(`${agent}: enabling on a blocked native terminal approves once without stopping or clearing it`, async () => {

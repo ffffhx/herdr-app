@@ -25,7 +25,9 @@ export function nativeConfirmation(agent, term, screen) {
   const text = String(screen).replace(/\r/g, "").trimEnd();
   let card, keys;
   if (agent === "codex") {
-    if (!/\n\s*Press enter to confirm or esc to cancel\s*$/i.test(text)) return null;
+    // Child-agent cards add a navigation shortcut in the parent TUI. Keep the
+    // footer anchored so drafts and unrecognized prompts are still ignored.
+    if (!/\n\s*Press enter to confirm or esc to cancel(?:\s+or o to open thread)?\s*$/i.test(text)) return null;
     const start = text.lastIndexOf("Would you like to ");
     if (start < 0) return null;
     card = text.slice(start);

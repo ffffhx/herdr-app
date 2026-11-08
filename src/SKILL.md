@@ -20,7 +20,8 @@ Herdr tab or pane right-click menu offers **Switch to unattended**. This attache
 a background approval observer to that exact terminal without restarting it,
 interrupting work, clearing a draft or changing the tab, pane or conversation.
 The original native agent interface remains fully interactive. Recognized native
-permission cards are accepted once; unknown prompts and exception matches remain
+permission cards, including Codex child-agent cards with an open-thread shortcut,
+are accepted once; unknown prompts and exception matches remain
 visible for the person. Use **Turn automatic approval off** in the same right-click
 menu or the Unattended agents panel. An **Unattended** badge on the original tab
 and pane header follows the approval state. All slash commands in native terminals

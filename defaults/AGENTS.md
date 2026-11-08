@@ -848,7 +848,8 @@ badge and title events do not trigger checks. A permission card that is still
 being painted gets at most two short retries before returning to the fallback.
 It reads only the current screen, without scrolling history. Only a
 reported permission wait with a recognized native confirmation card receives a
-single-use approval shortcut (Codex's Yes/proceed or Claude Code's Yes). It
+single-use approval shortcut (Codex's Yes/proceed or Claude Code's Yes). Codex
+child-agent cards with the open-thread shortcut are recognized too. It
 rechecks the card, terminal and policy before delivery and journals the decision
 first. It never chooses an always-allow option. A changed selection, unknown
 card, missing secret, device hand-back or matching exception stays visible for
