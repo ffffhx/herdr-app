@@ -98,6 +98,17 @@ layouts can reload in the running app. Reuse one preview per task, identify it,
 record its process/home/session, and clean up only the preview resources created
 by that task when validation ends. Keep previews independent of agent shells.
 
+Cleanup is part of delivery and does not need another confirmation. Close this
+task's temporary preview windows and stop their dedicated background processes
+when validation ends, then verify they exited. After the approved daily update
+is installed and verified, delete this task's copied preview binaries, isolated
+configuration/data homes and disposable test fixtures; closing the window alone
+is not sufficient. Retain useful validation records/screenshots, shared build
+caches and daily-installation rollback backups. Check ownership and resolved
+paths before deleting anything. Leave only the daily instance from this task;
+do not stop or delete another task's active preview, shared services or resources
+the user explicitly asked to keep.
+
 On Windows, `scripts/build-daily-windows.ps1` builds without installing. Copy
 the output to a preview location before launching it so Windows file locking
 does not block the next build. Report validation results and ask whether to
