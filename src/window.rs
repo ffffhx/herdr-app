@@ -795,6 +795,7 @@ impl AppWindow {
 
     fn reconnected(&mut self, core: Arc<Core>, cx: &mut Context<Self>) {
         tracing::info!("reconnected to the core");
+        crate::recovery::start(core.clone());
         self.core_generation += 1;
         self.documents_watching = false;
         for (machine, slot) in &mut self.documents {

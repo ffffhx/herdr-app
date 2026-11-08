@@ -38,6 +38,18 @@ unattended task finished just because an approval was delivered.
 
 ## Inspect before acting
 
+**Session recovery** (status bar and tab/pane menus) captures local Codex/Claude
+root conversation IDs and resumes them in their original kept terminals after
+process loss. Closing just the window preserves live programs. Open the panel
+with `herdr-app do tab.new --name "Session recovery" --mod recovery` to see saved
+IDs, failures, safe retries and the persistent automatic-recovery switch.
+It needs Node.js 20+, the provider's allowed session hooks and a captured ID;
+never guess IDs from the newest history in a folder. Manual Codex launches use
+`codex --no-daemon`. An unknown send outcome is not replayed. Automatic approval
+is restored only with the original enabled policy and exception list after a
+hook or exact native resume process confirms the original conversation. See the installed AGENTS.md for
+hook configuration, diagnostics and unsupported cases.
+
 Development builds compiled with `--features profilepilot` can expose a local
 GPUI debugging bridge when started with `HERDR_GPUI_DEBUG=1`. Use the discovered
 instance from `ppilot gpui list` and follow ProfilePilot's claim, observation,

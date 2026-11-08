@@ -1,7 +1,8 @@
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex, Input, InputState, Textarea, TextareaState } from "gpui-base";
-import { tr, spaces, panes, props, run, theme, shared, setShared, readTextFile, closeOverlay } from "herdr";
+import { tr, spaces, panes, props, run, theme, shared, setShared, readTextFile, closeOverlay, appHome } from "herdr";
 import { prepare, observe, changeCurrent, changePolicy, originalTerminal } from "./launch.js";
+import { recoveredEntry } from "./recovery.mjs";
 
 const HISTORY = "unattended.runs";
 const STATUS = { working: "Working", blocked: "Needs input", done: "Done", idle: "Idle", error: "Error" };
@@ -79,12 +80,26 @@ export default class Unattended extends View {
     this.refreshing = true;
     cx.spawn(async cx => {
       try {
+        let recovered = [];
+        if (this.entries().some(entry => !entry.on)) {
+          try { recovered = JSON.parse(await readTextFile(`${appHome()}/data/recovery/status.json`))?.records || []; } catch {}
+        }
+        const replacements = new Map();
         for (const entry of this.entries()) {
           try {
             const value = await readTextFile(`${entry.directory}/state.json`, { on: entry.on });
-            this.states[entry.id] = value ? JSON.parse(value) : null;
+            let state = value ? JSON.parse(value) : null;
+            const next = recoveredEntry(entry, state, recovered);
+            if (next !== entry) {
+              const latest = JSON.parse(await readTextFile(`${next.directory}/state.json`));
+              if (latest?.native && latest.terminal === state.terminal && latest.sourceCreated === state.sourceCreated) {
+                replacements.set(entry.id, next); state = latest;
+              }
+            }
+            this.states[entry.id] = state;
           } catch (error) { this.states[entry.id] = { status: "error", error: String(error) }; }
         }
+        if (replacements.size) setShared(HISTORY, this.entries().map(entry => replacements.get(entry.id) || entry));
       } finally { this.refreshing = false; cx.notify(); }
     });
   }
@@ -154,7 +169,8 @@ export default class Unattended extends View {
           .child(h_flex().gap(8)
             .child(this.button(`open-${entry.id}`, tr("Open terminal"), () => run("terminal.peek", { terminal: address }), false, Boolean(address)))
             .child(this.button(`auto-${entry.id}`, tr(state?.enabled ? "Turn automatic approval off" : "Turn automatic approval on"), cx => this.toggle(entry, !state?.enabled, cx), false, Boolean(state) && state.running !== false && !stale)))
-          .child(div().text_size(10.5).text_color(t.dim).child(`${tr("Approval log")}: ${entry.directory}/events.jsonl`));
+          .child(div().text_size(10.5).text_color(t.dim).child(`${tr("Approval log")}: ${entry.directory}/events.jsonl`))
+          .children((entry.previousDirectories || []).map(directory => div().text_size(10.5).text_color(t.dim).child(`${tr("Approval log")}: ${directory}/events.jsonl`)));
       }));
   }
   renderSwitch(t) {

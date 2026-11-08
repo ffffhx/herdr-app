@@ -41,6 +41,7 @@ export default class WorkspaceStatus extends View {
       .child(h_flex().gap(6).items_center().child(div().size(6).rounded(3).bg(t.dim)).child(tr("{0} agents", [list.length]))
         .when(needs > 0, el => el.child(div().text_color(t.blocked).child(tr("· {0} needs you", [String(needs)])))))
       .child(div().flex_1())
+      .child(div().id("session-recovery").text_color(t.dim).cursor_pointer().on_click(() => run("tab.new", { mod: "recovery", name: tr("Session recovery") })).child(tr("Session recovery")))
       .when(Boolean(this.quota), el => { const quota = this.quota.render(cx, t); return quota ? el.child(quota) : el; })
       .child(div().id("palette").text_color(t.dim).on_click(() => run("app.palette")).child(this.hint(t)));
   }

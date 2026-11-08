@@ -25,6 +25,7 @@ mod mods;
 mod mod_files;
 mod process_cwd;
 mod programs;
+mod recovery;
 mod remote_shell;
 mod settings;
 mod setup;
@@ -202,6 +203,7 @@ fn main() {
 
 /// The main window, on a connected core.
 pub fn open_main(core: std::sync::Arc<hc::Core>, requests: async_channel::Receiver<mods::Request>, cx: &mut App) {
+            recovery::start(core.clone());
             let (window_bounds, display_id) = place::initial(cx);
             let options = WindowOptions {
                 window_bounds: Some(window_bounds),

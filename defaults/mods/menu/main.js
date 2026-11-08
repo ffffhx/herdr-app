@@ -46,6 +46,7 @@ function items(p, git) {
       const unattended = unattendedItem(term, pane);
       return [
         ...(unattended ? [unattended] : []),
+        [tr("Session recovery"), "tab.new", { mod: "recovery", name: tr("Session recovery"), props: { terminal: tg.terminal } }],
         [tr("Split right"), "pane.split", { direction: "right", pane: tg.pane }],
         [tr("Split down"), "pane.split", { direction: "down", pane: tg.pane }],
         [tr("Zoom"), "pane.zoom", { pane: tg.pane }],
@@ -70,6 +71,7 @@ function items(p, git) {
       if (unattended.length > 1) for (const item of unattended) item[0] += ` · ${item[2].props.source}`;
       return [
         ...unattended,
+        [tr("Session recovery"), "tab.new", { space: tg.space, mod: "recovery", name: tr("Session recovery") }],
         [tr("Rename"), "tab.rename", { id: tg.id }],
         [tr("New tab"), "tab.new", { space: tg.space }],
         [tr("Close"), "tab.close", { id: tg.id }],
@@ -84,6 +86,7 @@ function items(p, git) {
       ];
     default:
       return [
+        [tr("Session recovery"), "mod.open", { name: "recovery" }],
         [tr("New space"), "space.new", {}],
         [tr("Keybinds"), "app.help", {}],
         [tr("Theme: graphite"), "app.theme", { name: "graphite" }],

@@ -1,5 +1,5 @@
 // Provider history and terminal handoff stay in the mod, outside Herdr's core.
-import { readdirSync, readFileSync, openSync, readSync, closeSync, statSync, mkdirSync, writeFileSync, unlinkSync } from "node:fs";
+import { readdirSync, readFileSync, openSync, readSync, closeSync, statSync, mkdirSync, writeFileSync, unlinkSync, renameSync, rmdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { execFile } from "node:child_process";
@@ -117,12 +117,29 @@ export async function handoff(config, call = hc, verify = verifySession, sleep =
   if (stopped.state !== "finished") throw new Error("Original terminal did not stop; the conversation was not resumed");
 }
 
-export function lockSession(agent, id, root) {
+export function lockSession(agent, id, root, { reclaimDeadObserver = false } = {}) {
   validateResume(agent, id);
   mkdirSync(root, { recursive: true });
   const path = join(root, `${agent}-${id}.json`);
-  // Do not silently remove stale leases: a child may outlive its supervisor.
-  writeFileSync(path, JSON.stringify({ pid: process.pid, started: Date.now() }), { flag: "wx", mode: 0o600 });
+  const acquire = () => writeFileSync(path, JSON.stringify({ pid: process.pid, started: Date.now() }), { flag: "wx", mode: 0o600 });
+  try { acquire(); }
+  catch (error) {
+    // Protocol runners can have surviving agent children; never reclaim those.
+    // Recovery of a lost native terminal may reclaim only a provably dead
+    // observer. Serialize reclaimers so one cannot remove another's new lease.
+    if (error.code !== "EEXIST" || agent !== "native" || !reclaimDeadObserver) throw error;
+    const guard = `${path}.reclaim`;
+    mkdirSync(guard);
+    try {
+      const original = readFileSync(path, "utf8"), owner = JSON.parse(original);
+      if (!Number.isInteger(owner.pid) || owner.pid < 1) throw error;
+      let dead = false;
+      try { process.kill(owner.pid, 0); } catch (reason) { dead = reason.code === "ESRCH"; }
+      if (!dead || readFileSync(path, "utf8") !== original) throw error;
+      renameSync(path, `${path}.stale-${process.pid}-${Date.now()}`);
+      acquire();
+    } finally { rmdirSync(guard); }
+  }
   return () => unlinkSync(path);
 }
 

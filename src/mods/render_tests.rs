@@ -166,6 +166,11 @@ fn module(values: BTreeMap<String, Value>, calls: Rc<RefCell<Calls>>) -> HostMod
             let first = a.get(0).map(from_host).unwrap_or(Value::Null);
             let reply = match name {
                 "readTextFile" if first == "/fixture/app/settings.json" || first == "/fixture/.ssh/config" => Some(Value::Null),
+                "readTextFile" if first == "/fixture/app/data/recovery/status.json" => Some(json!(json!({
+                    "updated": 0, "enabled": true, "integrations": [{"agent":"codex", "state":"installed"}],
+                    "records": [{"key":"t1:1", "terminal":"t1", "agent":"codex", "cwd":"/fixture/project", "sessionId":"12345678-1234-1234-1234-123456789abc", "state":"failed", "error":"Missing history", "attempt":{"state":"not-sent"}}]
+                }).to_string())),
+                "readTextFile" if first == "/fixture/app/data/recovery/error.json" => Some(Value::Null),
                 "readTextFile" => first
                     .as_str()
                     .and_then(|p| p.strip_prefix("/fixture/app/layouts/"))

@@ -135,8 +135,10 @@ the highlighted line shows where it will land.
   terminal, and a program exiting closes its pane, even if Herdr was closed.
   Terminal panes are kept by their machine's core (`keep: true`). A lost
   terminal (core crash, reboot, logout) gets a shell in its last folder,
-  with the same address; its original command is never run again. Splits
-  and mod panes stay. An exited or killed terminal is closed, not restarted.
+  with the same address. The recovery mod can then resume a captured local
+  Codex/Claude conversation by its exact ID; it never replays an arbitrary
+  original command or task. Splits and mod panes stay. An exited or killed
+  terminal is closed, not restarted.
   Focus, zoom, recent spaces, settled tabs and seen attention stay on this screen.
 - Every terminal is a core terminal. Herdr labels the ones it starts with
   `herdr.space=<id>` and `herdr.tab=<id>`. **A terminal with those
@@ -876,7 +878,9 @@ extension is required. Each run has `task.json`, `control.json`, `state.json`,
 `data/unattended/runs/<id>/` (SSH: `~/.config/herdr-app/unattended-runs/<id>/`).
 Native state includes `native:true`, the original terminal and its creation time.
 Per-terminal leases in the adjacent `session-locks` directory prevent duplicate
-observers. After a crash inspect the recorded PID before removing a stale lease.
+observers. Lost-terminal recovery can archive a native observer's stale lease
+only after verifying its recorded PID is dead; a live or unreadable lease blocks
+recovery. Protocol-runner leases are never reclaimed automatically.
 
 Older protocol-runner sessions and saved configurations remain supported by
 `runner.mjs`; new UI launches use native mode. Only legacy runner terminals
@@ -885,6 +889,49 @@ handle `/auto on|off`, `/except <keyword>`, `/exceptions`, `/allow <id>`,
 `/quit`. Their structured protocol approvals, conversational continuation,
 exact-session resume and journals retain their existing behavior. Do not
 mistake delivery of an approval for completion of the task.
+
+### Session recovery
+
+The bundled `recovery` mod restores local Codex and Claude Code conversations
+after their terminal process is lost (reboot, logout or holder crash). Closing
+only the window leaves terminals running; reopening connects to those same
+processes. The status bar and tab/pane menus open **Session recovery**:
+`herdr-app do tab.new --name "Session recovery" --mod recovery`.
+
+It requires Node.js 20+. A hidden core worker merges Herdr hooks into the local
+`CODEX_HOME/hooks.json` and `CLAUDE_CONFIG_DIR/settings.json` (default CLI homes
+when unset), preserving foreign hooks/settings and backing up changed files.
+Malformed configuration is left intact and reported in the panel. The provider
+must allow the hook; do not bypass its trust screen. Existing sessions must
+load the hook before they can be captured. The Codex menu uses `--no-daemon`
+so process ancestry identifies the root terminal; use it for manual launches too.
+
+Hooks validate root process ancestry and transcript identity and save exact IDs
+in the core document `herdr-agent-sessions`. Each binding includes the terminal's
+address/creation time, process/holder generation, native executable and folder.
+No latest-by-folder heuristic is used. Recovery claims one attempt durably before
+sending `codex --no-daemon resume <id>` or `claude --resume <id>` in an empty shell
+in that same folder. Invalid/duplicate IDs, missing transcripts, changed folders,
+draft input and unknown/custom prompts remain explicit failures. A timed-out send
+is never blindly replayed. **Retry recovery** is available for known safe failures;
+**Disable automatic recovery** persists in the document without deleting history.
+
+Native automatic approval resumes only after a hook or a verified native resume
+process confirms the original conversation, and retains the prior enabled policy and exceptions. Disabled
+policies stay disabled. Dead observer badges are cleared. The worker survives
+window closure and the window supervises worker restart; disk errors appear in
+the recovery panel rather than an empty success state. Diagnostics are under
+`data/recovery/` in the app home. CLI inspection:
+`node <app-home>/mods/recovery/service.mjs status <app-home>` (select the same
+`HC_SESSION`; `HERDR_RECOVERY_CORE` can name an explicit hc executable).
+The unattended panel follows the recovered observer's current controls and
+keeps links to earlier approval journals. Codex versions that defer startup hooks
+until a user turn are reconciled by native resume argv and root process ancestry;
+Herdr never sends an extra prompt just to trigger a hook.
+
+This does not retrospectively guess IDs for tabs already lost before capture was
+installed, and does not automatically resume remote/other-provider agents.
+Remote terminal reconnection and all native manual resume commands still work.
 
 ### Check before you finish
 

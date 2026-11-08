@@ -124,7 +124,7 @@ export async function watch(configPath, { call = hc, signal, waitForAgent = fals
     }
   };
   try {
-    release = lockSession("native", `${terminal}-${source.created_ms}`, join(dirname(directory), "session-locks"));
+    release = lockSession("native", `${terminal}-${source.created_ms}`, join(dirname(directory), "session-locks"), { reclaimDeadObserver: config.recovered === true });
     ownsSource = true;
     stopEvents = subscribe(terminal, { change: () => wakeups.wake("event"), connection: value => { connected = value; wakeups.wake("connection"); } });
     // Watch the directory so atomic replacement of control.json stays visible.
