@@ -11,6 +11,8 @@ what the person sees. For starting, reading, messaging, waiting on or cleaning
 up agents and programs, read `hc --skill` and use hc.
 Your terminal address is `$HC_TERMINAL_ID`; it is not a pane ID.
 
+Creating Codex or Claude Code from the + menu or its number shortcuts defaults
+to unattended mode with saved exceptions and an empty native conversation.
 The + menu's **Unattended agents** starts Codex or Claude Code with automatic
 approval and an approval journal. Open its panel with
 `herdr-app do tab.new --name "Unattended agents" --mod unattended`.

@@ -67,6 +67,78 @@ test("missing agent prevents launch before a task directory is written", async (
   assert(!existsSync(join(home, "data")));
 });
 
+test("native menu sessions start empty and retain configured arguments and exceptions", async () => {
+  const { home, prepare } = harness();
+  for (const agent of ["codex", "claude"]) {
+    const argv = [agent, ...(agent === "codex" ? ["--no-daemon"] : [])];
+    const entry = await prepare({ agent, argv, native: true, cwd: home, exceptions: ["publish"] });
+    const config = JSON.parse(readFileSync(join(entry.directory, "task.json"), "utf8"));
+    assert.equal(config.task, "");
+    assert.equal(config.enabled, true);
+    assert.deepEqual(config.argv, argv);
+    assert.deepEqual(config.exceptions, ["publish"]);
+    assert(entry.argv[1].endsWith("/native.mjs"));
+    assert(!entry.argv.includes("--watch"));
+  }
+  await assert.rejects(prepare({ agent: "codex", task: "" }), /enter a task/);
+  await assert.rejects(prepare({ agent: "codex", native: true, argv: [] }), /Invalid native agent command/);
+});
+
+const menuSource = readFileSync(new URL("../defaults/mods/new-menu/main.js", import.meta.url), "utf8")
+  .replace(/^import .*;\r?\n/gm, "").replace("export default class", "class");
+
+function menuHarness({ on = null } = {}) {
+  const overlays = [], runs = [], closed = [];
+  const space = { id: "s1", active: true, machine: on, folder: "/project", tabs: [{ id: "tab1" }] };
+  function element() {
+    const tree = { nodes: [], handlers: {} };
+    const el = new Proxy(tree, { get: (target, key) => {
+      if (key in target) return target[key];
+      if (key === "when") return (yes, fn) => yes ? fn(el) : el;
+      if (key === "child") return child => { tree.nodes.push(child); return el; };
+      if (key === "children") return children => { tree.nodes.push(...children); return el; };
+      return (...args) => { if (key === "id") tree.elementId = args[0]; if (key.startsWith("on_")) tree.handlers[key] = args[0]; return el; };
+    } });
+    return el;
+  }
+  const api = { View: class {}, tr: s => s, theme: () => ({}), div: element, svg: element, image: element, h_flex: element, v_flex: element,
+    spaces: () => [space], panes: () => [{ focused: true, tab: "tab1", cwd: "/project/subfolder" }],
+    props: () => ({ overlay: "menu" }), window: () => ({ platform: "windows" }), keys: () => [],
+    closeOverlay: id => closed.push(id), run: (...args) => runs.push(args),
+    openOverlay: config => overlays.push(config) };
+  const Menu = new Function(...Object.keys(api), `${menuSource}; return NewMenu;`)(...Object.values(api));
+  const view = new Menu();
+  view.agents = [{ key: "codex", name: "Codex", installed: true, run: ["codex", "--no-daemon"] },
+    { key: "claude", name: "Claude Code", installed: true, run: ["claude"] },
+    { key: "pi", name: "Pi", installed: true, run: ["pi"] }];
+  const tree = view.render();
+  const find = (node, id) => node?.elementId === id ? node : node?.nodes?.map(child => find(child, id)).find(Boolean);
+  return { overlays, runs, closed,
+    click: id => find(tree, id).handlers.on_click(),
+    key: key => tree.handlers.on_key_down({ key, modifiers: {} }) };
+}
+
+test("agent menu clicks and number shortcuts use the unattended launcher in the selected space", () => {
+  for (const on of [null, "remote"]) for (const method of ["click", "key"]) {
+    const h = menuHarness({ on });
+    h[method](method === "click" ? "codex" : "2");
+    assert.deepEqual(h.overlays, [{ mod: "unattended", kind: "dialog", width: 420, height: 200, props: {
+      space: "s1", agent: method === "click" ? "codex" : "claude", name: method === "click" ? "Codex" : "Claude Code",
+      launch: method === "click" ? ["codex", "--no-daemon"] : ["claude"], folder: "/project/subfolder" } }]);
+    assert.deepEqual(h.runs, []);
+    assert.deepEqual(h.closed, ["menu"]);
+  }
+});
+
+test("other agents and plain terminals keep their normal menu launches", () => {
+  for (const target of ["pi", "terminal"]) {
+    const h = menuHarness(); h.click(target);
+    assert.deepEqual(h.overlays, []);
+    assert.deepEqual(h.runs, [["tab.new", target === "pi" ? { name: "Pi", space: "s1", argv: ["pi"] } : { space: "s1" }]]);
+    assert.deepEqual(h.closed, ["menu"]);
+  }
+});
+
 test("resuming records the exact conversation and source identity as data", async () => {
   const { home, prepare } = harness();
   const source = { address: "t9", created_ms: 1234 };

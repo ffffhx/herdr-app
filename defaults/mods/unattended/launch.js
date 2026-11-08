@@ -32,14 +32,17 @@ async function checked(command, args, on) {
   return result.stdout.trim();
 }
 
-export async function prepare({ agent, task, cwd, exceptions, on, resumeSessionId, source, resumeOriginal, native = false }) {
-  if (!["codex", "claude"].includes(agent) || !task.trim()) throw new Error("Choose an agent and enter a task");
+export async function prepare({ agent, task = "", argv, cwd, exceptions, on, resumeSessionId, source, resumeOriginal, native = false }) {
+  if (!["codex", "claude"].includes(agent) || (!native && !task.trim())) throw new Error("Choose an agent and enter a task");
+  if (argv !== undefined && (!native || !Array.isArray(argv) || !argv.length || argv.some(a => typeof a !== "string") || !argv[0])) throw new Error("Invalid native agent command");
   const version = await checked("node", ["--version"], on);
   if (Number(/^v(\d+)/.exec(version)?.[1] ?? 0) < 20) throw new Error("Node.js 20 or newer is required on the task machine");
-  await checked("node", ["-e", probeCLI, agent], on);
+  // Menu commands have already been discovered by knownAgents(); they may use
+  // a custom executable instead of the provider's usual PATH entry.
+  if (!argv) await checked("node", ["-e", probeCLI, agent], on);
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const config = { agent, task, cwd: cwd || undefined, enabled: true, exceptions,
-    ...(native ? { native: true, ...(source ? { source } : {}) } : {}),
+    ...(native ? { native: true, ...(argv ? { argv } : {}), ...(source ? { source } : {}) } : {}),
     ...(resumeSessionId ? { resumeSessionId, source } : {}), ...(resumeOriginal ? { resumeOriginal: true, source } : {}) };
   let directory, runner;
   if (on) {

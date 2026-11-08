@@ -1,12 +1,48 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, mkdtempSync, writeFileSync, renameSync } from "node:fs";
+import { readFileSync, mkdtempSync, writeFileSync, renameSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { nativeConfirmation, NativeApprovals, watch } from "../defaults/mods/unattended/native.mjs";
+import { native, nativeConfirmation, NativeApprovals, watch } from "../defaults/mods/unattended/native.mjs";
 import { eventFilter, subscribeTerminal } from "../defaults/mods/unattended/events.mjs";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
+import { spawn } from "node:child_process";
+
+test("native menu launch preserves arguments and leaves an empty conversation on Unix", async t => {
+  const directory = mkdtempSync(join(tmpdir(), "herdr-native-command-")), path = join(directory, "task.json");
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  for (const argv of [undefined, ["/custom/codex", "--no-daemon", "--profile", "my profile"]]) {
+    writeFileSync(path, JSON.stringify({ agent: "codex", argv, task: "", cwd: directory }));
+    let observed = false;
+    const code = await native(path, { platform: "linux", launch: (command, args, options) => {
+      assert.equal(command, argv?.[0] ?? "codex");
+      assert.deepEqual(args, argv?.slice(1) ?? []);
+      assert.equal(options.cwd, directory);
+      const child = new EventEmitter(); queueMicrotask(() => child.emit("exit", 0)); return child;
+    }, observe: async (_path, options) => { observed = true; assert.equal(options.waitForAgent, true); } });
+    assert.equal(code, 0); assert(observed);
+  }
+});
+
+test("Windows native launch passes configured arguments and task text as literal data", { skip: process.platform !== "win32" }, async t => {
+  const directory = mkdtempSync(join(tmpdir(), "herdr-native-command-")), path = join(directory, "task.json");
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const recorder = join(directory, "record.cjs"), output = join(directory, "args.json");
+  writeFileSync(recorder, "require('node:fs').writeFileSync(process.argv[2], JSON.stringify(process.argv.slice(3)));\n");
+  for (const task of ["", "中文 `backticks` $(not-a-command) 'quotes'\nnext line"]) {
+    const args = ["--no-daemon", "profile with spaces", "$(literal)"];
+    writeFileSync(path, JSON.stringify({ agent: "codex", argv: [process.execPath, recorder, output, ...args], task, cwd: directory }));
+    let stderr = "", observed = false;
+    const code = await native(path, { launch: (command, argv, options) => {
+      const child = spawn(command, argv, { ...options, stdio: ["ignore", "pipe", "pipe"] });
+      child.stderr.on("data", data => { stderr += data; }); return child;
+    }, observe: async () => { observed = true; } });
+    assert.equal(code, 0, stderr);
+    assert.deepEqual(JSON.parse(readFileSync(output, "utf8")), [...args, ...(task ? [task] : [])]);
+    assert(observed);
+  }
+});
 
 // Native Codex 0.166.0 and Claude Code 2.1.312 cards captured on Windows.
 const codex = `History remains above this card.
@@ -172,6 +208,35 @@ test("switching closes only the confirmation overlay and preserves the native ta
   assert.deepEqual(observed, [entry]); assert.equal(saved.length, 1);
   view.checkSwitch(cx); await Promise.all(pending);
   assert.deepEqual(closed, ["confirm"]); assert.equal(view.switched, true);
+});
+
+test("menu launches start unattended without a task or confirmation and keep errors retryable", async () => {
+  const code = readFileSync(new URL("../defaults/mods/unattended/main.js", import.meta.url), "utf8")
+    .replace(/^import .*;\r?\n/gm, "").replace("export default class", "class");
+  for (const on of [null, "remote"]) for (const fail of [false, true]) {
+    const prepared = [], runs = [], closed = [], pending = [], saved = new Map([["unattended.exceptions", ["publish"]]]);
+    const entry = { agent: "codex", argv: ["node", "/runtime/native.mjs", "--config", "/run/task.json"] };
+    const p = { overlay: "launch", space: "s1", agent: "codex", launch: ["codex", "--no-daemon"], name: "Custom Codex", folder: "/project/subfolder" };
+    const input = { new: ({ value }) => ({ value: () => value, on() {} }) };
+    const api = { View: class {}, InputState: input, TextareaState: input, tr: s => s, props: () => p,
+      spaces: () => [{ id: "s1", machine: on }], shared: key => saved.get(key), setShared: (key, value) => saved.set(key, value),
+      prepare: async config => { prepared.push(config); if (fail) throw new Error("Node.js unavailable"); return entry; },
+      closeOverlay: id => closed.push(id), run: (...args) => runs.push(args) };
+    const Unattended = new Function(...Object.keys(api), `${code}; return Unattended;`)(...Object.values(api));
+    const view = new Unattended(); const cx = { notify() {}, focus_handle: () => ({}), spawn: f => pending.push(f(cx)) };
+    view.init(p, cx);
+    view.start(cx); // Repeated activation while preparing must not launch twice.
+    await Promise.all(pending);
+    assert.deepEqual(prepared, [{ agent: "codex", argv: p.launch, task: "", cwd: p.folder, exceptions: ["publish"], on, native: true }]);
+    assert.equal(view.busy, false);
+    if (fail) {
+      assert.match(view.error, /Node.js unavailable/);
+      assert.deepEqual(runs, []); assert.deepEqual(closed, []);
+    } else {
+      assert.deepEqual(runs, [["tab.new", { space: "s1", name: "Custom Codex", folder: p.folder, argv: entry.argv }]]);
+      assert.deepEqual(closed, ["launch"]); assert.deepEqual(saved.get("unattended.runs"), [entry]);
+    }
+  }
 });
 
 test("native observer lifecycle labels the source, writes state, and never owns the agent process", async () => {

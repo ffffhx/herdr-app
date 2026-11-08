@@ -834,6 +834,22 @@ fn status_bar_shows_the_real_palette_key(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn unattended_menu_launch_needs_no_confirmation_or_task(cx: &mut TestAppContext) {
+    cx.update(gpui_shell::init);
+    let staged = Staged::new();
+    for (setup, expected) in [
+        ("this.launch = ['codex', '--no-daemon']; this.busy = true;", "Starting"),
+        ("this.launch = ['codex']; this.error = 'Node.js unavailable';", "unattended-retry"),
+    ] {
+        let tree = describe(cx, &staged, "mods/unattended", true, json!({"agent":"codex"}), updates("current", "current"), Some(setup)).unwrap();
+        assert!(tree.contains("unattended-launch") && tree.contains(expected), "{tree}");
+        for absent in ["Agree and switch", "Describe the complete task", "Working folder"] {
+            assert!(!tree.contains(absent), "{tree}");
+        }
+    }
+}
+
+#[gpui::test]
 fn unattended_resume_confirms_current_agent_without_configuration(cx: &mut TestAppContext) {
     cx.update(gpui_shell::init);
     let staged = Staged::new();

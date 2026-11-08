@@ -821,7 +821,12 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
 
 ### Unattended agents
 
-In a space, the + menu's **Unattended agents** opens the `unattended` mod.
+Creating Codex or Claude Code from the + menu (including its number shortcuts)
+enables unattended mode by default, using saved automatic-approval exceptions.
+It opens an empty native conversation, preserving the configured launch arguments
+and working folder. Other agents retain their normal launch behavior.
+The + menu's **Unattended agents** opens the `unattended` mod to enter a task,
+edit exceptions or manage recent runs.
 New tasks start the normal interactive Codex or Claude Code terminal with a
 background automatic approval observer. Node.js 20+ and a signed-in agent CLI
 are required on the task machine; local and SSH spaces use that machine's

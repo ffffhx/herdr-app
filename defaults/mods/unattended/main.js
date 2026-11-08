@@ -14,6 +14,7 @@ export default class Unattended extends View {
     this.on = space?.machine ?? null;
     this.sourceAddress = props()?.source ?? null;
     this.agent = props()?.agent === "claude" ? "claude" : "codex";
+    this.launch = props()?.launch ?? null;
     this.busy = false; this.error = ""; this.states = {};
     this.confirmHandle = cx.focus_handle();
     if (this.sourceAddress) {
@@ -26,6 +27,7 @@ export default class Unattended extends View {
     this.task = TextareaState.new({ value: this.sourceAddress ? tr("Continue the existing task from this conversation, preserving its instructions and restrictions. Verify what is already complete before doing more work.") : "", placeholder: tr("Describe the complete task and how to verify it."), rows: 5 });
     this.exceptions = TextareaState.new({ value: (shared("unattended.exceptions") ?? []).join("\n"), placeholder: tr("For example: git push\nOne request keyword per line"), rows: 2 });
     this.task.on("change", (_e, cx) => cx.notify());
+    if (this.launch) { this.start(cx); return; }
     this.refresh(cx);
     cx.timer.every(5000, cx => this.refresh(cx));
   }
@@ -104,18 +106,20 @@ export default class Unattended extends View {
     });
   }
   start(cx) {
-    if (this.busy || !this.task.value().trim()) return;
+    if (this.busy || (!this.launch && !this.task.value().trim())) return;
     this.busy = true; this.error = "";
     const exceptions = this.exceptions.value().split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-    const config = { agent: this.agent, task: this.task.value(), cwd: this.folder.value(), exceptions, on: this.on, native: true };
+    const config = { agent: this.agent, task: this.task.value(), cwd: this.folder.value(), exceptions, on: this.on, native: true,
+      ...(this.launch ? { argv: this.launch } : {}) };
     cx.spawn(async cx => {
       try {
         const entry = await prepare(config);
-        run("tab.new", { space: this.space, name: entry.agent === "claude" ? "Claude Code" : "Codex", folder: config.cwd || undefined, argv: entry.argv });
+        run("tab.new", { space: this.space, name: props()?.name || (entry.agent === "claude" ? "Claude Code" : "Codex"), folder: config.cwd || undefined, argv: entry.argv });
         setShared(HISTORY, [entry, ...this.entries()].slice(0, 20));
         setShared("unattended.exceptions", exceptions);
+        if (this.launch && props()?.overlay) closeOverlay(props().overlay);
       } catch (error) { this.error = String(error); }
-      finally { this.busy = false; this.refresh(cx); cx.notify(); }
+      finally { this.busy = false; if (!this.launch) this.refresh(cx); cx.notify(); }
     });
   }
   toggle(entry, enabled, cx) {
@@ -134,6 +138,12 @@ export default class Unattended extends View {
   render() {
     const t = theme();
     if (this.sourceAddress) return this.renderSwitch(t);
+    if (this.launch) return v_flex().id("unattended-launch").size_full().p(20).gap(12).bg(t.popover).text_color(t.foreground).text_size(13)
+      .child(div().text_size(16).font_semibold().child(props()?.name || (this.agent === "claude" ? "Claude Code" : "Codex")))
+      .child(div().text_color(t.dim).child(tr("Unattended")))
+      .when(this.busy, el => el.child(div().child(tr("Starting…"))))
+      .when(Boolean(this.error), el => el.child(div().flex_1().min_h(0).overflow_y_scrollbar().text_color(t.blocked).child(this.error))
+        .child(this.button("unattended-retry", tr("Retry"), cx => this.start(cx))));
     const label = text => div().text_size(12).font_medium().text_color(t.dim).child(tr(text));
     const input = element => element.px(10).py(8).rounded(8).bg(t.background).border_1().border_color(t.input).text_color(t.foreground).text_size(13);
     return v_flex().id("unattended").size_full().min_h(0).overflow_y_scrollbar().p(24).gap(14).bg(t.chrome).text_color(t.foreground).text_size(13)
@@ -164,7 +174,7 @@ export default class Unattended extends View {
           .child(h_flex().gap(8).items_center().child(div().font_medium().child(entry.agent))
             .child(div().text_color(t.dim).child(tr(stale && state?.status !== "done" ? "Not connected" : STATUS[state?.status] ?? "Starting…")))
             .child(div().flex_1()).child(div().text_size(11).text_color(t.dim).child(tr("{0} automatic approvals", [state?.approvalCount ?? 0]))))
-          .child(div().truncate().child(entry.task))
+          .child(div().truncate().child(entry.task || (entry.agent === "claude" ? "Claude Code" : "Codex")))
           .when(Boolean(state?.error), el => el.child(div().text_color(t.destructive).child(state.error)))
           .child(h_flex().gap(8)
             .child(this.button(`open-${entry.id}`, tr("Open terminal"), () => run("terminal.peek", { terminal: address }), false, Boolean(address)))

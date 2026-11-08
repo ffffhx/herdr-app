@@ -732,6 +732,7 @@
   "Keywords match request contents without case sensitivity. Matching requests wait for you. You can add exceptions later with /except.": "关键词匹配审批请求的内容，不区分大小写。匹配的请求会等待你处理，也可在终端用 /except 随时补充。",
   "Start with automatic approval": "开启自动审批并开始",
   "Starting…": "正在启动…",
+  "Retry": "重试",
   "Runs in its own interactive terminal. Closing the Herdr window keeps it running. Type /auto off to stop automatic approval.": "任务在独立的交互终端中运行，关闭 Herdr 窗口后仍会继续。输入 /auto off 可停止自动审批。",
   "Recent unattended tasks": "最近的无人值守任务",
   "No unattended tasks yet.": "还没有无人值守任务。",
