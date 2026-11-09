@@ -18,7 +18,10 @@ Bypass -File ...`). It refuses elevation so the GUI shares the normal user's
 core. A local installation can expose this as a separate **Herdr (ProfilePilot)**
 shortcut; the regular shortcut retains ordinary startup behavior. Keep test
 homes short (or relative to an explicit working directory), since Herdr's
-existing control socket has a Windows AF_UNIX path length limit.
+existing control socket has a Windows AF_UNIX path length limit. Pass `-Background`
+for a nonactivating launch (used by daily updates). It sets
+`HERDR_APP_BACKGROUND=1` in the child. The same app flag works with the macOS
+bundle launch flow; ordinary launches retain their normal activation behavior.
 
 Use `ppilot gpui list` to discover the actual target ID, then:
 

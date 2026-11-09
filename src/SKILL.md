@@ -80,6 +80,13 @@ prints the built-in command list even without an open window. Do not launch bare
 signal or restart the person's app or core. A window closing does not kill
 its terminals.
 
+For an authorized background launch, set `HERDR_APP_BACKGROUND=1` in the launching
+process. New main/setup windows do not activate; an existing window on that home
+is reused without raising it. Windows `start-profilepilot-windows.ps1 -Background`
+sets this for its independent child; `update-daily-windows.ps1` uses it on restart.
+Ordinary shortcut launches still activate the window. macOS uses the same app
+environment flag, with its existing bundle launch flow.
+
 `app.check_updates` checks for newer releases. Settings reports "Up to date"
 only after a successful check; on failure, check the connection and retry.
 

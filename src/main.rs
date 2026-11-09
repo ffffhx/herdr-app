@@ -63,7 +63,12 @@ window closes. `hc --help`: start, read, wait on and talk to terminals and
 agents. The app shows them and arranges them in spaces and tabs.
 
 Home: ~/.config/herdr-app (HERDR_APP_HOME picks another).
+HERDR_APP_BACKGROUND=1 opens without activating, or reuses an existing window silently.
 ";
+
+pub fn background_start() -> bool {
+    std::env::var("HERDR_APP_BACKGROUND").as_deref() == Ok("1")
+}
 
 /// A Windows window app has no console: answers to `herdr-app ls` and the
 /// like go to the terminal it was started from. Output already piped (agents,
@@ -95,8 +100,8 @@ fn main() {
     }
     // Anything else from a shell answers in the shell; only a bare launch opens the window.
     match args.get(1).map(String::as_str) {
-        // Already open on this home: that window comes to the front.
-        None if control::raise_running() => return,
+        // Background launches reuse the same home without raising its window.
+        None if control::reuse_running(!background_start()) => return,
         None => {}
         Some("-h" | "--help" | "help") => return print!("{HELP}"),
         Some("--skill") => return print!("{}", include_str!("SKILL.md")),
@@ -206,6 +211,7 @@ pub fn open_main(core: std::sync::Arc<hc::Core>, requests: async_channel::Receiv
             recovery::start(core.clone());
             let (window_bounds, display_id) = place::initial(cx);
             let options = WindowOptions {
+                focus: !background_start(),
                 window_bounds: Some(window_bounds),
                 display_id,
                 // macOS: always see-through, so a layout can draw its own title bar
@@ -223,5 +229,7 @@ pub fn open_main(core: std::sync::Arc<hc::Core>, requests: async_channel::Receiv
             };
             cx.open_window(options, |window, cx| cx.new(|cx| window::AppWindow::new(core, requests, window, cx)))
                 .expect("cannot open the Herdr window");
-            cx.activate(true);
+            if !background_start() {
+                cx.activate(true);
+            }
 }

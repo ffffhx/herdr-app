@@ -24,6 +24,11 @@ from the same parts you have.
 
 `herdr-app` controls this app; `hc` controls herdr-core.
 
+An authorized launch with `HERDR_APP_BACKGROUND=1` opens the main/setup window
+without activating it, or silently reuses the existing window on that home.
+The Windows independent launcher accepts `-Background`; daily updates use it.
+Ordinary shortcut launches keep their normal activation behavior.
+
 This fork's packaged Chinese builds are distributed through
 https://github.com/ffffhx/herdr-app/releases and updated manually from there.
 They do not replace themselves with upstream official binaries. On first use,

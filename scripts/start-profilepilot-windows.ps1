@@ -1,4 +1,4 @@
-param([string]$Executable = (Join-Path $env:LOCALAPPDATA 'Programs\herdr-app\herdr-app.exe'))
+param([string]$Executable = (Join-Path $env:LOCALAPPDATA 'Programs\herdr-app\herdr-app.exe'), [switch]$Background)
 
 $ErrorActionPreference = 'Stop'
 if ($PSVersionTable.PSEdition -ne 'Desktop') { throw 'Use Windows PowerShell 5.1.' }
@@ -13,6 +13,7 @@ if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
 # starts the GUI with no console or inherited stdout/stderr redirection.
 $appLiteral = ([IO.Path]::GetFullPath($Executable)).Replace("'", "''")
 $workingLiteral = $env:USERPROFILE.Replace("'", "''")
+$backgroundValue = if ($Background) { '1' } else { '0' }
 $inner = @"
 `$psi = New-Object System.Diagnostics.ProcessStartInfo
 `$psi.FileName = '$appLiteral'
@@ -20,6 +21,7 @@ $inner = @"
 `$psi.UseShellExecute = `$false
 `$psi.CreateNoWindow = `$true
 `$psi.EnvironmentVariables['HERDR_GPUI_DEBUG'] = '1'
+`$psi.EnvironmentVariables['HERDR_APP_BACKGROUND'] = '$backgroundValue'
 [void][System.Diagnostics.Process]::Start(`$psi)
 "@
 $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($inner))

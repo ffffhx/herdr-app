@@ -94,7 +94,7 @@ if (Test-Path -LiteralPath $legacyShortcut) { Remove-Item -LiteralPath $legacySh
 $record = [ordered]@{channel='local-development';branch=$build.branch;commit=$build.commit;dirty=$build.dirty;builtAt=$build.builtAt;repository=$repo;source=$binary;sha256=$sourceHash;installedAt=[DateTime]::UtcNow.ToString('o');backup=$backup;home=$dailyHome}
 [IO.File]::WriteAllText((Join-Path $install 'development.json'), ($record | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
 [IO.File]::WriteAllText((Join-Path $install 'SHA256SUMS'), ($sourceHash.ToLowerInvariant() + "  herdr-app.exe`n"), (New-Object Text.UTF8Encoding($false)))
-& $powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $install 'start-profilepilot.ps1') -Executable $app
+& $powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $install 'start-profilepilot.ps1') -Executable $app -Background
 if ($LASTEXITCODE -ne 0) { throw 'Independent launch failed.' }
 $ready = $false
 for ($attempt = 0; $attempt -lt 40; $attempt++) {

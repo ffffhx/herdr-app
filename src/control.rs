@@ -53,15 +53,16 @@ fn serve(stream: UnixStream, tx: async_channel::Sender<Request>) {
     let _ = (&stream).write_all(format!("{reply}\n").as_bytes());
 }
 
-/// One Herdr per home: a second launch brings the running window to the
+/// One Herdr per home: a second launch optionally brings the running window to the
 /// front and quits. True when one is running (even one too busy to answer:
 /// a second window would ring every alert twice).
-pub fn raise_running() -> bool {
-    raise_running_at(&socket())
+pub fn reuse_running(activate: bool) -> bool {
+    reuse_running_at(&socket(), activate)
 }
 
-fn raise_running_at(path: &std::path::Path) -> bool {
+fn reuse_running_at(path: &std::path::Path, activate: bool) -> bool {
     let Ok(mut stream) = UnixStream::connect(path) else { return false };
+    if !activate { return true; }
     let _ = stream.set_read_timeout(Some(Duration::from_secs(3)));
     if stream.write_all(format!("{}\n", json!({ "raise": true })).as_bytes()).is_ok() {
         let _ = BufReader::new(&stream).read_line(&mut String::new());
@@ -177,7 +178,7 @@ fn fail(message: &str) -> i32 {
     2
 }
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -187,7 +188,8 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("herdr-app.sock");
         // Nothing running: this launch opens its own window.
-        assert!(!raise_running_at(&path));
+        assert!(!reuse_running_at(&path, true));
+        assert!(!reuse_running_at(&path, false));
         // One running: it gets asked to come to the front.
         let listener = UnixListener::bind(&path).unwrap();
         let asked = std::thread::spawn(move || {
@@ -197,8 +199,25 @@ mod tests {
             (&stream).write_all(b"{\"ok\":true}\n").unwrap();
             serde_json::from_str::<Value>(&line).unwrap()
         });
-        assert!(raise_running_at(&path));
+        assert!(reuse_running_at(&path, true));
         assert_eq!(asked.join().unwrap(), json!({ "raise": true }));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn background_launch_reuses_without_requesting_activation() {
+        let dir = std::env::temp_dir().join(format!("herdr-app-background-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("herdr-app.sock");
+        let listener = UnixListener::bind(&path).unwrap();
+        let received = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut line = String::new();
+            BufReader::new(&stream).read_line(&mut line).unwrap();
+            line
+        });
+        assert!(reuse_running_at(&path, false));
+        assert_eq!(received.join().unwrap(), "");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
