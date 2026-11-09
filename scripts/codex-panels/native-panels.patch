@@ -1536,11 +1536,55 @@ index 97697be..cc65a48 100644
  dependencies = [
   "anyhow",
   "assert_cmd",
+diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
+index a1462ee..0e5cb4e 100644
+--- a/codex-rs/cli/src/main.rs
++++ b/codex-rs/cli/src/main.rs
+@@ -2719,6 +2719,7 @@ fn finalize_fork_interactive(
+     interactive.fork_last = last;
+     interactive.fork_session_id = fork_session_id;
+     interactive.fork_show_all = show_all;
++    interactive.fork_name = fork_cli.fork_name.clone().or(interactive.fork_name);
+ 
+     // Merge fork-scoped flags and overrides with highest precedence.
+     merge_interactive_cli_flags(&mut interactive, fork_cli);
+@@ -4259,6 +4260,23 @@ enabled = true
+         assert!(interactive.fork_show_all);
+     }
+ 
++    #[test]
++    fn fork_passes_named_herdr_session_to_the_tui() {
++        let interactive = finalize_fork_from_args(&[
++            "codex",
++            "fork",
++            "source-id",
++            "--fork-name",
++            "named fork's $(text)",
++        ]);
++        assert_eq!(interactive.fork_session_id.as_deref(), Some("source-id"));
++        assert_eq!(
++            interactive.fork_name.as_deref(),
++            Some("named fork's $(text)")
++        );
++        assert_eq!(interactive.prompt, None);
++    }
++
+     #[test]
+     fn app_server_analytics_default_disabled_without_flag() {
+         let app_server = app_server_from_args(["codex", "app-server"].as_ref());
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index 84a42c3..cf9065b 100644
+index 84a42c3..0d5e556 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
-@@ -282,6 +282,7 @@ mod side_focus;
+@@ -270,6 +270,7 @@ mod resume_config;
+ mod resume_preparation;
+ mod right_click_paste;
+ pub(crate) use right_click_paste::PasteEnvironment;
++mod herdr_fork;
+ mod pane_motion;
+ mod safety_buffering;
+ mod safety_recourse;
+@@ -282,6 +283,7 @@ mod side_focus;
  mod side_pane;
  mod sidebar;
  mod sidebar_close;
@@ -1548,7 +1592,7 @@ index 84a42c3..cf9065b 100644
  mod startup;
  pub(crate) mod startup_bootstrap;
  mod startup_prompts;
-@@ -661,6 +662,7 @@ pub(crate) struct App {
+@@ -661,6 +663,7 @@ pub(crate) struct App {
      agent_navigation: AgentNavigationState,
      agents_overview: agents_overview::AgentsOverviewState,
      side_threads: HashMap<ThreadId, SideThreadState>,
@@ -1556,7 +1600,7 @@ index 84a42c3..cf9065b 100644
      sidebars: HashMap<Option<ThreadId>, sidebar::SidebarPane>,
      /// A parked parent view survives child cleanup until its own replay finishes.
      side_companions: HashMap<ThreadId, SideCompanion>,
-@@ -1074,15 +1076,19 @@ impl App {
+@@ -1074,15 +1077,19 @@ impl App {
          if let TuiEvent::Mouse(press) = &event
              && press.kind == MouseEventKind::Down(MouseButton::Left)
              && self.conversation_focus_available(tui)
@@ -1579,7 +1623,7 @@ index 84a42c3..cf9065b 100644
              {
                  let painted_area = painted.passive;
                  if let Some(url) = self.transcript_link_at(*press) {
-@@ -1106,7 +1112,10 @@ impl App {
+@@ -1106,7 +1113,10 @@ impl App {
                              .handle_mouse(*press, Default::default())
                              .then(|| draft.cursor())
                      });
@@ -1615,10 +1659,25 @@ index ef1cead..3fb6277 100644
                      .view
                      .finish_copy(&companion.cells, completion, visible)
 diff --git a/codex-rs/tui/src/app/event_dispatch.rs b/codex-rs/tui/src/app/event_dispatch.rs
-index 3881aac..5dac68b 100644
+index 3881aac..585e2df 100644
 --- a/codex-rs/tui/src/app/event_dispatch.rs
 +++ b/codex-rs/tui/src/app/event_dispatch.rs
-@@ -712,15 +712,18 @@ impl App {
+@@ -662,6 +662,14 @@ impl App {
+                         );
+                         return Ok(AppRunControl::Continue);
+                     }
++                    match self.fork_in_herdr(thread_id, name.as_deref()).await {
++                        Ok(true) => return Ok(AppRunControl::Continue),
++                        Ok(false) => {}
++                        Err(error) => {
++                            self.chat_widget.add_error_message(format!("Could not open the fork in Herdr: {error}"));
++                            return Ok(AppRunControl::Continue);
++                        }
++                    }
+                     self.chat_widget.fork_in_progress = true;
+                     // This handler awaits the fork outside the draw loop. Paint before waiting.
+                     let screen_size = tui.terminal.last_known_screen_size;
+@@ -712,15 +720,18 @@ impl App {
                                  None
                              };
                              self.retain_subscriptions_for_fork();
@@ -1640,7 +1699,7 @@ index 3881aac..5dac68b 100644
                                  Ok(()) => {
                                      if selected_profile.is_some() {
                                          self.adopt_inherited_server_selection();
-@@ -965,7 +968,7 @@ impl App {
+@@ -965,7 +976,7 @@ impl App {
                  self.begin_thread_switch_history_replay_buffer();
              }
              AppEvent::ParkSideCompanion { pair, thread_id, stream, display } => {
@@ -1649,7 +1708,7 @@ index 3881aac..5dac68b 100644
                      self.transcript_view.sync_history_tail(&self.transcript_cells);
                      let mut answer = None;
                      if let Some(stream) = stream {
-@@ -1036,7 +1039,7 @@ impl App {
+@@ -1036,7 +1047,7 @@ impl App {
                      && self.conversation_focus_available(tui)
                  {
                      let size = tui.prepare_draw_size()?;
@@ -1658,7 +1717,7 @@ index 3881aac..5dac68b 100644
                          if let Some(cursor) = draft_cursor {
                              // The editor can reflow during the slide. Keep the original text position.
                              self.chat_widget.set_composer_cursor(cursor);
-@@ -1057,7 +1060,7 @@ impl App {
+@@ -1057,7 +1068,7 @@ impl App {
                  self.reset_transcript_state_after_clear();
                  tui.clear_pending_history_lines();
                  let switched_tab = self.conversation_frame.chat_strip.is_some()
@@ -1667,6 +1726,200 @@ index 3881aac..5dac68b 100644
                      && self.conversation_frame.sidebar_input.is_some_and(|(_, painted_chat, _)| {
                          painted_chat != self.current_displayed_thread_id()
                      });
+@@ -1185,6 +1196,10 @@ impl App {
+             AppEvent::StopCommitAnimation => {
+                 self.commit_animation = None;
+             }
++            AppEvent::Exit(_) if self.current_displayed_thread_id().is_some_and(|id| self.split_threads.contains_key(&id)) => {
++                let child = self.current_displayed_thread_id().expect("checked above");
++                self.close_split_pane(tui, app_server, child).await?;
++            }
+             AppEvent::Exit(mode)
+                 if matches!(self.app_server_target, AppServerTarget::Embedded)
+                     && (self.agents_overview.threads.iter().any(|(id, thread)| {
+diff --git a/codex-rs/tui/src/app/herdr_fork.rs b/codex-rs/tui/src/app/herdr_fork.rs
+new file mode 100644
+index 0000000..b80ad9d
+--- /dev/null
++++ b/codex-rs/tui/src/app/herdr_fork.rs
+@@ -0,0 +1,177 @@
++//! Forks launched from a local Herdr pane get their own terminal and backend.
++//! Use Herdr's existing CLI; no window/model API or terminal parent-child link is added.
++
++use super::*;
++use serde_json::Value;
++use serde_json::json;
++use tokio::process::Command;
++
++fn source_pane(layout: &Value, terminal: &str) -> Option<String> {
++    let mut matches = layout["spaces"]
++        .as_array()?
++        .iter()
++        .filter(|space| space["machine"].is_null())
++        .flat_map(|space| space["tabs"].as_array().into_iter().flatten())
++        .flat_map(|tab| tab["terminals"].as_array().into_iter().flatten())
++        .filter(|pane| pane["terminal"].as_str() == Some(terminal))
++        .filter_map(|pane| pane["pane"].as_str());
++    let pane = matches.next()?.to_owned();
++    matches.next().is_none().then_some(pane)
++}
++
++async fn herdr(args: &[String]) -> Result<Value> {
++    let mut command = Command::new("herdr-app");
++    command.args(args).kill_on_drop(true);
++    // Herdr CLI requests are background IPC, not new console windows.
++    #[cfg(windows)]
++    command.creation_flags(0x08000000);
++    let output = tokio::time::timeout(Duration::from_secs(15), command.output())
++        .await
++        .map_err(|_| {
++            color_eyre::eyre::eyre!(
++                "Herdr did not confirm the request. Inspect its panes before retrying."
++            )
++        })??;
++    let value: Value = serde_json::from_slice(&output.stdout)?;
++    if !output.status.success() || value.get("error").is_some() {
++        color_eyre::eyre::bail!("Herdr request failed: {value}");
++    }
++    Ok(value)
++}
++
++fn launch_argv(binary: &str, home: &str, args: Vec<String>) -> Vec<String> {
++    if cfg!(windows) {
++        let quote = |value: &str| format!("'{}'", value.replace('\'', "''"));
++        let command = std::iter::once(binary.to_string())
++            .chain(args)
++            .map(|arg| quote(&arg))
++            .collect::<Vec<_>>()
++            .join(" ");
++        vec![
++            "powershell.exe".into(),
++            "-NoLogo".into(),
++            "-NoProfile".into(),
++            "-Command".into(),
++            format!(
++                "$env:CODEX_HOME = {}; & {command}; exit $LASTEXITCODE",
++                quote(home)
++            ),
++        ]
++    } else {
++        [
++            vec!["env".into(), format!("CODEX_HOME={home}"), binary.into()],
++            args,
++        ]
++        .concat()
++    }
++}
++
++impl App {
++    /// Return false only before any mutation, when the source isn't a local Herdr pane.
++    pub(super) async fn fork_in_herdr(
++        &mut self,
++        source: ThreadId,
++        name: Option<&str>,
++    ) -> Result<bool> {
++        // Unit tests must never contact a developer's real Herdr window.
++        if cfg!(test) {
++            return Ok(false);
++        }
++        if !matches!(self.app_server_target, AppServerTarget::Embedded)
++            || !self.local_settings.workspace_enabled(&self.config)
++        {
++            return Ok(false);
++        }
++        let Ok(terminal) = std::env::var("HC_TERMINAL_ID") else {
++            return Ok(false);
++        };
++        if terminal.len() < 2
++            || !terminal.starts_with('t')
++            || !terminal[1..].chars().all(|c| c.is_ascii_alphanumeric())
++        {
++            return Ok(false);
++        }
++        let Ok(layout) = herdr(&["ls".into()]).await else {
++            return Ok(false);
++        };
++        let Some(pane) = source_pane(&layout, &terminal) else {
++            return Ok(false);
++        };
++        let config = self.chat_widget.config_ref();
++        let mut args = vec![
++            "--no-daemon".into(),
++            "fork".into(),
++            source.to_string(),
++            "--cd".into(),
++            config.cwd.to_string_lossy().into_owned(),
++            "--model".into(),
++            self.chat_widget.current_model().to_string(),
++            "-c".into(),
++            format!(
++                "model_provider={}",
++                serde_json::to_string(&config.model_provider_id)?
++            ),
++        ];
++        if let Some(effort) = self.chat_widget.current_reasoning_effort() {
++            args.extend([
++                "-c".into(),
++                format!("model_reasoning_effort={}", serde_json::to_string(&effort)?),
++            ]);
++        }
++        if let Some(name) = name {
++            args.extend(["--fork-name".into(), name.into()]);
++        }
++        let argv = launch_argv(
++            &std::env::current_exe()?.to_string_lossy(),
++            &config.codex_home.to_string_lossy(),
++            args,
++        );
++        let result = herdr(&[
++            "do".into(),
++            "pane.split".into(),
++            json!({"direction":"right","pane":pane,"argv":argv}).to_string(),
++        ])
++        .await?;
++        if result["terminal"].as_str().is_none() || result["pane"].as_str().is_none() {
++            color_eyre::eyre::bail!(
++                "Herdr did not return the new pane. Inspect its panes before retrying."
++            );
++        }
++        // The new CLI performs the native fork itself. No second writer is started
++        // on a thread owned by this backend, and this TUI keeps its original chat.
++        self.chat_widget
++            .add_info_message("Fork opened in the Codex pane on the right.".into(), None);
++        Ok(true)
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    #[test]
++    fn herdr_fork_targets_the_source_terminal_not_the_active_tab() {
++        let layout = json!({"spaces":[{"machine":null,"tabs":[{"active":true,"terminals":[{"terminal":"t9","pane":"wrong"}]},{"terminals":[{"terminal":"t3","pane":"source"}]}]}]});
++        assert_eq!(source_pane(&layout, "t3").as_deref(), Some("source"));
++        assert_eq!(source_pane(&layout, "t8"), None);
++    }
++    #[test]
++    fn herdr_fork_does_not_guess_duplicate_or_remote_panes() {
++        let layout = json!({"spaces":[{"machine":"remote","tabs":[{"terminals":[{"terminal":"t3","pane":"remote"}]}]}]});
++        assert_eq!(source_pane(&layout, "t3"), None);
++        let layout = json!({"spaces":[{"machine":null,"tabs":[{"terminals":[{"terminal":"t3","pane":"one"},{"terminal":"t3","pane":"two"}]}]}]});
++        assert_eq!(source_pane(&layout, "t3"), None);
++    }
++    #[cfg(windows)]
++    #[test]
++    fn herdr_fork_quotes_windows_names_and_paths_as_data() {
++        let argv = launch_argv(
++            "C:\\O'Brien\\codex.exe",
++            "C:\\home's",
++            vec!["fork".into(), "--fork-name".into(), "name'; $(exit)".into()],
++        );
++        assert_eq!(
++            argv.last().unwrap(),
++            "$env:CODEX_HOME = 'C:\\home''s'; & 'C:\\O''Brien\\codex.exe' 'fork' '--fork-name' 'name''; $(exit)'; exit $LASTEXITCODE"
++        );
++    }
++}
 diff --git a/codex-rs/tui/src/app/link_hover.rs b/codex-rs/tui/src/app/link_hover.rs
 index bdcca24..7cd4c75 100644
 --- a/codex-rs/tui/src/app/link_hover.rs
@@ -2148,10 +2401,10 @@ index 010606f..2fccb1f 100644
      };
 diff --git a/codex-rs/tui/src/app/split_threads.rs b/codex-rs/tui/src/app/split_threads.rs
 new file mode 100644
-index 0000000..4802dd2
+index 0000000..7411190
 --- /dev/null
 +++ b/codex-rs/tui/src/app/split_threads.rs
-@@ -0,0 +1,438 @@
+@@ -0,0 +1,453 @@
 +//! Present ordinary forks and parent-owned agents beside their source conversation.
 +//! These are display relationships only: side-chat policies and cleanup never apply.
 +
@@ -2406,6 +2659,21 @@ index 0000000..4802dd2
 +        assert!(app.thread_event_channels.contains_key(&child));
 +        assert!(!app.abandoned_side_threads.contains(&child));
 +        assert!(!app.sidebar().unwrap().live_chats().contains(&child));
++        // /quit on a focused in-terminal peer must also keep the TUI and parent alive.
++        app.sidebar_mut().peer_ready(child);
++        Box::pin(app.select_agent_thread(&mut tui, &mut server, child)).await?;
++        assert_eq!(app.current_displayed_thread_id(), Some(child));
++        let control = Box::pin(app.handle_event(
++            &mut tui,
++            &mut server,
++            AppEvent::Exit(ExitMode::ShutdownFirst),
++        ))
++        .await?;
++        assert!(matches!(control, AppRunControl::Continue));
++        assert_eq!(app.current_displayed_thread_id(), Some(parent));
++        assert!(app.thread_event_channels.contains_key(&parent));
++        assert!(app.thread_event_channels.contains_key(&child));
++        assert!(!app.sidebar().unwrap().live_chats().contains(&child));
 +        server.shutdown().await?;
 +        Ok(())
 +    }
@@ -2591,10 +2859,43 @@ index 0000000..4802dd2
 +    }
 +}
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 15f7f45..ff0ff07 100644
+index 15f7f45..3b65250 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
-@@ -1069,6 +1069,7 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -272,6 +272,7 @@ impl App {
+         mut startup_draft: StartupDraftPump,
+         managed_worktree: Option<crate::ManagedTuiWorktree>,
+         daemon_cli_executable: Option<AbsolutePathBuf>,
++        fork_name: Option<String>,
+     ) -> Result<AppExitInfo> {
+         use tokio_stream::StreamExt;
+ 
+@@ -871,14 +872,22 @@ impl App {
+                     },
+                 )
+                 .await;
+-                let forked = match startup_try!(forked) {
++                let mut forked = match startup_try!(forked) {
+                     SessionStartOutcome::Started(started) => Some(*started),
+                     SessionStartOutcome::CommandCenter => None,
+                     SessionStartOutcome::Exit => {
+                         return Ok(cancel_startup_sessions(app_server, &mut other_backends).await);
+                     }
+                 };
+-                if let Some(forked) = &forked {
++                if let Some(forked) = &mut forked {
++                    if let Some(name) = fork_name {
++                        startup_try!(
++                            app_server
++                                .thread_set_name(forked.session.thread_id, name.clone())
++                                .await
++                        );
++                        forked.session.thread_name = Some(name);
++                    }
+                     if let Some(worktree) = managed_worktree.as_ref()
+                         && let Err(err) = worktree.bind(forked.session.thread_id)
+                     {
+@@ -1069,6 +1078,7 @@ See the Codex keymap documentation for supported actions and examples."
              agent_navigation: AgentNavigationState::default(),
              agents_overview,
              side_threads: HashMap::new(),
@@ -2634,6 +2935,18 @@ index 88e0a94..bce4c4b 100644
              sidebars: HashMap::new(),
              side_companions: HashMap::new(),
              zoomed_thread: None,
+diff --git a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
+index b95fffb..524ec5c 100644
+--- a/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
++++ b/codex-rs/tui/src/app/tests/startup_defaults_tests.rs
+@@ -58,6 +58,7 @@ pub(super) async fn run_startup_for_test(
+         crate::startup_draft::tests::quiet_startup_test_pump(),
+         /*managed_worktree*/ None,
+         /*daemon_cli_executable*/ None,
++        /*fork_name*/ None,
+     )
+     .await
+ }
 diff --git a/codex-rs/tui/src/app/thread_routing.rs b/codex-rs/tui/src/app/thread_routing.rs
 index ccd5d3f..15a75eb 100644
 --- a/codex-rs/tui/src/app/thread_routing.rs
@@ -2692,3 +3005,31 @@ index 7b4d27a..c77d3df 100644
                  "close_sidebar_tab" => continue,
                  "hide_pane" if side => (2, "Hide pane"),
                  "focus_pane_left" if side && can_switch => (1, "Pane left"),
+diff --git a/codex-rs/tui/src/cli.rs b/codex-rs/tui/src/cli.rs
+index ca006e9..e48c8ba 100644
+--- a/codex-rs/tui/src/cli.rs
++++ b/codex-rs/tui/src/cli.rs
+@@ -63,6 +63,10 @@ pub struct Cli {
+     #[clap(skip)]
+     pub fork_show_all: bool,
+ 
++    /// Internal: preserve the name supplied to /fork when Herdr opens another terminal.
++    #[arg(long, hide = true)]
++    pub fork_name: Option<String>,
++
+     #[clap(flatten)]
+     pub shared: TuiSharedCliOptions,
+ 
+diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
+index 115f083..40cb46b 100644
+--- a/codex-rs/tui/src/lib.rs
++++ b/codex-rs/tui/src/lib.rs
+@@ -2354,7 +2354,8 @@ async fn run_ratatui_app(
+         startup_draft,
+         managed_worktree,
+         daemon_cli_executable,
++        cli.fork_name,
+     ))
+     .await;
+ 
+     terminal_restore_guard.restore_silently();

@@ -171,10 +171,12 @@ the highlighted line shows where it will land.
 
 Native Codex child threads are separate from `hc run` terminals. This fork's
 optional Codex CLI build (`scripts/codex-panels`, pinned to 0.169.0-alpha.3)
-keeps the source chat on the left when `/fork` opens a normal fork on the right.
-New native subagents appear in stacked right-hand panels without taking input
-focus. Closing one of these panels hides its view; the parent still owns the
-subagent's work. `/side` retains its native side-conversation policy. This needs
+opens `/fork` in an independent terminal to the right of its local Herdr source
+pane. Both sessions have their own Codex header and close independently. Outside
+Herdr, forks retain the in-terminal split presentation. New native subagents
+appear in stacked right-hand views inside their owner's terminal without taking
+input focus. Closing an in-terminal child view hides it; the parent still owns
+the subagent's work. `/side` retains its native side-conversation policy. This needs
 the patched CLI with `features.tui_workspace = true` and
 `tui.fullscreen_transcript = true`; updating only Herdr does not install it.
 See `docs/codex-panels.md` in the source checkout for the isolated build and

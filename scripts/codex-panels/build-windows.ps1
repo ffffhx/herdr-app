@@ -56,8 +56,12 @@ try {
         $testProfile = 'profile.test.package.codex-tui.incremental=false'
         & cargo "+$Toolchain" --config $testProfile test -p codex-tui --lib 'app::split_threads::tests' --locked -- --test-threads=2
         if ($LASTEXITCODE -ne 0) { throw 'Native panel regression tests failed.' }
+        & cargo "+$Toolchain" --config $testProfile test -p codex-tui --lib 'app::herdr_fork::tests' --locked -- --test-threads=2
+        if ($LASTEXITCODE -ne 0) { throw 'Herdr fork routing tests failed.' }
         & cargo "+$Toolchain" --config $testProfile test -p codex-tui --lib 'app::tests::side_' --locked -- --test-threads=2
         if ($LASTEXITCODE -ne 0) { throw 'Native side-conversation compatibility tests failed.' }
+        & cargo "+$Toolchain" --config $testProfile --config 'profile.test.package.codex-app-server.incremental=false' test -p codex-cli --bin codex 'fork_' --locked
+        if ($LASTEXITCODE -ne 0) { throw 'Native fork CLI argument tests failed.' }
     }
     & cargo "+$Toolchain" build -p codex-cli --bin codex --locked
     if ($LASTEXITCODE -ne 0) { throw 'Native Codex build failed.' }

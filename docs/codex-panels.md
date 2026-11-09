@@ -4,12 +4,16 @@ The optional CLI patch in `scripts/codex-panels/native-panels.patch` targets
 OpenAI Codex `rust-v0.169.0-alpha.3`, commit
 `737775c30b0135ca89892da2a7fd394feede12d3`. It changes terminal presentation:
 
-- `/fork` keeps the original chat on the left and opens the full-history fork on
-  the right. The fork remains an ordinary persistent Codex conversation.
+- In a local Herdr terminal running embedded Codex (`--no-daemon`), `/fork` keeps the original chat on the left and
+  starts the native `codex fork <source-id>` in an independent terminal on the
+  right. Both panes have their own Codex header, input and close button.
+  Closing either pane or using `/quit` there leaves the other process running.
+  The fork remains an ordinary persistent Codex conversation with full history.
+  Outside Herdr, the existing in-terminal fork presentation remains available.
 - Native subagents appear automatically on the right, stacked vertically.
   Creation preserves the current input focus. Each panel can be selected,
   scrolled and expanded using Codex's existing pane controls.
-- Closing a fork or subagent panel hides that view without interrupting,
+- Closing an in-terminal fork or subagent panel hides that view without interrupting,
   archiving or unsubscribing the native thread. The agent retains its normal
   task ownership and permissions.
 - `/side` continues to use the upstream side-conversation rules.
@@ -34,10 +38,14 @@ zooms/restores the focused panel; `W` closes its view; `R` adjusts the split
 with the arrow keys; `=` restores equal widths. Child panels share the right
 column's height, so zoom a panel when its transcript needs more room.
 
-The patch does not change Herdr's model, commands or shared mod APIs. Several
-Codex views share one Herdr terminal and one native app-server connection.
-It does not start a second writer on a child thread. At narrow terminal widths,
-the upstream single-column fallback and pane focus controls still apply.
+The patch uses Herdr's existing `ls` and `pane.split` commands to locate the
+source terminal; it does not guess from the currently active tab or change the
+app's model or shared mod APIs. The separate fork CLI creates its own native
+thread, so its process lifetime and write ownership are independent of the
+source. Native `/side` and subagent views still share their owner's terminal
+and app-server connection. It does not start a second writer on a child thread.
+At narrow terminal widths, the upstream single-column fallback and pane focus
+controls still apply to those in-terminal views.
 
 ## Build and validate on Windows
 
@@ -46,6 +54,8 @@ upstream Git dependencies have long filenames, so use a short Cargo home path
 when Windows path limits apply. The build recipe downloads the exact pinned
 source, applies the patch, runs the panel regression tests, and builds the CLI.
 It does not install or restart anything.
+The CLI tests compile additional dependency variants, so leave disk space beyond
+what the normal executable build needs.
 
 The full upstream TUI test program can exceed the available memory on a busy
 16 GB machine even with one build job and incremental compilation disabled.
@@ -75,9 +85,14 @@ active tabs. Run terminal input and screenshot checks through the preview's
 CLI without activating the window.
 
 `mock-responses.mjs` serves a local Responses API fixture without credentials.
-Point only the isolated CLI's test provider at its printed loopback port. Send
-`MAIN FIXTURE`, run `/fork`, then send `FORK FIXTURE`. Return to the original
-chat and send `CREATE TWO CHILDREN` to exercise native subagent creation and
+Point only the isolated CLI's test provider at its printed loopback port. Use
+`--model gpt-5.4` for the fixture's direct function-call subagent responses. Send
+`MAIN FIXTURE`, run `/fork`, then send `FORK FIXTURE`. Check two Herdr pane
+headers, distinct terminal/process/session IDs and the fork's inherited history.
+Close the fork using `/quit` and confirm that the original still accepts input.
+Fork again, close the original using `pane.close`, and confirm that the fork
+still accepts input. Test a named fork too; its name must remain literal text.
+Return to a remaining chat and send `CREATE TWO CHILDREN` to exercise native subagent creation and
 streaming. Verify both child transcripts, original/fork input isolation,
 focus retention, closing a panel, resizing, and unchanged `/side` behavior.
 Repeat with `-c features.multi_agent_v2=true` and check that parent-owned child
