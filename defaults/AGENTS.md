@@ -929,6 +929,12 @@ processes. The status bar and tab/pane menus open **Session recovery**:
 It requires Node.js 20+. A hidden core worker merges Herdr hooks into the local
 `CODEX_HOME/hooks.json` and `CLAUDE_CONFIG_DIR/settings.json` (default CLI homes
 when unset), preserving foreign hooks/settings and backing up changed files.
+The helper is stored in a versioned `herdr-recovery/` directory beside each
+provider's configuration, so removing an old Herdr or preview home does not
+break capture. The worker checks and repairs its launcher every 30 seconds
+without changing provider trust. A custom app home or named core session must
+use separate explicit `CODEX_HOME` / `CLAUDE_CONFIG_DIR` directories; it does
+not install into the daily provider homes, including inherited default paths.
 Malformed configuration is left intact and reported in the panel. The provider
 must allow the hook; do not bypass its trust screen. Existing sessions must
 load the hook before they can be captured. The Codex menu uses `--no-daemon`
@@ -943,6 +949,10 @@ in that same folder. Invalid/duplicate IDs, missing transcripts, changed folders
 draft input and unknown/custom prompts remain explicit failures. A timed-out send
 is never blindly replayed. **Retry recovery** is available for known safe failures;
 **Disable automatic recovery** persists in the document without deleting history.
+
+Recognized running agents without a verified binding appear as **Conversation
+identity not saved**. This diagnostic survives process loss but is never used
+as a guessed recovery target; successful capture clears it automatically.
 
 Native automatic approval resumes only after a hook or a verified native resume
 process confirms the original conversation, and retains the prior enabled policy and exceptions. Disabled

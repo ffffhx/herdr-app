@@ -9,7 +9,7 @@ import { rootTranscript, verifyResume } from "./hook.mjs";
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const alive = pid => { if (!Number.isInteger(pid) || pid < 1) return false; try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } };
-const sources = () => ["service.mjs", "model.mjs", "core.mjs", "install.mjs"].map(file => readFileSync(new URL(file, import.meta.url), "utf8")).join("\0");
+const sources = () => ["service.mjs", "model.mjs", "core.mjs", "install.mjs", "hook.mjs"].map(file => readFileSync(new URL(file, import.meta.url), "utf8")).join("\0");
 export class Recovery {
   constructor(core, home, { now = Date.now, sleep = delay, verify = verifyResume } = {}) { Object.assign(this, { core, home, now, sleep, verify }); this.shellSince = new Map(); }
   async change(key, change) {
@@ -55,6 +55,25 @@ export class Recovery {
     if (!generation) return;
     const records = saved.value?.records || {}, all = listing.terminals.filter(managed);
     const present = new Set(all.map(keyOf));
+    // A missing binding must be visible before a reboot, and remain visible
+    // afterwards. These diagnostics never stand in for a verified session ID.
+    const uncaptured = { ...(saved.value?.uncaptured || {}) };
+    for (const [key, row] of Object.entries(uncaptured)) {
+      if (!present.has(key) || all.find(t => keyOf(t) === key)?.state === "finished" || (records[key] && !records[key].closed)) delete uncaptured[key];
+    }
+    for (const term of all) {
+      const key = keyOf(term), agent = agentOf(term);
+      if (term.state !== "live" || !agent || (records[key] && !records[key].closed)) continue;
+      uncaptured[key] = { key, terminal: term.address, created: term.created_ms, agent, cwd: term.cwd, state: "uncaptured" };
+    }
+    if (JSON.stringify(uncaptured) !== JSON.stringify(saved.value?.uncaptured || {})) {
+      await this.core.update(DOC, doc => {
+        doc ||= { version: 1, records: {} };
+        // A hook may have saved its binding while the diagnostic was prepared.
+        doc.uncaptured = Object.fromEntries(Object.entries(uncaptured).filter(([key]) => !doc.records?.[key] || doc.records[key].closed));
+        return doc;
+      });
+    }
     for (const [key, record] of Object.entries(records)) {
       if (!present.has(key) && !record.closed && record.captured < this.now() - 30000) await this.change(key, r => ({ ...r, closed: true, state: "closed" }));
     }
@@ -115,7 +134,9 @@ export class Recovery {
       if (saved.value?.enabled !== false && eligible(term, record, generation, duplicates)) await this.recover(term, record, generation);
     }
     const doc = await this.core.call("doc.get", { name: DOC });
-    const status = { updated: this.now(), enabled: doc.value?.enabled !== false, integrations: this.integrations || [], records: Object.values(doc.value?.records || {}) };
+    const missing = Object.values(doc.value?.uncaptured || {});
+    const missingKeys = new Set(missing.map(r => r.key));
+    const status = { updated: this.now(), enabled: doc.value?.enabled !== false, integrations: this.integrations || [], records: [...Object.values(doc.value?.records || {}).filter(r => !missingKeys.has(r.key)), ...missing] };
     atomic(join(this.home, "data/recovery/status.json"), status);
     return status;
   }
@@ -163,12 +184,17 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
     else if (mode === "serve") {
       mkdirSync(join(home, "data/recovery"), { recursive: true });
       const recovery = new Recovery(core, home);
-      recovery.integrations = install(home);
+      let nextInstall = 0;
       const originalSources = sources();
       // Finish the current tick before yielding to an updated bundled mod.
       // The app supervisor starts the replacement; claimed sends remain durable.
       while (!core.closed && sources() === originalSources) {
-        try { await recovery.tick(); }
+        try {
+          // Repair launchers overwritten by older instances without restarting
+          // agents, changing provider trust or waiting for the next app launch.
+          if (Date.now() >= nextInstall) { recovery.integrations = install(home); nextInstall = Date.now() + 30000; }
+          await recovery.tick();
+        }
         catch (error) {
           console.error(error.message);
           try { atomic(join(home, "data/recovery/error.json"), { error: error.message, updated: Date.now() }); } catch {}

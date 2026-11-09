@@ -99,6 +99,7 @@ export async function capture(core, agent, payload, terminal = process.env.HC_TE
       captured: now, closed: false, enabled: previous?.enabled !== false, state: "ready", error: null,
       unattended: term.labels?.["herdr.unattended"] === "on" || (previous?.state === "restoring" && previous.unattended) || false,
       unattendedControl: term.labels?.["herdr.unattended.control"] || previous?.unattendedControl || null };
+    if (doc.uncaptured) delete doc.uncaptured[key];
     return doc;
   });
 }

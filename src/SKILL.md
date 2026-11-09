@@ -53,7 +53,11 @@ unattended task finished just because an approval was delivered.
 root conversation IDs and resumes them in their original kept terminals after
 process loss. Closing just the window preserves live programs. Open the panel
 with `herdr-app do tab.new --name "Session recovery" --mod recovery` to see saved
-IDs, failures, safe retries and the persistent automatic-recovery switch.
+IDs, failures, uncaptured conversations, safe retries and the persistent
+automatic-recovery switch. Uncaptured rows cannot be resumed automatically.
+Hooks use a durable helper beside the provider configuration. Isolated previews
+must use explicit, separate `CODEX_HOME` and `CLAUDE_CONFIG_DIR` directories;
+they do not install hooks into the daily provider homes.
 It needs Node.js 20+, the provider's allowed session hooks and a captured ID;
 never guess IDs from the newest history in a folder. Manual Codex launches use
 `codex --no-daemon`. An unknown send outcome is not replayed. Automatic approval

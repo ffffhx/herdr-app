@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, existsSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eligible, keyOf, duplicateSessions, commandLine, emptyPrompt, DOC } from "../defaults/mods/recovery/model.mjs";
@@ -184,13 +184,80 @@ test("lost-terminal recovery reclaims only dead native observer leases", () => {
 test("hook launchers support spaces, apostrophes and Unicode on the running platform", () => {
   const root = mkdtempSync(join(tmpdir(), "herdr-hook-path-")), home = join(root, "app's 中文"), codex = join(root, "codex's 中文");
   mkdirSync(join(home, "mods/recovery"), { recursive: true }); mkdirSync(codex);
-  writeFileSync(join(home, "mods/recovery/hook.mjs"), 'process.stdout.write(process.argv[2]);');
   const result = install(home, { CODEX_HOME: codex, CLAUDE_CONFIG_DIR: join(root, "missing") });
   assert.equal(result[0].state, "installed");
   const args = process.platform === "win32" ? ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", join(codex, "herdr-recovery-hook.ps1")] : [join(codex, "herdr-recovery-hook.sh")];
-  const run = spawnSync(process.platform === "win32" ? "powershell.exe" : "sh", args, { encoding: "utf8", windowsHide: true });
+  const env = { ...process.env }; delete env.HC_TERMINAL_ID;
+  // The provider-owned helper still loads after the app's temporary home is gone.
+  rmSync(home, { recursive: true });
+  const run = spawnSync(process.platform === "win32" ? "powershell.exe" : "sh", args, { env, encoding: "utf8", windowsHide: true });
   assert.equal(run.status, 0, run.stderr);
-  assert.equal(run.stdout, "codex");
+  assert.equal(run.stdout, "");
+  assert(existsSync(join(result[0].runtime, "hook.mjs")));
+});
+
+test("preview startup cannot replace either daily provider's hook, even with inherited default roots", t => {
+  const user = mkdtempSync(join(tmpdir(), "herdr-isolation-"));
+  t.after(() => rmSync(user, { recursive: true, force: true }));
+  const home = join(user, ".config/herdr-app"), preview = join(user, "preview");
+  const roots = { codex: join(user, ".codex"), claude: join(user, ".claude") };
+  for (const root of Object.values(roots)) mkdirSync(root, { recursive: true });
+  const installed = install(home, {}, process.platform, user);
+  const names = agent => [join(roots[agent], agent === "codex" ? "hooks.json" : "settings.json"), join(roots[agent], process.platform === "win32" ? "herdr-recovery-hook.ps1" : "herdr-recovery-hook.sh")];
+  const before = Object.keys(roots).flatMap(names).map(p => [p, readFileSync(p, "utf8"), statSync(p).mtimeMs]);
+  for (const env of [{}, { CODEX_HOME: roots.codex, CLAUDE_CONFIG_DIR: roots.claude }, { HC_SESSION: "preview" }]) {
+    assert(install(preview, env, process.platform, user).every(r => r.state === "isolated"));
+  }
+  assert(install(home, { HC_SESSION: "preview" }, process.platform, user).every(r => r.state === "isolated"));
+  install(home, {}, process.platform, user);
+  for (const [p, text, mtime] of before) { assert.equal(readFileSync(p, "utf8"), text); assert.equal(statSync(p).mtimeMs, mtime); }
+  for (const row of installed) assert(row.runtime.startsWith(roots[row.agent]));
+  const own = join(preview, "codex"); mkdirSync(own, { recursive: true });
+  assert.equal(install(preview, { CODEX_HOME: own, HC_SESSION: "preview" }, process.platform, user)[0].state, "installed");
+});
+
+test("an overwritten launcher is repaired without changing hook trust identity or foreign hooks", t => {
+  const user = mkdtempSync(join(tmpdir(), "herdr-repair-"));
+  t.after(() => rmSync(user, { recursive: true, force: true }));
+  const home = join(user, ".config/herdr-app"), root = join(user, ".codex"); mkdirSync(root, { recursive: true });
+  const hookPath = join(root, "hooks.json");
+  writeFileSync(hookPath, JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: "command", command: "foreign-hook" }] }] } }));
+  install(home, {}, process.platform, user);
+  const config = readFileSync(hookPath, "utf8"), mtime = statSync(hookPath).mtimeMs;
+  const launcher = join(root, process.platform === "win32" ? "herdr-recovery-hook.ps1" : "herdr-recovery-hook.sh");
+  const correct = readFileSync(launcher, "utf8");
+  writeFileSync(launcher, "old preview launcher pointing at a deleted directory");
+  install(home, {}, process.platform, user);
+  assert.equal(readFileSync(launcher, "utf8"), correct);
+  assert.equal(readFileSync(hookPath, "utf8"), config);
+  assert.equal(statSync(hookPath).mtimeMs, mtime);
+});
+
+test("uncaptured agents remain visible after loss, never receive guessed input, and clear on exact capture", async t => {
+  const home = mkdtempSync(join(tmpdir(), "herdr-uncaptured-"));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const c = new FakeCore(term({ status: { app: "codex" } })); c.doc.records = {};
+  const recovery = new Recovery(c, home);
+  assert.equal((await recovery.tick()).records[0].state, "uncaptured");
+  c.term = term();
+  assert.equal((await recovery.tick()).records[0].state, "uncaptured");
+  assert(!c.calls.some(c => c.method === "terminal.send"));
+  const transcript = join(home, "thread.jsonl");
+  writeFileSync(transcript, JSON.stringify({ type: "session_meta", payload: { id, source: "cli" } }));
+  await capture(c, "codex", { session_id: id, transcript_path: transcript, hook_event_name: "SessionStart" }, "t1", async () => true);
+  assert.equal(c.doc.uncaptured["t1:1"], undefined);
+  assert.equal((await recovery.tick()).records[0].sessionId, id);
+});
+
+test("a concurrent capture wins over a prepared missing-identity diagnostic", async t => {
+  const home = mkdtempSync(join(tmpdir(), "herdr-diagnostic-race-"));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const c = new FakeCore(term({ status: { app: "codex" } })); c.doc.records = {};
+  const update = c.update.bind(c);
+  c.update = async (name, change) => { c.doc.records["t1:1"] = record(); return update(name, change); };
+  const result = await new Recovery(c, home).tick();
+  assert.deepEqual(c.doc.uncaptured, {});
+  assert.equal(result.records[0].sessionId, id);
 });
 
 test("a concurrently replaced conversation cancels pending input without overwriting the new binding", async () => {

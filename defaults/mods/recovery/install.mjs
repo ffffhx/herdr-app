@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, copyFileSync, openSync, fsyncSync, closeSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { createHash } from "node:crypto";
 
 export function atomic(path, value) { atomicText(path, JSON.stringify(value, null, 2) + "\n"); }
 function atomicText(path, text) {
@@ -24,14 +25,33 @@ export function mergeHooks(config, command) {
   }
   return result;
 }
-export function install(home, env = process.env, platform = process.platform) {
-  const roots = { codex: env.CODEX_HOME || join(homedir(), ".codex"), claude: env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude") };
+export function install(home, env = process.env, platform = process.platform, userHome = homedir()) {
+  const configured = { codex: env.CODEX_HOME, claude: env.CLAUDE_CONFIG_DIR };
+  const roots = { codex: configured.codex || join(userHome, ".codex"), claude: configured.claude || join(userHome, ".claude") };
+  const samePath = (a, b) => platform === "win32" ? resolve(a).toLowerCase() === resolve(b).toLowerCase() : resolve(a) === resolve(b);
+  const defaultHome = join(env.XDG_CONFIG_HOME || join(userHome, ".config"), "herdr-app");
+  const isolated = !samePath(home, defaultHome) || Boolean(env.HC_SESSION && env.HC_SESSION !== "default");
   const results = [];
   for (const [agent, root] of Object.entries(roots)) {
+    // A preview must not redirect the daily provider's shared hook launcher.
+    // This also protects an explicitly inherited default provider directory.
+    if (isolated && (!configured[agent] || samePath(root, join(userHome, agent === "codex" ? ".codex" : ".claude")))) {
+      results.push({ agent, state: "isolated", error: "An isolated Herdr instance requires its own agent configuration directory" }); continue;
+    }
     if (!existsSync(root)) { results.push({ agent, state: "not-installed" }); continue; }
     const path = join(root, agent === "codex" ? "hooks.json" : "settings.json");
     try {
-      const script = join(home, "mods/recovery/hook.mjs");
+      // The provider can outlive any Herdr window or its installation directory.
+      // Publish a complete, versioned helper beside its own configuration, then
+      // switch the existing launcher. Never point it into a disposable app home.
+      const files = ["hook.mjs", "core.mjs", "model.mjs"].map(name => [name, readFileSync(new URL(name, import.meta.url), "utf8")]);
+      const version = createHash("sha256").update(JSON.stringify(files)).digest("hex");
+      const runtime = join(root, "herdr-recovery", version);
+      for (const [name, text] of files) {
+        const target = join(runtime, name);
+        if (!existsSync(target) || readFileSync(target, "utf8") !== text) atomicText(target, text);
+      }
+      const script = join(runtime, "hook.mjs");
       // Use a tiny stable launcher to avoid quoting a configurable home in the
       // provider's command shell. The helper path itself remains an argv value.
       const launcher = join(root, platform === "win32" ? "herdr-recovery-hook.ps1" : "herdr-recovery-hook.sh");
@@ -49,7 +69,7 @@ export function install(home, env = process.env, platform = process.platform) {
         if (existsSync(path)) copyFileSync(path, `${path}.herdr-recovery-backup-${Date.now()}`);
         atomic(path, config);
       }
-      results.push({ agent, state: "installed", path });
+      results.push({ agent, state: "installed", path, runtime });
     } catch (error) { results.push({ agent, state: "error", error: error.message }); }
   }
   return results;
