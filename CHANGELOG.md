@@ -1,5 +1,16 @@
 # Herdr changelog
 
+## [0.1.14] - 2026-11-09
+
+### New
+- 从 + 菜单启动 Codex 或 Claude Code 时默认开启无人值守，可设置自动审批例外；已有会话也能从标签或分屏菜单开启，保留当前对话和输入。 ([a9a7c7d](https://github.com/ffffhx/herdr-app/commit/a9a7c7d), [d92addc](https://github.com/ffffhx/herdr-app/commit/d92addc), thanks @ffffhx)
+- 会话恢复面板可以在本机终端进程丢失后恢复原 Codex、Claude Code 对话及无人值守状态，并提供恢复记录、重试和自动恢复开关。 ([1f56432](https://github.com/ffffhx/herdr-app/commit/1f56432), thanks @ffffhx)
+- 工作空间状态栏显示 Codex、Claude 的剩余额度及重置时间，或 DeepSeek API 账户余额；点击可刷新。 ([1ba0031](https://github.com/ffffhx/herdr-app/commit/1ba0031), thanks @ffffhx)
+- 提供可选的定制 Codex 构建脚本，让 /fork 在独立的 Herdr 分屏中继续对话，并在侧边显示子 Agent；需要另行构建 Codex，标准应用包不内置该 CLI。 ([4540d56](https://github.com/ffffhx/herdr-app/commit/4540d56), [1725aa5](https://github.com/ffffhx/herdr-app/commit/1725aa5), thanks @ffffhx)
+
+### Fixed
+- 用滚轮切换标签到达首尾时会停住，不再绕回另一端。 ([1404502](https://github.com/ffffhx/herdr-app/commit/1404502), thanks @ffffhx)
+
 ## [0.1.13] - 2026-11-05
 
 ### New
