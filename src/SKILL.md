@@ -11,6 +11,13 @@ what the person sees. For starting, reading, messaging, waiting on or cleaning
 up agents and programs, read `hc --skill` and use hc.
 Your terminal address is `$HC_TERMINAL_ID`; it is not a pane ID.
 
+The optional native Codex panel build keeps `/fork` beside its source chat and
+automatically stacks newly spawned Codex subagents on the right. These are
+views inside one Codex terminal, not additional `hc` terminals. Closing a child
+panel only hides it; ask the parent agent to stop its task. `/side` keeps its
+native policy. This requires the separately built CLI described in
+`docs/codex-panels.md`; installing Herdr alone does not enable these views.
+
 Creating Codex or Claude Code from the + menu or its number shortcuts defaults
 to unattended mode with saved exceptions and an empty native conversation.
 The + menu's **Unattended agents** starts Codex or Claude Code with automatic

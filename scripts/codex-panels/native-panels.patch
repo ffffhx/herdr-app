@@ -1,0 +1,2694 @@
+diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
+index 97697be..cc65a48 100644
+--- a/codex-rs/Cargo.lock
++++ b/codex-rs/Cargo.lock
+@@ -287,7 +287,7 @@ checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
+ 
+ [[package]]
+ name = "app_test_support"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -1888,7 +1888,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-agent-extension"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-core",
+@@ -1900,7 +1900,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-agent-graph-store"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-protocol",
+  "codex-state",
+@@ -1915,7 +1915,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-agent-identity"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -1935,7 +1935,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-agent-message-board-client"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -1958,7 +1958,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-agent-message-board-extension"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-agent-message-board-client",
+  "codex-config",
+@@ -1977,7 +1977,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-agent-message-board-host"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "chrono",
+  "codex-agent-message-board-client",
+@@ -1994,7 +1994,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-agent-roles"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-config",
+  "codex-file-system",
+@@ -2007,7 +2007,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-analytics"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-app-server-protocol",
+  "codex-features",
+@@ -2035,7 +2035,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-ansi-escape"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "ansi-to-tui",
+  "pretty_assertions",
+@@ -2046,7 +2046,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-api"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "assert_matches",
+@@ -2084,7 +2084,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "app_test_support",
+@@ -2205,7 +2205,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server-client"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-app-server",
+  "codex-app-server-protocol",
+@@ -2238,7 +2238,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server-daemon"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "blake3",
+@@ -2268,7 +2268,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server-protocol"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-app-server-protocol-noop-macros",
+@@ -2303,11 +2303,11 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server-protocol-noop-macros"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ 
+ [[package]]
+ name = "codex-app-server-test-client"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -2329,7 +2329,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server-transport"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "axum",
+@@ -2377,7 +2377,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-apply-patch"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "assert_cmd",
+@@ -2397,7 +2397,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-arg0"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-apply-patch",
+@@ -2420,7 +2420,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-async-utils"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "pretty_assertions",
+  "rand 0.9.3",
+@@ -2430,7 +2430,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-attachment-store"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "pretty_assertions",
+  "serde",
+@@ -2440,7 +2440,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-aws-auth"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "aws-config",
+  "aws-credential-types",
+@@ -2466,7 +2466,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-backend-client"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -2493,7 +2493,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-backend-openapi-models"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "serde",
+  "serde_json",
+@@ -2502,7 +2502,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-build-info"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-install-context",
+  "pretty_assertions",
+@@ -2515,7 +2515,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-bwrap"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "cc",
+  "libc",
+@@ -2524,7 +2524,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-chatgpt"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -2552,7 +2552,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cli"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "app_test_support",
+@@ -2656,7 +2656,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-client"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-http-client",
+  "eventsource-stream",
+@@ -2670,7 +2670,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cloud-client"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "async-stream",
+@@ -2696,7 +2696,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cloud-config"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "base64 0.22.1",
+  "chrono",
+@@ -2724,7 +2724,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cloud-tasks"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -2766,7 +2766,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cloud-tasks-client"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -2781,7 +2781,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cloud-tasks-mock-client"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "chrono",
+  "codex-cloud-tasks-client",
+@@ -2790,7 +2790,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-code-mode"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-code-mode-protocol",
+  "codex-http-client",
+@@ -2814,7 +2814,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-code-mode-host"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "axum",
+@@ -2845,7 +2845,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-code-mode-protocol"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-protocol",
+  "glob",
+@@ -2863,7 +2863,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-code-mode-runtime"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-code-mode-protocol",
+@@ -2885,11 +2885,11 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-collaboration-mode-templates"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ 
+ [[package]]
+ name = "codex-config"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -2943,7 +2943,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-config-schema"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -2952,7 +2952,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-connectors"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "arc-swap",
+@@ -2974,7 +2974,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-connectors-extension"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-connectors",
+  "codex-core-plugins",
+@@ -2988,7 +2988,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-context-fragments"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-protocol",
+  "codex-protocol-test-support",
+@@ -2999,7 +2999,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-core"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "arc-swap",
+@@ -3153,7 +3153,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-core-api"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-analytics",
+  "codex-app-server-protocol",
+@@ -3177,7 +3177,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-core-plugin-common"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "semver",
+@@ -3188,7 +3188,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-core-plugins"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -3249,7 +3249,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-diagnostics"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "libc",
+  "pretty_assertions",
+@@ -3257,7 +3257,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-direct-tool-timing"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-utils-critical-path",
+  "pretty_assertions",
+@@ -3268,7 +3268,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-exec"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "assert_cmd",
+@@ -3322,7 +3322,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-exec-server"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "arc-swap",
+@@ -3394,7 +3394,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-exec-server-cli"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "assert_matches",
+@@ -3438,7 +3438,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-exec-server-protocol"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-file-system",
+@@ -3456,7 +3456,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-exec-server-test-support"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-exec-server",
+@@ -3471,7 +3471,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-execpolicy"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "caseless",
+@@ -3491,7 +3491,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-experimental-api-macros"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "proc-macro2",
+  "quote",
+@@ -3500,7 +3500,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-extension-api"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-api",
+  "codex-config",
+@@ -3523,7 +3523,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-extension-items"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "pretty_assertions",
+@@ -3535,7 +3535,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-external-agent-migration"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "chrono",
+  "codex-analytics",
+@@ -3566,7 +3566,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-features"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-network-proxy",
+  "codex-protocol",
+@@ -3580,7 +3580,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-feedback"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "bytes",
+@@ -3608,7 +3608,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-file-search"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -3624,7 +3624,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-file-system"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "bytes",
+  "codex-protocol",
+@@ -3638,7 +3638,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-file-watcher"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "notify",
+  "pretty_assertions",
+@@ -3649,7 +3649,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-git-attribution"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-backend-client",
+  "codex-extension-api",
+@@ -3665,7 +3665,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-git-utils"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -3693,7 +3693,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-goal-extension"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -3718,7 +3718,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-guardian-context"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-context-fragments",
+  "codex-history",
+@@ -3732,7 +3732,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-guardian-reviewer"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-analytics",
+@@ -3769,7 +3769,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-guardian-v2"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -3811,7 +3811,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-guardian-v3"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -3842,7 +3842,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-history"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-protocol",
+@@ -3856,7 +3856,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-history-notes-extension"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-analytics",
+  "codex-client",
+@@ -3882,7 +3882,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-home"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-extension-api",
+  "codex-utils-absolute-path",
+@@ -3894,7 +3894,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-hooks"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "async-channel",
+@@ -3923,7 +3923,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-http-client"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "bytes",
+  "codex-utils-cargo-bin",
+@@ -3963,7 +3963,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-image-generation-extension"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-api",
+@@ -3995,7 +3995,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-install-context"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "codex-utils-home-dir",
+@@ -4008,7 +4008,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-keyring-store"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "keyring",
+  "pretty_assertions",
+@@ -4019,7 +4019,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-linux-sandbox"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "clap",
+  "codex-core",
+@@ -4048,7 +4048,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-lmstudio"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-core",
+  "codex-http-client",
+@@ -4062,7 +4062,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-login"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -4111,7 +4111,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-mcp"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "arc-swap",
+@@ -4162,7 +4162,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-mcp-extension"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "axum",
+@@ -4195,7 +4195,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-memories-extension"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-core",
+  "codex-extension-api",
+@@ -4217,7 +4217,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-memories-read"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-protocol",
+  "codex-shell-command",
+@@ -4227,7 +4227,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-memories-write"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -4266,7 +4266,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-mermaid"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "insta",
+  "pretty_assertions",
+@@ -4275,7 +4275,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-message-board"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "base64 0.22.1",
+  "caseless",
+@@ -4300,7 +4300,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-message-board-mcp"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "axum",
+@@ -4328,7 +4328,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-message-history"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-config",
+  "memchr",
+@@ -4342,7 +4342,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-model-provider"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -4382,7 +4382,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-model-provider-info"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-client",
+  "codex-http-client",
+@@ -4400,7 +4400,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-models-manager"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "chrono",
+  "codex-http-client",
+@@ -4419,7 +4419,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-multi-env-copy-file"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-config",
+@@ -4445,7 +4445,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-mxc-sandbox"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-network-proxy",
+@@ -4466,7 +4466,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-network-proxy"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "aws-credential-types",
+@@ -4517,7 +4517,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-ollama"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "assert_matches",
+  "async-stream",
+@@ -4537,7 +4537,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-otel"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "bytes",
+  "chrono",
+@@ -4575,7 +4575,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-otel-trace-websocket"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "axum",
+@@ -4586,7 +4586,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-plugin"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-config",
+  "codex-core-plugin-common",
+@@ -4601,7 +4601,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-plugin-host"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-utils-cargo-bin",
+  "codex-utils-process",
+@@ -4618,7 +4618,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-process-hardening"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "libc",
+  "pretty_assertions",
+@@ -4626,7 +4626,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-prompts"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-collaboration-mode-templates",
+@@ -4644,7 +4644,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-protocol"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "chardetng",
+@@ -4690,7 +4690,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-protocol-test-support"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-protocol",
+  "uuid",
+@@ -4698,7 +4698,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-queue-extension"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-core",
+@@ -4719,7 +4719,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-realtime-webrtc"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-build-info",
+@@ -4738,7 +4738,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-response-debug-context"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-api",
+@@ -4749,7 +4749,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-responses-api-proxy"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "bytes",
+@@ -4773,7 +4773,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-rmcp-client"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "axum",
+@@ -4825,7 +4825,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-rollout"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -4858,7 +4858,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-rollout-trace"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-code-mode",
+@@ -4875,7 +4875,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-runtime-agent-instance"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "base64 0.22.1",
+  "bytes",
+@@ -4904,7 +4904,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-sandboxing"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-mxc-sandbox",
+@@ -4932,7 +4932,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-secrets"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "age",
+  "anyhow",
+@@ -4953,7 +4953,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-shell-command"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -4976,7 +4976,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-skills"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-protocol",
+  "codex-shell-command",
+@@ -4993,7 +4993,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-skills-extension"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "assert_matches",
+  "blake3",
+@@ -5033,7 +5033,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-state"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -5062,7 +5062,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-stdio-to-uds"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-uds",
+@@ -5074,7 +5074,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-tcp-tunnel"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "bytes",
+@@ -5095,7 +5095,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-terminal-detection"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "pretty_assertions",
+  "tracing",
+@@ -5103,7 +5103,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-test-binary-support"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-arg0",
+  "tempfile",
+@@ -5111,7 +5111,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-thread-manager-sample"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -5122,7 +5122,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-thread-store"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "chrono",
+  "codex-app-server-protocol",
+@@ -5154,7 +5154,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-tools"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "bitflags 2.13.1",
+  "codex-attachment-store",
+@@ -5180,7 +5180,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-tui"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "app_test_support",
+@@ -5311,7 +5311,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-uds"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "async-io",
+  "libc",
+@@ -5325,7 +5325,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-user-verification"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "base64 0.22.1",
+  "block2",
+@@ -5346,7 +5346,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-absolute-path"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "dirs",
+  "dunce",
+@@ -5360,14 +5360,14 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-approval-presets"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-protocol",
+ ]
+ 
+ [[package]]
+ name = "codex-utils-audio"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-protocol",
+@@ -5381,7 +5381,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-cache"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "lru",
+  "sha1 0.10.6",
+@@ -5390,7 +5390,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-cargo-bin"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "assert_cmd",
+  "runfiles",
+@@ -5399,7 +5399,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-cli"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "clap",
+  "codex-protocol",
+@@ -5411,22 +5411,22 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-critical-path"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "pretty_assertions",
+ ]
+ 
+ [[package]]
+ name = "codex-utils-elapsed"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ 
+ [[package]]
+ name = "codex-utils-fuzzy-match"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ 
+ [[package]]
+ name = "codex-utils-git-discovery"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-git-utils",
+  "codex-utils-absolute-path",
+@@ -5439,14 +5439,14 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-head-tail-buffer"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "pretty_assertions",
+ ]
+ 
+ [[package]]
+ name = "codex-utils-home-dir"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "dirs",
+@@ -5456,7 +5456,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-image"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-utils-cache",
+@@ -5470,7 +5470,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-json-to-toml"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "pretty_assertions",
+  "serde_json",
+@@ -5479,7 +5479,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-model-facing-id"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "blake3",
+  "pretty_assertions",
+@@ -5492,7 +5492,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-oss"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-core",
+  "codex-lmstudio",
+@@ -5502,7 +5502,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-output-truncation"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-protocol",
+  "codex-utils-string",
+@@ -5512,7 +5512,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-path"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "dunce",
+@@ -5523,7 +5523,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-path-uri"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-utils-absolute-path",
+@@ -5539,7 +5539,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-plugins"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-exec-server",
+  "codex-exec-server-protocol",
+@@ -5553,7 +5553,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-process"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "pretty_assertions",
+  "tokio",
+@@ -5561,7 +5561,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-pty"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-utils-cargo-bin",
+@@ -5580,7 +5580,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-readiness"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "assert_matches",
+  "thiserror 2.0.18",
+@@ -5590,7 +5590,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-redacted-string"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "schemars 0.8.22",
+  "serde",
+@@ -5598,14 +5598,14 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-rustls-provider"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "rustls",
+ ]
+ 
+ [[package]]
+ name = "codex-utils-sandbox-summary"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-protocol",
+  "codex-utils-absolute-path",
+@@ -5615,7 +5615,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-sleep-inhibitor"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "core-foundation 0.9.4",
+  "libc",
+@@ -5625,14 +5625,14 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-stream-parser"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "pretty_assertions",
+ ]
+ 
+ [[package]]
+ name = "codex-utils-string"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "pretty_assertions",
+  "regex-lite",
+@@ -5642,14 +5642,14 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-template"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "pretty_assertions",
+ ]
+ 
+ [[package]]
+ name = "codex-v8-poc"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "pretty_assertions",
+  "v8",
+@@ -5657,7 +5657,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-voice-host"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-install-context",
+@@ -5684,7 +5684,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-web-search-extension"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-api",
+  "codex-core",
+@@ -5708,7 +5708,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-websocket-auth"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -5727,7 +5727,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-websocket-client"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-http-client",
+  "codex-utils-rustls-provider",
+@@ -5743,7 +5743,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-windows-sandbox"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -5774,7 +5774,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-windows-sandbox-service"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-cloud-config",
+@@ -5792,14 +5792,14 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-windows-sandbox-test-support"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "dirs",
+ ]
+ 
+ [[package]]
+ name = "codex-workload-identity"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "codex-http-client",
+  "pretty_assertions",
+@@ -5814,7 +5814,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-worktree"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "codex-git-utils",
+@@ -6067,7 +6067,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "core_test_support"
+-version = "0.0.0"
++version = "0.169.0-alpha.3"
+ dependencies = [
+  "anyhow",
+  "assert_cmd",
+diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
+index 84a42c3..cf9065b 100644
+--- a/codex-rs/tui/src/app.rs
++++ b/codex-rs/tui/src/app.rs
+@@ -282,6 +282,7 @@ mod side_focus;
+ mod side_pane;
+ mod sidebar;
+ mod sidebar_close;
++mod split_threads;
+ mod startup;
+ pub(crate) mod startup_bootstrap;
+ mod startup_prompts;
+@@ -661,6 +662,7 @@ pub(crate) struct App {
+     agent_navigation: AgentNavigationState,
+     agents_overview: agents_overview::AgentsOverviewState,
+     side_threads: HashMap<ThreadId, SideThreadState>,
++    split_threads: HashMap<ThreadId, ThreadId>,
+     sidebars: HashMap<Option<ThreadId>, sidebar::SidebarPane>,
+     /// A parked parent view survives child cleanup until its own replay finishes.
+     side_companions: HashMap<ThreadId, SideCompanion>,
+@@ -1074,15 +1076,19 @@ impl App {
+         if let TuiEvent::Mouse(press) = &event
+             && press.kind == MouseEventKind::Down(MouseButton::Left)
+             && self.conversation_focus_available(tui)
+-            && let Some(painted) = self.conversation_frame.side_pane()
+-            && painted.passive.contains((press.column, press.row).into())
++            && let Some(painted) = self
++                .conversation_frame
++                .side_pane()
++                .and_then(|panes| panes.peer_at((press.column, press.row).into()))
+         {
+             // A hidden, resized or replaced pane can still be in the last painted frame.
+             let size = tui.prepare_draw_size()?;
+             if let Some(current) = side_pane::layout(self, tui, size.into())
++                .and_then(|panes| panes.peer_at((press.column, press.row).into()))
+                 && current.passive_thread == painted.passive_thread
+                 && let Some(peer) = self.current_displayed_thread_id()
+-                && painted.passive.union(painted.focused) == Rect::from(size)
++                && current.passive == painted.passive
++                && current.focused == painted.focused
+             {
+                 let painted_area = painted.passive;
+                 if let Some(url) = self.transcript_link_at(*press) {
+@@ -1106,7 +1112,10 @@ impl App {
+                             .handle_mouse(*press, Default::default())
+                             .then(|| draft.cursor())
+                     });
+-                if let Err(err) = self.toggle_side_conversation(tui, app_server).await {
++                if let Err(err) = self
++                    .select_agent_thread(tui, app_server, current.passive_thread)
++                    .await
++                {
+                     self.chat_widget.add_error_message(err.to_string());
+                 } else if self.current_displayed_thread_id() == Some(current.passive_thread) {
+                     self.app_event_tx.send(AppEvent::SidePanePressAfterReplay {
+diff --git a/codex-rs/tui/src/app/clipboard.rs b/codex-rs/tui/src/app/clipboard.rs
+index ef1cead..3fb6277 100644
+--- a/codex-rs/tui/src/app/clipboard.rs
++++ b/codex-rs/tui/src/app/clipboard.rs
+@@ -69,12 +69,13 @@ impl App {
+                     &mut *selection;
+                 view.finish_copy(cells, completion, current);
+             }
+-            let passive = self
+-                .conversation_frame
+-                .side_pane()
+-                .map(|panes| panes.passive_thread);
++            let passive = self.conversation_frame.side_pane();
+             for (id, companion) in &mut self.side_companions {
+-                let visible = current && passive == Some(*id);
++                let visible = current
++                    && passive.is_some_and(|panes| {
++                        panes.passive_thread == *id
++                            || panes.extra.iter().any(|(peer, _)| peer == id)
++                    });
+                 if companion
+                     .view
+                     .finish_copy(&companion.cells, completion, visible)
+diff --git a/codex-rs/tui/src/app/event_dispatch.rs b/codex-rs/tui/src/app/event_dispatch.rs
+index 3881aac..5dac68b 100644
+--- a/codex-rs/tui/src/app/event_dispatch.rs
++++ b/codex-rs/tui/src/app/event_dispatch.rs
+@@ -712,15 +712,18 @@ impl App {
+                                 None
+                             };
+                             self.retain_subscriptions_for_fork();
+-                            match self
+-                                .replace_chat_widget_with_app_server_thread(
++                            let attached = if self.side_retention_enabled(tui) && !from_agents_overview {
++                                self.attach_split_fork(tui, app_server, thread_id, forked).await
++                            } else {
++                                self.replace_chat_widget_with_app_server_thread(
+                                     tui,
+                                     forked,
+                                     ThreadAttachPresentation::SessionLineage,
+                                     /*initial_user_message*/ None,
+                                 )
+                                 .await
+-                            {
++                            };
++                            match attached {
+                                 Ok(()) => {
+                                     if selected_profile.is_some() {
+                                         self.adopt_inherited_server_selection();
+@@ -965,7 +968,7 @@ impl App {
+                 self.begin_thread_switch_history_replay_buffer();
+             }
+             AppEvent::ParkSideCompanion { pair, thread_id, stream, display } => {
+-                if self.side_threads.contains_key(&pair) {
++                if self.pane_parent(pair).is_some() {
+                     self.transcript_view.sync_history_tail(&self.transcript_cells);
+                     let mut answer = None;
+                     if let Some(stream) = stream {
+@@ -1036,7 +1039,7 @@ impl App {
+                     && self.conversation_focus_available(tui)
+                 {
+                     let size = tui.prepare_draw_size()?;
+-                    if side_pane::layout(self, tui, size.into()).is_some_and(|panes| panes.passive_thread == peer) {
++                    if side_pane::layout(self, tui, size.into()).is_some_and(|panes| panes.passive_thread == peer || panes.extra.iter().any(|(id, _)| *id == peer)) {
+                         if let Some(cursor) = draft_cursor {
+                             // The editor can reflow during the slide. Keep the original text position.
+                             self.chat_widget.set_composer_cursor(cursor);
+@@ -1057,7 +1060,7 @@ impl App {
+                 self.reset_transcript_state_after_clear();
+                 tui.clear_pending_history_lines();
+                 let switched_tab = self.conversation_frame.chat_strip.is_some()
+-                    && self.active_side_parent_thread_id().is_some()
++                    && self.active_pane_parent().is_some()
+                     && self.conversation_frame.sidebar_input.is_some_and(|(_, painted_chat, _)| {
+                         painted_chat != self.current_displayed_thread_id()
+                     });
+diff --git a/codex-rs/tui/src/app/link_hover.rs b/codex-rs/tui/src/app/link_hover.rs
+index bdcca24..7cd4c75 100644
+--- a/codex-rs/tui/src/app/link_hover.rs
++++ b/codex-rs/tui/src/app/link_hover.rs
+@@ -26,8 +26,10 @@ impl App {
+         {
+             return None;
+         }
+-        let view = if let Some(panes) = self.conversation_frame.side_pane()
+-            && panes.passive.contains((mouse.column, mouse.row).into())
++        let view = if let Some(panes) = self
++            .conversation_frame
++            .side_pane()
++            .and_then(|panes| panes.peer_at((mouse.column, mouse.row).into()))
+         {
+             let passive = &self.side_companions.get(&panes.passive_thread)?.view;
+             if passive.is_select_mode() {
+@@ -102,11 +104,13 @@ impl App {
+                     if matches!(mouse.kind, Drag(Left) | Up(Left) | ScrollUp | ScrollDown) =>
+                 {
+                     self.refresh_owned_transcript(tui)?;
+-                    if self
+-                        .conversation_frame
+-                        .side_pane()
+-                        .is_some_and(|panes| panes.passive_thread == id && panes.passive == area)
+-                    {
++                    if self.conversation_frame.side_pane().is_some_and(|panes| {
++                        (panes.passive_thread == id && panes.passive == area)
++                            || panes
++                                .extra
++                                .iter()
++                                .any(|(peer, rect)| *peer == id && *rect == area)
++                    }) {
+                         self.handle_passive_transcript_event(tui, id, event);
+                         if mouse.kind == Up(Left) {
+                             self.passive_link_drag = None;
+diff --git a/codex-rs/tui/src/app/owned_transcript.rs b/codex-rs/tui/src/app/owned_transcript.rs
+index 7834b9c..78aa71f 100644
+--- a/codex-rs/tui/src/app/owned_transcript.rs
++++ b/codex-rs/tui/src/app/owned_transcript.rs
+@@ -331,6 +331,22 @@ impl App {
+                         companion.view.image_protocol = self.transcript_view.image_protocol;
+                         panes.paint_companion(companion, frame, &frames);
+                     }
++                    for (id, area) in &panes.extra {
++                        if let Some(companion) = self.side_companions.get_mut(id) {
++                            companion.view.image_protocol = self.transcript_view.image_protocol;
++                            side_pane::SidePaneLayout::paint_at(*area, companion, frame, &frames);
++                        }
++                    }
++                    for (id, area) in &panes.headers {
++                        let label = self
++                            .sidebar()
++                            .and_then(|pane| pane.chat_name(*id))
++                            .map(str::to_owned)
++                            .unwrap_or_else(|| self.thread_label(*id));
++                        ratatui::text::Line::raw(label)
++                            .style(crate::style::accent_style())
++                            .render(*area, frame.buffer);
++                    }
+                 }
+                 Some(sidebar::SidebarLayout::Chooser { sidebar, focus, .. }) => {
+                     let focused = *focus == PaneFocus::Sidebar;
+@@ -889,8 +905,10 @@ impl App {
+             }
+             if (is_vertical_wheel || mouse.kind == MouseEventKind::Down(MouseButton::Right))
+                 && self.chat_widget.no_modal_or_popup_active()
+-                && let Some(panes) = self.conversation_frame.side_pane()
+-                && panes.passive.contains((mouse.column, mouse.row).into())
++                && let Some(panes) = self
++                    .conversation_frame
++                    .side_pane()
++                    .and_then(|panes| panes.peer_at((mouse.column, mouse.row).into()))
+             {
+                 let id = panes.passive_thread;
+                 let handled = self.handle_passive_transcript_event(tui, id, event);
+diff --git a/codex-rs/tui/src/app/session_lifecycle.rs b/codex-rs/tui/src/app/session_lifecycle.rs
+index c1d5539..45bb4c1 100644
+--- a/codex-rs/tui/src/app/session_lifecycle.rs
++++ b/codex-rs/tui/src/app/session_lifecycle.rs
+@@ -633,7 +633,7 @@ impl App {
+ 
+         // A tracked side thread stays loaded until it is explicitly discarded and already has a
+         // replay channel, so another liveness read cannot add anything before selection.
+-        if !(self.side_threads.contains_key(&thread_id)
++        if !(self.pane_parent(thread_id).is_some()
+             && self.thread_event_channels.contains_key(&thread_id)
+             || self
+                 .refresh_agent_picker_thread_liveness(app_server, thread_id)
+@@ -788,7 +788,7 @@ impl App {
+                 .submit_user_message_as_plain_user_turn(message);
+         }
+         if self.side_retention_enabled(tui) {
+-            if self.side_threads.contains_key(&thread_id) {
++            if self.pane_parent(thread_id).is_some() {
+                 self.sidebar_mut().show(
+                     sidebar::SidebarContent::Chat(thread_id),
+                     sidebar::PaneFocus::Sidebar,
+@@ -833,11 +833,7 @@ impl App {
+         resume_restored_queue: bool,
+     ) -> Result<()> {
+         let retain_side_view = self.side_retention_enabled(tui);
+-        let side_parent = |id| {
+-            self.side_threads
+-                .get(&self.side_pair_key(id)?)
+-                .map(|side| side.parent_thread_id)
+-        };
++        let side_parent = |id| self.pane_parent(self.side_pair_key(id)?);
+         let preserve_screen = retain_side_view
+             && side_parent(thread_id).is_some_and(|parent| {
+                 self.chat_widget.thread_id().and_then(side_parent) == Some(parent)
+@@ -925,6 +921,12 @@ impl App {
+     }
+ 
+     pub(super) async fn reset_thread_event_state(&mut self) {
++        for (child, parent) in std::mem::take(&mut self.split_threads) {
++            if let Some(pane) = self.sidebars.get_mut(&Some(parent)) {
++                pane.remove_chat(child, SideChatStorage::Temporary);
++            }
++            self.side_companions.remove(&child);
++        }
+         let voice_owner = self.voice_owner_thread_id();
+         let mut previous_pending = std::mem::take(&mut self.pending_app_server_requests);
+         // Move retained tasks' approvals to background routing before clearing request bookkeeping.
+diff --git a/codex-rs/tui/src/app/side.rs b/codex-rs/tui/src/app/side.rs
+index 755d736..16822ad 100644
+--- a/codex-rs/tui/src/app/side.rs
++++ b/codex-rs/tui/src/app/side.rs
+@@ -310,7 +310,7 @@ impl App {
+     }
+ 
+     pub(super) fn main_composer_shortcut_available(&self) -> bool {
+-        !self.reconnect.offline || self.active_side_parent_thread_id().is_none()
++        !self.reconnect.offline || self.active_pane_parent().is_none()
+     }
+ 
+     /// Zoom follows the displayed conversation even when its peer cannot be selected offline.
+@@ -329,17 +329,25 @@ impl App {
+     }
+ 
+     pub(super) fn side_pair_key(&self, thread_id: ThreadId) -> Option<ThreadId> {
+-        if self.side_threads.contains_key(&thread_id) {
++        if self.pane_parent(thread_id).is_some() {
+             Some(thread_id)
+         } else {
+-            self.side_thread_for_parent(thread_id)
++            self.pane_child_for_parent(thread_id)
+         }
+     }
+ 
++    pub(super) fn pane_child_for_parent(&self, parent_thread_id: ThreadId) -> Option<ThreadId> {
++        self.sidebars
++            .get(&Some(parent_thread_id))
++            .and_then(sidebar::SidebarPane::selected_chat)
++            .or_else(|| self.side_thread_for_parent(parent_thread_id))
++    }
++
+     pub(super) fn side_thread_for_parent(&self, parent_thread_id: ThreadId) -> Option<ThreadId> {
+         self.sidebars
+             .get(&Some(parent_thread_id))
+             .and_then(sidebar::SidebarPane::selected_chat)
++            .filter(|id| self.side_threads.contains_key(id))
+             .or_else(|| {
+                 self.side_threads.iter().find_map(|(thread_id, state)| {
+                     (state.parent_thread_id == parent_thread_id).then_some(*thread_id)
+@@ -467,9 +475,9 @@ impl App {
+         let Some(active_thread_id) = self.current_displayed_thread_id() else {
+             return Ok(());
+         };
+-        let target_thread_id = if let Some(state) = self.side_threads.get(&active_thread_id) {
+-            state.parent_thread_id
+-        } else if let Some(side_thread_id) = self.side_thread_for_parent(active_thread_id) {
++        let target_thread_id = if let Some(parent) = self.pane_parent(active_thread_id) {
++            parent
++        } else if let Some(side_thread_id) = self.pane_child_for_parent(active_thread_id) {
+             side_thread_id
+         } else {
+             return Ok(());
+@@ -494,10 +502,9 @@ impl App {
+         let Some(child) = self.current_displayed_thread_id() else {
+             return Ok(());
+         };
+-        let Some(side) = self.side_threads.get(&child) else {
++        let Some(parent) = self.pane_parent(child) else {
+             return Ok(());
+         };
+-        let parent = side.parent_thread_id;
+         self.select_agent_thread(tui, app_server, parent).await?;
+         if self.current_displayed_thread_id() == Some(parent) {
+             self.sidebar_mut().hide();
+@@ -594,6 +601,11 @@ impl App {
+             });
+         self.abort_thread_event_listener(thread_id);
+         self.thread_event_channels.remove(&thread_id);
++        if let Some(parent) = self.split_threads.remove(&thread_id)
++            && let Some(pane) = self.sidebars.get_mut(&Some(parent))
++        {
++            pane.remove_chat(thread_id, SideChatStorage::Temporary);
++        }
+         self.pending_server_profiles.remove(&thread_id);
+         self.agents_overview.activity.remove(&thread_id);
+         self.sidebars.remove(&Some(thread_id));
+diff --git a/codex-rs/tui/src/app/side_focus.rs b/codex-rs/tui/src/app/side_focus.rs
+index 1db002f..a75f1dd 100644
+--- a/codex-rs/tui/src/app/side_focus.rs
++++ b/codex-rs/tui/src/app/side_focus.rs
+@@ -49,7 +49,7 @@ impl App {
+         tui: &mut tui::Tui,
+         server: &mut AppServerSession,
+     ) -> Result<()> {
+-        if let Some(parent) = self.active_side_parent_thread_id() {
++        if let Some(parent) = self.active_pane_parent() {
+             self.select_agent_thread(tui, server, parent).await?;
+             if self.current_displayed_thread_id() != Some(parent) {
+                 return Ok(());
+@@ -151,6 +151,21 @@ impl App {
+             }
+         }
+         if self.chooser_focus().is_none() {
++            if let TuiEvent::Mouse(mouse) = event
++                && mouse.kind == MouseEventKind::Down(MouseButton::Left)
++                && let Some(id) = self.conversation_frame.side_pane().and_then(|panes| {
++                    panes
++                        .headers
++                        .iter()
++                        .find(|(_, area)| area.contains((mouse.column, mouse.row).into()))
++                        .map(|(id, _)| *id)
++                })
++            {
++                if let Err(err) = self.select_agent_thread(tui, server, id).await {
++                    self.chat_widget.add_error_message(err.to_string());
++                }
++                return true;
++            }
+             return false;
+         }
+         let (action, activation) = match event {
+@@ -332,7 +347,7 @@ impl App {
+     ) -> bool {
+         let bindings = &self.keymap.app;
+         let close = self.current_displayed_thread_id().filter(|id| {
+-            bindings.close_sidebar_tab.is_pressed(key) && self.side_threads.contains_key(id)
++            bindings.close_sidebar_tab.is_pressed(key) && self.pane_parent(*id).is_some()
+         });
+         let left = bindings.focus_pane_left.is_pressed(key);
+         let right = bindings.focus_pane_right.is_pressed(key);
+@@ -483,7 +498,7 @@ impl App {
+         tui: &mut tui::Tui,
+         app_server: &mut AppServerSession,
+     ) -> Result<()> {
+-        if let Some(parent) = self.active_side_parent_thread_id() {
++        if let Some(parent) = self.active_pane_parent() {
+             self.select_agent_thread(tui, app_server, parent).await?;
+             if self.current_displayed_thread_id() == Some(parent) {
+                 self.focus_returned_parent_composer(parent).await?;
+diff --git a/codex-rs/tui/src/app/side_pane.rs b/codex-rs/tui/src/app/side_pane.rs
+index b4c7a70..91f6309 100644
+--- a/codex-rs/tui/src/app/side_pane.rs
++++ b/codex-rs/tui/src/app/side_pane.rs
+@@ -82,13 +82,15 @@ fn preferred_width(total: u16, percent: Option<u8>) -> u16 {
+     sidebar_width(i32::from(width), total)
+ }
+ 
+-#[derive(PartialEq)]
++#[derive(Clone, PartialEq)]
+ pub(super) struct SidePaneLayout {
+     pub(super) focused: Rect,
+     pub(super) passive_thread: ThreadId,
+     pub(super) passive: Rect,
+     pub(super) divider: u16,
+     pub(super) tab_strip: Rect,
++    pub(super) extra: Vec<(ThreadId, Rect)>,
++    pub(super) headers: Vec<(ThreadId, Rect)>,
+ }
+ 
+ /// The settled chat split used to check pointer events against the last painted frame.
+@@ -136,12 +138,24 @@ pub(super) fn pair_layout(
+         return None;
+     }
+     let active = app.current_displayed_thread_id()?;
+-    let side = app.side_threads.get(&child)?;
++    let parent_thread = app.pane_parent(child)?;
+     let [tab_strip, sidebar] = tab_and_body(sidebar);
++    let siblings: Vec<_> = app
++        .sidebar()?
++        .live_chats()
++        .iter()
++        .copied()
++        .filter(|id| *id == child || app.split_threads.contains_key(id))
++        .collect();
++    let (panels, headers) = stacked_panels(&siblings, child, sidebar);
++    let child_area = panels
++        .iter()
++        .find(|(id, _)| *id == child)
++        .map(|(_, area)| *area)?;
+     let (focused, passive, passive_thread) = if active == child {
+-        (sidebar, parent, side.parent_thread_id)
++        (child_area, parent, parent_thread)
+     } else {
+-        (parent, sidebar, child)
++        (parent, child_area, child)
+     };
+     if !app.side_companions.contains_key(&passive_thread) {
+         return None;
+@@ -151,10 +165,33 @@ pub(super) fn pair_layout(
+         passive,
+         passive_thread,
+         tab_strip,
++        extra: panels.into_iter().filter(|(id, _)| *id != child).collect(),
++        headers,
+         divider: parent.right(),
+     })
+ }
+ 
++/// All peers remain visible; the existing pane zoom expands the focused transcript.
++fn stacked_panels(
++    ids: &[ThreadId],
++    selected: ThreadId,
++    area: Rect,
++) -> (Vec<(ThreadId, Rect)>, Vec<(ThreadId, Rect)>) {
++    let shown = ids;
++    if shown.len() == 1 {
++        return (vec![(selected, area)], Vec::new());
++    }
++    let rows = Layout::vertical(vec![Constraint::Fill(1); shown.len()]).split(area);
++    let mut panels = Vec::new();
++    let mut headers = Vec::new();
++    for (id, row) in shown.iter().zip(rows.iter()) {
++        let [header, body] = tab_and_body(*row);
++        headers.push((*id, header));
++        panels.push((*id, body));
++    }
++    (panels, headers)
++}
++
+ pub(super) fn tab_and_body(area: Rect) -> [Rect; 2] {
+     Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).areas(area)
+ }
+@@ -429,15 +466,38 @@ impl App {
+ }
+ 
+ impl SidePaneLayout {
++    pub(super) fn peer_at(&self, point: ratatui::layout::Position) -> Option<Self> {
++        if self.passive.contains(point) {
++            return Some(self.clone());
++        }
++        self.extra
++            .iter()
++            .find(|(_, area)| area.contains(point))
++            .map(|(id, area)| {
++                let mut peer = self.clone();
++                peer.passive_thread = *id;
++                peer.passive = *area;
++                peer
++            })
++    }
++
+     /// Paint the divider, retained transcript and draft without claiming the terminal cursor.
+     pub(super) fn paint_companion(
+         &self,
+         companion: &mut SideCompanion,
+         frame: &mut Frame<'_>,
+         frames: &FrameRequester,
++    ) {
++        Self::paint_at(self.passive, companion, frame, frames);
++    }
++
++    pub(super) fn paint_at(
++        area: Rect,
++        companion: &mut SideCompanion,
++        frame: &mut Frame<'_>,
++        frames: &FrameRequester,
+     ) {
+         companion.flush_answer();
+-        let area = self.passive;
+         // Keep the live composer's bottom hint row blank on the inactive side.
+         let available = area.height.saturating_sub(1);
+         let composer_height = available.min(3);
+diff --git a/codex-rs/tui/src/app/sidebar.rs b/codex-rs/tui/src/app/sidebar.rs
+index c77e552..2a1fb84 100644
+--- a/codex-rs/tui/src/app/sidebar.rs
++++ b/codex-rs/tui/src/app/sidebar.rs
+@@ -99,6 +99,23 @@ impl SidebarPane {
+         }
+     }
+ 
++    pub(super) fn live_chats(&self) -> &[ThreadId] {
++        &self.tabs
++    }
++
++    pub(super) fn set_chat_name(&mut self, id: ThreadId, name: String) {
++        if let Some(chat) = self.choices.iter_mut().find(|chat| chat.id == id) {
++            chat.name = Some(name);
++        }
++    }
++
++    pub(super) fn chat_name(&self, id: ThreadId) -> Option<&str> {
++        self.choices
++            .iter()
++            .find(|chat| chat.id == id)
++            .and_then(crate::sidebar_chooser::side_chat_label)
++    }
++
+     pub(super) fn set_saved_chats_request(&mut self, request: Option<uuid::Uuid>) {
+         self.saved_chats_request = request;
+         self.tabs_revision += 1;
+@@ -158,11 +175,7 @@ impl SidebarPane {
+ 
+     pub(super) fn chat_ready(&mut self, child: ThreadId) {
+         self.creation = None;
+-        if !self.tabs.contains(&child) {
+-            self.add_tab(child);
+-            // A completed background fork must not replace the user's selection.
+-            self.visits.insert(0, child);
+-        }
++        self.peer_ready(child);
+         if self.content == SidebarContent::Chooser
+             && let Some(selected) = self.selected_chat()
+         {
+@@ -170,6 +183,14 @@ impl SidebarPane {
+         }
+     }
+ 
++    pub(super) fn peer_ready(&mut self, child: ThreadId) {
++        if !self.tabs.contains(&child) {
++            self.add_tab(child);
++            // A completed background fork must not replace the user's selection.
++            self.visits.insert(0, child);
++        }
++    }
++
+     pub(super) fn hide(&mut self) {
+         self.focus = None;
+     }
+@@ -281,7 +302,7 @@ impl App {
+     }
+ 
+     pub(super) fn sidebar_parent(&self) -> Option<ThreadId> {
+-        self.active_side_parent_thread_id()
++        self.active_pane_parent()
+             .or_else(|| self.current_displayed_thread_id())
+     }
+ 
+@@ -300,8 +321,7 @@ impl App {
+     }
+ 
+     pub(super) fn sidebar_has_focus(&self) -> bool {
+-        self.active_side_parent_thread_id().is_some()
+-            || self.chooser_focus() == Some(PaneFocus::Sidebar)
++        self.active_pane_parent().is_some() || self.chooser_focus() == Some(PaneFocus::Sidebar)
+     }
+ }
+ 
+@@ -319,7 +339,10 @@ impl SidebarLayout {
+     pub(super) fn divider_area(&self) -> Option<Rect> {
+         let (x, pane) = match self {
+             Self::Chooser { main, .. } => (main.right(), *main),
+-            Self::Chat(panes) => (panes.divider, panes.focused.union(panes.tab_strip)),
++            Self::Chat(panes) => (
++                panes.divider,
++                panes.focused.union(panes.passive).union(panes.tab_strip),
++            ),
+         };
+         (!pane.is_empty()).then(|| Rect::new(x, pane.y, side_pane::GAP, pane.height))
+     }
+diff --git a/codex-rs/tui/src/app/sidebar_close.rs b/codex-rs/tui/src/app/sidebar_close.rs
+index 010606f..2fccb1f 100644
+--- a/codex-rs/tui/src/app/sidebar_close.rs
++++ b/codex-rs/tui/src/app/sidebar_close.rs
+@@ -73,6 +73,9 @@ pub(super) async fn request(
+     target: ThreadId,
+     action: Action,
+ ) -> Result<()> {
++    if action == Action::CloseTab && app.split_threads.contains_key(&target) {
++        return app.close_split_pane(tui, server, target).await;
++    }
+     let Some(side) = app.side_threads.get(&target) else {
+         return Ok(());
+     };
+diff --git a/codex-rs/tui/src/app/split_threads.rs b/codex-rs/tui/src/app/split_threads.rs
+new file mode 100644
+index 0000000..4802dd2
+--- /dev/null
++++ b/codex-rs/tui/src/app/split_threads.rs
+@@ -0,0 +1,438 @@
++//! Present ordinary forks and parent-owned agents beside their source conversation.
++//! These are display relationships only: side-chat policies and cleanup never apply.
++
++use super::*;
++
++impl App {
++    pub(super) async fn track_split_spawn_notification(
++        &mut self,
++        source: ThreadId,
++        notification: &ServerNotification,
++    ) {
++        use codex_app_server_protocol::{
++            CollabAgentTool, CollabAgentToolCallStatus, SubAgentActivityKind,
++        };
++        if !self.local_settings.workspace_enabled(&self.config) {
++            return;
++        }
++        let item = match notification {
++            ServerNotification::ItemStarted(n) => &n.item.payload,
++            ServerNotification::ItemCompleted(n) => &n.item.payload,
++            _ => return,
++        };
++        // Spawned threads do not always emit thread/started (notably embedded backends).
++        // Both collaboration versions announce their child on the parent's event stream.
++        let children: Vec<_> = match item {
++            ThreadItemPayload::CollabAgentToolCall {
++                tool: CollabAgentTool::SpawnAgent,
++                status: CollabAgentToolCallStatus::Completed,
++                receiver_thread_ids,
++                ..
++            } => receiver_thread_ids
++                .iter()
++                .map(|id| (id.as_str(), None, false))
++                .collect(),
++            ThreadItemPayload::SubAgentActivity {
++                kind: SubAgentActivityKind::Started,
++                agent_thread_id,
++                agent_path,
++                ..
++            } => vec![(agent_thread_id.as_str(), Some(agent_path.clone()), true)],
++            _ => return,
++        };
++        for (id, path, parent_owned) in children {
++            let Ok(child) = ThreadId::from_string(id) else {
++                continue;
++            };
++            if self.pane_parent(child).is_some() || child == source {
++                continue;
++            }
++            self.register_split_thread(source, child);
++            self.upsert_agent_picker_thread(child, None, None, false);
++            if parent_owned {
++                self.agent_navigation.mark_parent_owned(child);
++            }
++            let label = path.clone().unwrap_or_else(|| self.thread_label(child));
++            self.agent_navigation.set_agent_path(child, path);
++            self.sync_agent_picker_thread(child);
++            let parent = self.pane_parent(child);
++            if let Some(pane) = self.sidebars.get_mut(&parent) {
++                pane.set_chat_name(child, label);
++            }
++            // Replay events that beat the parent's spawn acknowledgement without changing focus.
++            let store = Arc::clone(&self.ensure_thread_channel(child).store);
++            let store = store.lock().await;
++            if let Some(companion) = self.side_companions.get_mut(&child) {
++                for event in store.snapshot().events {
++                    if let ThreadBufferedEvent::Notification(notification) = event {
++                        companion.apply_notification(&notification, &store, || {
++                            self.chat_widget.new_status_indicator()
++                        });
++                    }
++                }
++            }
++        }
++    }
++
++    pub(super) fn pane_parent(&self, id: ThreadId) -> Option<ThreadId> {
++        self.split_threads
++            .get(&id)
++            .copied()
++            .or_else(|| self.side_threads.get(&id).map(|side| side.parent_thread_id))
++    }
++
++    pub(super) fn active_pane_parent(&self) -> Option<ThreadId> {
++        self.current_displayed_thread_id()
++            .and_then(|id| self.pane_parent(id))
++    }
++
++    pub(super) fn register_split_thread(&mut self, source: ThreadId, child: ThreadId) {
++        if !self.local_settings.workspace_enabled(&self.config)
++            || source == child
++            || self.split_threads.contains_key(&child)
++            || self.side_threads.contains_key(&child)
++        {
++            return;
++        }
++        // Descendants share the original main column, without changing their real parent.
++        let parent = self.pane_parent(source).unwrap_or(source);
++        self.split_threads.insert(child, parent);
++        let cwd = self.chat_widget.config_ref().cwd.clone();
++        self.side_companions
++            .entry(child)
++            .or_insert_with(|| SideCompanion::empty(cwd));
++        let active = self.current_displayed_thread_id();
++        let keep_chooser = self.sidebar_parent() == Some(parent)
++            && self.chooser_focus() == Some(sidebar::PaneFocus::Sidebar);
++        let pane = self.sidebars.entry(Some(parent)).or_default();
++        pane.peer_ready(child);
++        // An automatic spawn must never move focus away from a draft or approval.
++        if active == Some(parent) && !keep_chooser {
++            pane.show(
++                sidebar::SidebarContent::Chat(child),
++                sidebar::PaneFocus::Main,
++            );
++        }
++        self.chat_widget.request_redraw();
++    }
++
++    pub(super) async fn attach_split_fork(
++        &mut self,
++        tui: &mut tui::Tui,
++        app_server: &mut AppServerSession,
++        source: ThreadId,
++        forked: crate::app_server_session::AppServerStartedThread,
++    ) -> Result<()> {
++        let child = forked.session.thread_id;
++        if forked.blocks_direct_input {
++            self.agent_navigation.mark_parent_owned(child);
++        }
++        if forked.task_tools_available {
++            app_server.remember_task_tool_thread(child);
++        }
++        self.register_split_thread(source, child);
++        let parent = self.pane_parent(child);
++        if let Some(pane) = self.sidebars.get_mut(&parent) {
++            pane.set_chat_name(
++                child,
++                forked
++                    .session
++                    .thread_name
++                    .clone()
++                    .unwrap_or_else(|| "Fork".into()),
++            );
++        }
++        let channel = self.ensure_thread_channel(child);
++        channel.backend_id = Some(app_server.backend_id());
++        channel
++            .store
++            .lock()
++            .await
++            .set_session(forked.session, forked.turns);
++        self.upsert_agent_picker_thread(child, None, None, false);
++        self.sync_agent_picker_thread(child);
++        self.select_agent_thread(tui, app_server, child).await
++    }
++
++    pub(super) async fn close_split_pane(
++        &mut self,
++        tui: &mut tui::Tui,
++        app_server: &mut AppServerSession,
++        child: ThreadId,
++    ) -> Result<()> {
++        let Some(parent) = self.split_threads.get(&child).copied() else {
++            return Ok(());
++        };
++        if self.current_displayed_thread_id() == Some(child) {
++            self.select_agent_thread(tui, app_server, parent).await?;
++            if self.current_displayed_thread_id() != Some(parent) {
++                return Ok(());
++            }
++        }
++        // Keep the relationship and native subscriptions so closing a view cannot stop work.
++        if let Some(pane) = self.sidebars.get_mut(&Some(parent)) {
++            pane.remove_chat(child, crate::app_server_session::SideChatStorage::Temporary);
++        }
++        tui.frame_requester().schedule_frame();
++        Ok(())
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::super::test_support::{enable_side_retention, make_test_app};
++    use super::*;
++    use ratatui::layout::Rect;
++
++    #[tokio::test]
++    async fn split_fork_retains_history_and_closing_only_hides_its_pane() -> Result<()> {
++        use super::super::tests::make_test_app_with_channels;
++        use super::super::tests::test_thread_session;
++        use codex_app_server_protocol::{
++            ThreadItem, ThreadItemPayload, TurnItemsView, TurnStatus, UserInput,
++        };
++        let (mut app, mut events, _ops) = Box::pin(make_test_app_with_channels()).await;
++        enable_side_retention(&mut app)?;
++        let parent = ThreadId::new();
++        let child = ThreadId::new();
++        let cwd = app.config.cwd.to_path_buf();
++        let session = test_thread_session(parent, cwd.clone());
++        app.primary_thread_id = Some(parent);
++        app.active_thread_id = Some(parent);
++        app.chat_widget.handle_thread_session(session.clone());
++        app.ensure_thread_channel(parent)
++            .store
++            .lock()
++            .await
++            .set_session(session, Vec::new());
++        app.upsert_agent_picker_thread(parent, None, None, false);
++        let turn = Turn {
++            id: "inherited-turn".into(),
++            root_turn_id: None,
++            items_view: TurnItemsView::Full,
++            items: vec![ThreadItem::untimed(ThreadItemPayload::UserMessage {
++                id: "original-prompt".into(),
++                client_id: None,
++                content: vec![UserInput::Text {
++                    text: "Preserve this history".into(),
++                    text_elements: Vec::new(),
++                }],
++            })],
++            status: TurnStatus::Completed,
++            error: None,
++            started_at: None,
++            completed_at: None,
++            duration_ms: None,
++        };
++        let mut fork_session = test_thread_session(child, cwd);
++        fork_session.forked_from_id = Some(parent);
++        let fork = crate::app_server_session::AppServerStartedThread {
++            session: fork_session,
++            turns: vec![turn.clone()],
++            blocks_direct_input: false,
++            task_tools_available: false,
++        };
++        let mut server = Box::pin(crate::start_embedded_app_server_for_picker(&app.config)).await?;
++        let mut tui = crate::tui::test_support::make_test_tui()?;
++        tui.set_owned_screen(true)?;
++        while events.try_recv().is_ok() {}
++        Box::pin(app.attach_split_fork(&mut tui, &mut server, parent, fork)).await?;
++        assert_eq!(app.current_displayed_thread_id(), Some(child));
++        assert!(app.thread_event_channels.contains_key(&parent));
++        let store = app.thread_event_channels[&child].store.lock().await;
++        assert_eq!(store.turns, vec![turn]);
++        assert_eq!(store.session.as_ref().unwrap().forked_from_id, Some(parent));
++        drop(store);
++        assert!(app.side_threads.is_empty());
++        assert_eq!(app.side_thread_for_parent(parent), None);
++        assert_eq!(app.pane_child_for_parent(parent), Some(child));
++        // Closing an unfocused panel must not call interrupt, archive or unsubscribe.
++        app.active_thread_id = Some(parent);
++        Box::pin(app.close_split_pane(&mut tui, &mut server, child)).await?;
++        assert!(app.thread_event_channels.contains_key(&child));
++        assert!(!app.abandoned_side_threads.contains(&child));
++        assert!(!app.sidebar().unwrap().live_chats().contains(&child));
++        server.shutdown().await?;
++        Ok(())
++    }
++
++    #[tokio::test]
++    async fn split_peers_keep_main_focus_and_native_session_semantics() -> Result<()> {
++        let mut app = Box::pin(make_test_app()).await;
++        enable_side_retention(&mut app)?;
++        let parent = ThreadId::new();
++        let first = ThreadId::new();
++        let second = ThreadId::new();
++        app.primary_thread_id = Some(parent);
++        app.active_thread_id = Some(parent);
++        app.register_split_thread(parent, first);
++        app.register_split_thread(first, second);
++        app.register_split_thread(parent, first);
++        assert_eq!(app.current_displayed_thread_id(), Some(parent));
++        assert_eq!(app.pane_parent(first), Some(parent));
++        assert_eq!(app.pane_parent(second), Some(parent));
++        assert_eq!(app.sidebar().unwrap().live_chats(), &[first, second]);
++        assert!(app.side_threads.is_empty());
++        assert_eq!(app.side_thread_for_parent(parent), None);
++        assert_eq!(app.pane_child_for_parent(parent), Some(second));
++        app.active_thread_id = Some(first);
++        assert_eq!(app.active_side_parent_thread_id(), None);
++        assert_eq!(app.side_start_block_message(), None);
++        Ok(())
++    }
++
++    #[tokio::test]
++    async fn split_layout_shows_every_child_and_hits_each_transcript() -> Result<()> {
++        let mut app = Box::pin(make_test_app()).await;
++        enable_side_retention(&mut app)?;
++        let parent = ThreadId::new();
++        app.primary_thread_id = Some(parent);
++        app.active_thread_id = Some(parent);
++        let ids: Vec<_> = (0..3).map(|_| ThreadId::new()).collect();
++        for id in &ids {
++            app.register_split_thread(parent, *id);
++        }
++        let main = Rect::new(0, 0, 70, 45);
++        let right = Rect::new(71, 0, 70, 45);
++        let panes = side_pane::pair_layout(&app, ids[2], [main, right]).unwrap();
++        assert_eq!(panes.focused, main);
++        assert_eq!(panes.extra.len(), 2);
++        assert_eq!(
++            panes.headers.iter().map(|(id, _)| *id).collect::<Vec<_>>(),
++            ids
++        );
++        let mut areas = panes.extra.clone();
++        areas.push((panes.passive_thread, panes.passive));
++        for (id, area) in &areas {
++            assert!(area.height > 0);
++            assert_eq!(area.intersection(right), *area);
++            assert_eq!(
++                panes
++                    .peer_at((area.x, area.y).into())
++                    .unwrap()
++                    .passive_thread,
++                *id
++            );
++            assert!(
++                areas
++                    .iter()
++                    .filter(|(other, _)| other != id)
++                    .all(|(_, other)| area.intersection(*other).is_empty())
++            );
++        }
++        app.side_companions
++            .insert(parent, SideCompanion::empty(app.config.cwd.clone()));
++        app.active_thread_id = Some(ids[2]);
++        let focused = side_pane::pair_layout(&app, ids[2], [main, right]).unwrap();
++        assert_eq!(focused.passive, main);
++        assert_eq!(focused.focused, panes.passive);
++        assert_eq!(
++            sidebar::SidebarLayout::Chat(focused).divider_area(),
++            Some(Rect::new(main.right(), 0, 1, 45))
++        );
++        Ok(())
++    }
++
++    #[tokio::test]
++    async fn both_native_spawn_event_formats_open_peers_and_replay_early_output() -> Result<()> {
++        use codex_app_server_protocol::{
++            AgentMessageDeltaNotification, CollabAgentTool, CollabAgentToolCallStatus,
++            ItemCompletedNotification, SubAgentActivityKind, ThreadItem,
++        };
++        let mut app = Box::pin(make_test_app()).await;
++        enable_side_retention(&mut app)?;
++        let parent = ThreadId::new();
++        let first = ThreadId::new();
++        let second = ThreadId::new();
++        app.primary_thread_id = Some(parent);
++        app.active_thread_id = Some(parent);
++        app.ensure_thread_channel(first)
++            .store
++            .lock()
++            .await
++            .push_notification(ServerNotification::AgentMessageDelta(
++                AgentMessageDeltaNotification {
++                    thread_id: first.to_string(),
++                    turn_id: "early-turn".into(),
++                    item_id: "early-item".into(),
++                    delta: "Already working".into(),
++                },
++            ));
++        let items = [
++            ThreadItemPayload::CollabAgentToolCall {
++                id: "v1-spawn".into(),
++                tool: CollabAgentTool::SpawnAgent,
++                status: CollabAgentToolCallStatus::Completed,
++                sender_thread_id: parent.to_string(),
++                receiver_thread_ids: vec![first.to_string()],
++                prompt: None,
++                model: None,
++                reasoning_effort: None,
++                agents_states: Default::default(),
++            },
++            ThreadItemPayload::SubAgentActivity {
++                id: "v2-spawn".into(),
++                kind: SubAgentActivityKind::Started,
++                agent_thread_id: second.to_string(),
++                agent_path: "/root/second".into(),
++                model: None,
++                reasoning_effort: None,
++            },
++        ];
++        for item in items {
++            let notification = ServerNotification::ItemCompleted(ItemCompletedNotification {
++                item: ThreadItem::untimed(item),
++                thread_id: parent.to_string(),
++                turn_id: "parent-turn".into(),
++                content_token_count: None,
++                completed_at_ms: 0,
++            });
++            app.enqueue_thread_notification(parent, notification.clone())
++                .await?;
++            app.enqueue_thread_notification(parent, notification)
++                .await?;
++        }
++        assert_eq!(app.current_displayed_thread_id(), Some(parent));
++        assert_eq!(app.sidebar().unwrap().live_chats(), &[first, second]);
++        assert!(!app.agent_navigation.is_parent_owned(first));
++        assert!(app.agent_navigation.is_parent_owned(second));
++        assert_eq!(
++            app.sidebar().unwrap().chat_name(second),
++            Some("/root/second")
++        );
++        let companion = app.side_companions.get_mut(&first).unwrap();
++        companion.flush_answer();
++        assert!(!companion.cells.is_empty());
++        assert!(app.side_threads.is_empty());
++        Ok(())
++    }
++
++    #[tokio::test]
++    async fn automatic_spawn_preserves_focused_sidebar_picker() -> Result<()> {
++        let mut app = Box::pin(make_test_app()).await;
++        enable_side_retention(&mut app)?;
++        let parent = ThreadId::new();
++        let child = ThreadId::new();
++        app.primary_thread_id = Some(parent);
++        app.active_thread_id = Some(parent);
++        app.sidebar_mut().show(
++            sidebar::SidebarContent::Chooser,
++            sidebar::PaneFocus::Sidebar,
++        );
++        app.register_split_thread(parent, child);
++        assert_eq!(app.current_displayed_thread_id(), Some(parent));
++        assert_eq!(app.chooser_focus(), Some(sidebar::PaneFocus::Sidebar));
++        assert_eq!(app.sidebar().unwrap().live_chats(), &[child]);
++        Ok(())
++    }
++
++    #[tokio::test]
++    async fn split_registration_respects_workspace_setting() -> Result<()> {
++        let mut app = Box::pin(make_test_app()).await;
++        app.config.features.disable(Feature::TuiWorkspace)?;
++        app.register_split_thread(ThreadId::new(), ThreadId::new());
++        assert!(app.split_threads.is_empty());
++        assert!(app.side_companions.is_empty());
++        Ok(())
++    }
++}
+diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
+index 15f7f45..ff0ff07 100644
+--- a/codex-rs/tui/src/app/startup.rs
++++ b/codex-rs/tui/src/app/startup.rs
+@@ -1069,6 +1069,7 @@ See the Codex keymap documentation for supported actions and examples."
+             agent_navigation: AgentNavigationState::default(),
+             agents_overview,
+             side_threads: HashMap::new(),
++            split_threads: HashMap::new(),
+             sidebars: HashMap::new(),
+             side_companions: HashMap::new(),
+             zoomed_thread: None,
+diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
+index 6376a1c..30c076c 100644
+--- a/codex-rs/tui/src/app/test_support.rs
++++ b/codex-rs/tui/src/app/test_support.rs
+@@ -127,6 +127,7 @@ pub(crate) async fn make_test_app() -> Box<App> {
+         agent_navigation: AgentNavigationState::default(),
+         agents_overview: Default::default(),
+         side_threads: HashMap::new(),
++        split_threads: HashMap::new(),
+         sidebars: HashMap::new(),
+         side_companions: HashMap::new(),
+         zoomed_thread: None,
+diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
+index 88e0a94..bce4c4b 100644
+--- a/codex-rs/tui/src/app/tests.rs
++++ b/codex-rs/tui/src/app/tests.rs
+@@ -8443,6 +8443,7 @@ async fn make_test_app() -> Box<App> {
+         pending_server_profiles: HashMap::new(),
+         agents_overview: Default::default(),
+         side_threads: HashMap::new(),
++        split_threads: HashMap::new(),
+         sidebars: HashMap::new(),
+         side_companions: HashMap::new(),
+         zoomed_thread: None,
+@@ -8582,6 +8583,7 @@ pub(super) async fn make_test_app_with_channels() -> (
+             pending_server_profiles: HashMap::new(),
+             agents_overview: Default::default(),
+             side_threads: HashMap::new(),
++            split_threads: HashMap::new(),
+             sidebars: HashMap::new(),
+             side_companions: HashMap::new(),
+             zoomed_thread: None,
+diff --git a/codex-rs/tui/src/app/thread_routing.rs b/codex-rs/tui/src/app/thread_routing.rs
+index ccd5d3f..15a75eb 100644
+--- a/codex-rs/tui/src/app/thread_routing.rs
++++ b/codex-rs/tui/src/app/thread_routing.rs
+@@ -1074,6 +1074,38 @@ impl App {
+         if self.abandoned_side_threads.contains(&thread_id) {
+             return Ok(());
+         }
++        self.track_split_spawn_notification(thread_id, &notification)
++            .await;
++        if let ServerNotification::ThreadStarted(started) = &notification
++            && let codex_app_server_protocol::SessionSource::SubAgent(
++                codex_protocol::protocol::SubAgentSource::ThreadSpawn {
++                    parent_thread_id, ..
++                },
++            ) = &started.thread.source
++            && (self.primary_thread_id == Some(*parent_thread_id)
++                || self.split_threads.contains_key(parent_thread_id)
++                || self.agent_navigation.get(parent_thread_id).is_some())
++        {
++            self.register_split_thread(*parent_thread_id, thread_id);
++            let parent = self.pane_parent(thread_id);
++            if let Some(pane) = self.sidebars.get_mut(&parent) {
++                pane.set_chat_name(
++                    thread_id,
++                    started
++                        .thread
++                        .agent_nickname
++                        .clone()
++                        .or_else(|| {
++                            crate::app_server_session::source_agent_path(&started.thread.source)
++                        })
++                        .or_else(|| started.thread.name.clone())
++                        .unwrap_or_else(|| format!("Agent {}", &thread_id.to_string()[24..])),
++                );
++            }
++            if crate::app_server_session::thread_blocks_direct_input(&started.thread) {
++                self.agent_navigation.mark_parent_owned(thread_id);
++            }
++        }
+         self.track_side_chat_title(thread_id, &notification);
+         if self.current_displayed_thread_id() == Some(thread_id)
+             && let ServerNotification::TurnCompleted(notification) = &notification
+diff --git a/codex-rs/tui/src/app/workspace_hud.rs b/codex-rs/tui/src/app/workspace_hud.rs
+index 7b4d27a..c77d3df 100644
+--- a/codex-rs/tui/src/app/workspace_hud.rs
++++ b/codex-rs/tui/src/app/workspace_hud.rs
+@@ -61,9 +61,7 @@ impl App {
+                 "toggle_pane_zoom" if self.zoomed_thread.is_some() => (2, "Restore layout"),
+                 "toggle_pane_zoom" => (2, "Zoom pane"),
+                 "move_divider_left" | "move_divider_right" => continue,
+-                "close_sidebar_tab" if self.active_side_parent_thread_id().is_some() => {
+-                    (2, "Close tab")
+-                }
++                "close_sidebar_tab" if self.active_pane_parent().is_some() => (2, "Close tab"),
+                 "close_sidebar_tab" => continue,
+                 "hide_pane" if side => (2, "Hide pane"),
+                 "focus_pane_left" if side && can_switch => (1, "Pane left"),
