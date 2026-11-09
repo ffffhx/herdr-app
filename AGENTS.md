@@ -127,6 +127,11 @@ verify those and the live app after installing. Respect active control sessions
 and user takeover. On macOS, use the existing bundle installation/signing flow;
 the Windows daily installer does not apply.
 
+When other tasks are editing the checkout, pass `-BuildManifest <record.json>`
+to install a previously validated main build without rebuilding their changes.
+Keep its actual build metadata and immutable preview binary; the installer
+checks its SHA-256 and saves the manifest with the installation backup.
+
 Keep one Windows Start menu shortcut, `Herdr`, pointing to this daily development
 build. Updates remove the old `Herdr (ProfilePilot)` duplicate instead of
 recreating it. Use `herdr-app` and `hc` / `herdr-core`; the legacy `herdr`

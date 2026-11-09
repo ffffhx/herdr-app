@@ -1,4 +1,9 @@
+param([string]$BuildManifest)
+
 $ErrorActionPreference = 'Stop'
+# ProfilePilot emits UTF-8 JSON, including Chinese control-state descriptions.
+[Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
+$OutputEncoding = [Console]::OutputEncoding
 if ($env:OS -ne 'Windows_NT') { throw 'The daily Windows installer requires Windows.' }
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $install = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'Programs/herdr-app'))
@@ -21,9 +26,13 @@ function Invoke-DailyCli([string]$Arguments) {
     $process.Dispose()
     return $result
 }
-& $powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'build-daily-windows.ps1')
-if ($LASTEXITCODE -ne 0) { throw 'Development build failed; installed app was not changed.' }
-$build = Get-Content -LiteralPath (Join-Path $repo '.tools/development/build.json') -Raw | ConvertFrom-Json
+if (-not $BuildManifest) {
+    & $powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'build-daily-windows.ps1')
+    if ($LASTEXITCODE -ne 0) { throw 'Development build failed; installed app was not changed.' }
+    $BuildManifest = Join-Path $repo '.tools/development/build.json'
+}
+# A validated preview can be installed without rebuilding other in-progress work.
+$build = Get-Content -LiteralPath $BuildManifest -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($build.branch -ne 'main') { throw 'Only a main build can replace the daily installation.' }
 $binary = $build.binary
 if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) { throw "Missing build: $binary" }
@@ -43,6 +52,7 @@ if (Get-Command ppilot -ErrorAction SilentlyContinue) {
 $backup = [IO.Path]::GetFullPath((Join-Path $install ('backups/daily-dev-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))))
 if (-not $backup.StartsWith($install + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Backup escaped installation folder.' }
 [void][IO.Directory]::CreateDirectory($backup)
+Copy-Item -LiteralPath $BuildManifest -Destination (Join-Path $backup 'build.json')
 foreach ($name in @('settings.json','view.json','keys.json','installed.json','shared.json','window.json')) {
     $file = Join-Path $dailyHome $name
     if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination (Join-Path $backup $name) }
