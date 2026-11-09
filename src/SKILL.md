@@ -116,6 +116,8 @@ without `--machine` still use this computer; `--machine ''` explicitly chooses i
 The agent menu checks and starts agents in the remote Unix user's
 login/interactive shell (sh, bash, zsh, dash, ksh or fish), including its
 configured PATH. Other shells keep the sh launcher.
+On remote Windows hosts without `sh`, both detection and launch use PowerShell;
+installed npm shims such as `codex.cmd` are discoverable through the remote PATH.
 `terminal.open --folder /path --place down` starts the split in that folder,
 including when `--argv` supplies a program. Without `--folder`, it follows the
 focused terminal's folder.

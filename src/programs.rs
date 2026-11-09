@@ -92,14 +92,13 @@ pub fn installed(commands: &[String], on: Option<&str>) -> Vec<String> {
     // Each found one as a marked line: an interactive shell may print its own
     // things (a prompt's escapes, a greeting) around the answer.
     let out = match on {
-        Some(m) => {
-            let argv = crate::remote_shell::check(commands);
-            crate::mods::run_on(m, &argv[0], &argv[1..]).unwrap_or_default()
-        }
+        Some(m) => installed_remote(commands, |command, args| {
+            crate::mods::run_on(m, command, args)
+        })
+        .unwrap_or_default(),
         None if cfg!(windows) => {
-            let list = commands.iter().map(|c| format!("'{}'", c.replace('\'', "''"))).collect::<Vec<_>>().join(",");
-            let script = format!("foreach($c in @({list})){{ if(Get-Command $c -ErrorAction SilentlyContinue){{ \"herdr-has:$c\" }} }}");
-            crate::mods::run_here(&crate::window::shell(), &["-NoLogo".into(), "-Command".into(), script]).unwrap_or_default()
+            crate::mods::run_here(&crate::window::shell(), &installed_powershell(commands))
+                .unwrap_or_default()
         }
         None => {
             let shell = crate::window::shell();
@@ -107,8 +106,47 @@ pub fn installed(commands: &[String], on: Option<&str>) -> Vec<String> {
             crate::mods::run_here(&shell, &["-ic".into(), line]).unwrap_or_default()
         }
     };
-    let found: std::collections::HashSet<&str> = out.split("herdr-has:").skip(1).filter_map(|s| s.split_whitespace().next()).collect();
-    commands.iter().filter(|c| found.contains(c.as_str())).cloned().collect()
+    installed_output(commands, &out)
+}
+
+fn installed_output(commands: &[String], out: &str) -> Vec<String> {
+    let found: std::collections::HashSet<&str> = out
+        .split("herdr-has:")
+        .skip(1)
+        .filter_map(|s| s.lines().next())
+        .collect();
+    commands
+        .iter()
+        .filter(|c| found.contains(c.as_str()))
+        .cloned()
+        .collect()
+}
+
+/// Match the remote launcher: only a missing sh selects Windows PowerShell.
+/// Do not use the viewer's OS or retry a disconnected/timed-out remote call.
+fn installed_remote(
+    commands: &[String],
+    mut run: impl FnMut(&str, &[String]) -> Result<String, String>,
+) -> Result<String, String> {
+    let argv = crate::remote_shell::check(commands);
+    match run(&argv[0], &argv[1..]) {
+        Err(e) if e.starts_with("cannot start sh:") && e.contains("not found") => {
+            run("powershell.exe", &installed_powershell(commands))
+        }
+        result => result,
+    }
+}
+
+fn installed_powershell(commands: &[String]) -> Vec<String> {
+    let list = commands
+        .iter()
+        .map(|c| powershell_quote(c))
+        .collect::<Vec<_>>()
+        .join(",");
+    let script = format!(
+        "foreach($c in @({list})){{ if(Get-Command $c -ErrorAction SilentlyContinue){{ \"herdr-has:$c\" }} }}"
+    );
+    vec!["-NoLogo".into(), "-Command".into(), script]
 }
 
 /// Check in the shell itself for functions, but not aliases (`"$@"` cannot run them).
@@ -207,17 +245,24 @@ const PS_QUOTES: [char; 5] = ['\'', '\u{2018}', '\u{2019}', '\u{201A}', '\u{201B
 
 /// `& 'prog' 'arg 1'`: a command for PowerShell's `-Command`, each word quoted.
 pub fn powershell_line(cmd: &[String]) -> String {
-    let quote = |w: &String| {
-        let mut s = String::from("'");
-        for ch in w.chars() {
-            if PS_QUOTES.contains(&ch) {
-                s.push(ch);
-            }
+    format!(
+        "& {}",
+        cmd.iter()
+            .map(|w| powershell_quote(w))
+            .collect::<Vec<_>>()
+            .join(" ")
+    )
+}
+
+fn powershell_quote(word: &str) -> String {
+    let mut s = String::from("'");
+    for ch in word.chars() {
+        if PS_QUOTES.contains(&ch) {
             s.push(ch);
         }
-        s + "'"
-    };
-    format!("& {}", cmd.iter().map(quote).collect::<Vec<_>>().join(" "))
+        s.push(ch);
+    }
+    s + "'"
 }
 
 /// The words back from `powershell_line`.
@@ -345,6 +390,99 @@ mod tests {
         let line = powershell_line(&words);
         assert_eq!(line, "& 'pi' 'it''s \u{2019}\u{2019}fine\u{2019}\u{2019}' '' 'a  b'");
         assert_eq!(powershell_words(&line), Some(words));
+    }
+
+    #[test]
+    fn remote_detection_uses_powershell_only_when_sh_is_missing() {
+        let commands = ["codex".into(), "claude".into()];
+        let mut called = Vec::new();
+        let out = installed_remote(&commands, |program, args| {
+            called.push(program.to_owned());
+            if program == "sh" {
+                return Err("cannot start sh: program not found".into());
+            }
+            assert_eq!(args, installed_powershell(&commands));
+            Ok("herdr-has:codex\r\n".into())
+        })
+        .unwrap();
+        assert_eq!(called, ["sh", "powershell.exe"]);
+        assert_eq!(installed_output(&commands, &out), ["codex"]);
+
+        for result in [
+            Ok("herdr-has:codex\n".to_owned()),
+            Ok(String::new()),
+            Err("machine not found".into()),
+            Err("connection lost".into()),
+            Err("sh took longer than 15 s and was stopped".into()),
+        ] {
+            let mut calls = 0;
+            assert_eq!(
+                installed_remote(&commands, |_, _| {
+                    calls += 1;
+                    result.clone()
+                }),
+                result
+            );
+            assert_eq!(calls, 1);
+        }
+    }
+
+    #[test]
+    fn installed_output_preserves_paths_with_spaces_and_shell_greetings() {
+        let commands = [
+            r"C:\Program Files\agent\codex.cmd".into(),
+            "codex".into(),
+            "absent".into(),
+        ];
+        let out = "shell greeting without newlineherdr-has:C:\\Program Files\\agent\\codex.cmd\r\nherdr-has:codex\n";
+        assert_eq!(installed_output(&commands, out), commands[..2]);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn powershell_detects_npm_shims_and_literal_paths_without_running_them() {
+        use std::os::windows::process::CommandExt;
+        let dir = std::env::temp_dir().join(format!(
+            "herdr-agent-check-{} 'quoted' \u{2019} path",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let shim = dir.join("herdr_fixture_agent.cmd");
+        std::fs::write(&shim, "@echo should-not-run\r\n").unwrap();
+        let commands = [
+            "herdr_fixture_agent".into(),
+            shim.to_string_lossy().into_owned(),
+            "herdr_missing_agent_6e93".into(),
+            "missing'; Write-Output injected; #".into(),
+        ];
+        let out = std::process::Command::new("powershell.exe")
+            .arg("-NoProfile")
+            .args(installed_powershell(&commands))
+            .env(
+                "PATH",
+                format!(
+                    "{};{}",
+                    dir.display(),
+                    std::env::var("PATH").unwrap_or_default()
+                ),
+            )
+            .creation_flags(0x08000000)
+            .output()
+            .unwrap();
+        std::fs::remove_file(&shim).unwrap();
+        std::fs::remove_dir(&dir).unwrap();
+        // Redirected Windows PowerShell output uses its console code page.
+        // Keep the marker for the bare shim ASCII; check the literal path in PowerShell too.
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            stdout.contains("herdr-has:herdr_fixture_agent\r\n"),
+            "{stdout}"
+        );
+        assert_eq!(stdout.matches("herdr-has:").count(), 2, "{stdout}");
+        assert!(
+            !stdout.contains("should-not-run") && !stdout.contains("injected"),
+            "{stdout}"
+        );
     }
 
     #[test]

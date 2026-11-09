@@ -782,6 +782,10 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
   that user's login/interactive shell for sh, bash, zsh, dash, ksh and fish, so
   its PATH includes shell-configured tools. Other shells keep the sh launcher.
   Local Linux launches keep interactive non-login shells. Local and remote checks
+  on Windows use PowerShell's `Get-Command`, including npm command shims. Remote
+  checks fall back to PowerShell only when `sh` cannot start because it is missing,
+  matching the remote launcher; connection failures do not select another shell.
+  Unix checks
   include functions in bash and zsh; fish checks find executables only. Installation
   checks are cached for up to a minute; changing the commands checks again.
   Invalid JSON is reported in `programs.error` (a valid file has no error).
