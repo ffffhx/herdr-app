@@ -99,8 +99,13 @@ workflow, not unrelated development. Its instructions are in
 Register/update it with `scripts/register-upstream-daily-windows.ps1`.
 `-CheckOnly` on either script inspects prerequisites or the schedule without
 running Codex or installing. Logs and pending-build evidence live under
-`.tools/upstream-daily`. Uncommitted work, unresolved conflicts, failed checks or
-occupied control sessions block installation; no forced overwrite or restart.
+`.tools/upstream-daily`. The owner also authorized saving existing stable project
+changes in a separate checkpoint commit before synchronization, without asking
+again. Review staged/unstaged/untracked files; do not force-add ignored files or
+private configuration. Keep the checkpoint if integration fails, and validate
+the combined source before installation. Ongoing concurrent edits, unresolved
+conflicts, failed checks or occupied control sessions block installation; no
+forced overwrite or restart.
 
 Develop and validate without replacing or restarting the person's daily app.
 Use a separate preview binary and process, an isolated `HERDR_APP_HOME` and

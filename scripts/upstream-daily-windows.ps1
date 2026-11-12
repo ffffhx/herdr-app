@@ -46,9 +46,10 @@ try {
             $record.outcome = 'skipped'; $record.summary = "Git operation in progress: $marker"; $exitCode = 0; return
         }
     }
-    if (Invoke-RepoGit @('status', '--porcelain', '--untracked-files=all')) {
-        $record.outcome = 'skipped'; $record.summary = 'Uncommitted work exists; nothing was merged or installed.'; $exitCode = 0; return
-    }
+    # The owner authorized saving existing project work before integration.
+    # Let Codex inspect and commit it separately; the launcher never stages files blindly.
+    $record.uncommitted = Invoke-RepoGit @('status', '--porcelain', '--untracked-files=all')
+    $record.needsCheckpoint = [bool]$record.uncommitted
     $record.head = Invoke-RepoGit @('rev-parse', 'HEAD')
     $record.origin = Invoke-RepoGit @('remote', 'get-url', 'origin')
     $record.upstream = Invoke-RepoGit @('remote', 'get-url', 'upstream')
@@ -56,10 +57,12 @@ try {
     foreach ($tool in @('git', 'node', 'cargo', 'bun', 'ppilot')) { [void](Get-Command $tool -ErrorAction Stop) }
     $record.codex = $codex.Source
     if ($CheckOnly) {
-        $record.outcome = 'ready'; $record.summary = 'Local prerequisites passed. No agent, merge, build or installation was started.'; $exitCode = 0; return
+        $record.outcome = 'ready'
+        $record.summary = if ($record.needsCheckpoint) { 'Local prerequisites passed. Scheduled Codex will inspect and commit existing project work first. This check did not change any files or commits.' } else { 'Local prerequisites passed. No agent, merge, build or installation was started.' }
+        $exitCode = 0; return
     }
     $prompt = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'upstream-daily.prompt.txt') -Raw -Encoding UTF8
-    $prompt += "`nRun directory: $runDirectory`nStarting main commit: $($record.head)`n"
+    $prompt += "`nRun directory: $runDirectory`nStarting main commit: $($record.head)`nExisting uncommitted work needs a separate checkpoint commit: $($record.needsCheckpoint)`nInspect current git status and diffs yourself before staging; the launch-time record is only a snapshot.`n"
     [IO.File]::WriteAllText((Join-Path $runDirectory 'prompt.txt'), $prompt, (New-Object Text.UTF8Encoding($false)))
     $reportFile = Join-Path $runDirectory 'result.json'
     $schema = Join-Path $PSScriptRoot 'upstream-daily.schema.json'

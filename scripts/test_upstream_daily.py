@@ -75,12 +75,33 @@ class DailyUpstreamTests(unittest.TestCase):
         self.assertEqual(self.git("rev-parse", "HEAD"), before)
         self.assertEqual(self.git("status", "--porcelain"), "")
 
-    def test_dirty_checkout_is_preserved_without_invoking_codex(self):
+    def test_dirty_checkout_is_handed_to_codex_for_a_checkpoint(self):
         draft = self.repo / "draft.txt"
         draft.write_text("unfinished work", encoding="utf-8")
+        staged = self.repo / "staged.txt"
+        staged.write_text("staged project work", encoding="utf-8")
+        self.git("add", "staged.txt")
+        before = self.git("rev-parse", "HEAD")
         code, record = self.run_task()
-        self.assertEqual((code, record["outcome"]), (0, "skipped"))
+        self.assertEqual((code, record["outcome"]), (0, "up-to-date"))
+        self.assertTrue(record["needsCheckpoint"])
+        self.assertIn("draft.txt", record["uncommitted"])
+        self.assertIn("staged.txt", record["uncommitted"])
+        self.assertIn("checkpoint commit: True", self.called.read_text(encoding="utf-8"))
+        # The stub does not commit: verify the launcher preserved both index and worktree.
+        self.assertEqual(draft.read_text(encoding="utf-8"), "unfinished work")
+        self.assertEqual(self.git("diff", "--cached", "--name-only"), "staged.txt")
+        self.assertEqual(self.git("rev-parse", "HEAD"), before)
+
+    def test_dirty_check_only_reports_checkpoint_without_mutating(self):
+        draft = self.repo / "draft.txt"
+        draft.write_text("unfinished work", encoding="utf-8")
+        before = self.git("rev-parse", "HEAD")
+        code, record = self.run_task("-CheckOnly")
+        self.assertEqual((code, record["outcome"]), (0, "ready"))
+        self.assertTrue(record["needsCheckpoint"])
         self.assertFalse(self.called.exists())
+        self.assertEqual(self.git("rev-parse", "HEAD"), before)
         self.assertEqual(draft.read_text(encoding="utf-8"), "unfinished work")
 
     def test_wrong_branch_and_in_progress_git_operation_are_skipped(self):
