@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["outcome", "summary", "upstream_commit", "installed_commit", "installed_sha256", "checks", "blockers"],
+  "properties": {
+    "outcome": { "type": "string", "enum": ["installed", "up-to-date", "blocked", "failed"] },
+    "summary": { "type": "string" },
+    "upstream_commit": { "type": ["string", "null"] },
+    "installed_commit": { "type": ["string", "null"] },
+    "installed_sha256": { "type": ["string", "null"] },
+    "checks": { "type": "array", "items": { "type": "string" } },
+    "blockers": { "type": "array", "items": { "type": "string" } }
+  }
+}

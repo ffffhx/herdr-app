@@ -90,6 +90,18 @@ CI runs on `main`. Commit messages: lowercase conventional commits, single line,
 no AI co-author lines. Publishing a release or tag still requires an explicit
 release request. Do not edit README files unless requested.
 
+The owner authorized daily upstream synchronization at 04:00 Asia/Shanghai on
+2026-11-12, including automatic installation/reopening after successful tests,
+build and isolated UI validation. This exception applies only to that recurring
+workflow, not unrelated development. Its instructions are in
+`scripts/upstream-daily.prompt.txt`; Windows Task Scheduler invokes
+`scripts/upstream-daily-windows.ps1` with the user's Codex CLI configuration.
+Register/update it with `scripts/register-upstream-daily-windows.ps1`.
+`-CheckOnly` on either script inspects prerequisites or the schedule without
+running Codex or installing. Logs and pending-build evidence live under
+`.tools/upstream-daily`. Uncommitted work, unresolved conflicts, failed checks or
+occupied control sessions block installation; no forced overwrite or restart.
+
 Develop and validate without replacing or restarting the person's daily app.
 Use a separate preview binary and process, an isolated `HERDR_APP_HOME` and
 `HC_SESSION`, and separate core configuration/data when changing those. A

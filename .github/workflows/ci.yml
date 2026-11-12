@@ -50,6 +50,9 @@ jobs:
         with:
           submodules: true
           persist-credentials: false
+      - name: Windows daily automation guards
+        if: runner.os == 'Windows'
+        run: python -B -m unittest discover -s scripts -p test_upstream_daily.py -v
       - name: Unattended agent and session recovery tests
         run: node --test scripts/unattended.test.mjs scripts/unattended-launch.test.mjs scripts/unattended-resume.test.mjs scripts/unattended-native.test.mjs scripts/recovery.test.mjs
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
