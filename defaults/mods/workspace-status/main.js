@@ -12,11 +12,11 @@ export default class WorkspaceStatus extends View {
       try {
         const folder = decodeURIComponent(directory.replace(/^file:\/\//, "")).replace(/^\/([A-Za-z]:\/)/, "$1");
         const probe = await readTextFile(folder + "/quota-probe.cjs");
-        if (probe) return probe;
+        if (probe) return folder + "/quota-probe.cjs";
       } catch { /* A packaged mod may report a relative module name. */ }
-      return readTextFile(appHome() + "/mods/workspace-status/quota-probe.cjs");
+      return appHome() + "/mods/workspace-status/quota-probe.cjs";
     });
-    cx.timer.every(30000, (cx) => this.quota.refresh(cx));
+    cx.timer.every(5000, (cx) => { this.quota.refresh(cx); cx.notify(); });
   }
   // The palette key as actually bound, not a hardcoded one; without a
   // binding the hint stays useful ("commands") instead of lying.

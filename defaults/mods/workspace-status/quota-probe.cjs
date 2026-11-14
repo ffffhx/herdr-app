@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
 const { spawn, execFile } = require("node:child_process");
-const { promisify } = require("node:util");
+const { readUsage } = require("./claude-usage.cjs");
 
 function windowUsage(value, fallbackMinutes) {
   const used = value?.usedPercent ?? value?.utilization;
@@ -134,36 +134,18 @@ async function readDeepseek(token, request = fetch) {
   }
 }
 
-async function readClaude({ env = process.env, platform = process.platform, home = os.homedir(), request = fetch } = {}) {
-  const directory = env.CLAUDE_CONFIG_DIR || path.join(home, ".claude");
-  let settings = {};
-  try { settings = JSON.parse(await fs.promises.readFile(path.join(directory, "settings.json"), "utf8")); }
-  catch (error) { if (error.code !== "ENOENT") throw new Error("unavailable"); }
-  // Like Claude startup, apply the global settings environment to the inherited
-  // environment. Per-terminal/project overrides are intentionally not inferred.
-  const api = claudeApi({ ...env, ...settings?.env });
-  if (api.provider === "deepseek") return readDeepseek(api.token, request);
-  if (api.provider === "unsupported") return { status: "api-unsupported", windows: [] };
-  let credentials;
-  try { credentials = JSON.parse(await fs.promises.readFile(path.join(directory, ".credentials.json"), "utf8")); }
-  catch {
-    // Claude stores its default OAuth credentials in Keychain on macOS.
-    // Custom config dirs must never silently fall back to another account.
-    if (platform === "darwin" && !env.CLAUDE_CONFIG_DIR) {
-      try {
-        const { stdout } = await promisify(execFile)("/usr/bin/security", ["find-generic-password", "-s", "Claude Code-credentials", "-w"], { timeout: 5000, maxBuffer: 1024 * 1024 });
-        credentials = JSON.parse(stdout);
-      } catch { throw new Error("sign-in"); }
-    }
-  }
-  const token = credentials?.claudeAiOauth?.accessToken;
-  if (typeof token !== "string" || !token) throw new Error("sign-in");
-  const response = await request("https://api.anthropic.com/api/oauth/usage", {
-    headers: { Authorization: `Bearer ${token}`, "anthropic-beta": "oauth-2025-04-20", "User-Agent": "claude-code/2.1.0" },
-    signal: AbortSignal.timeout(12000), redirect: "error",
-  });
-  if (!response.ok) throw new Error(response.status === 401 ? "sign-in" : response.status === 429 ? "rate-limited" : "unavailable");
-  return claudeUsage(await response.json());
+async function readClaude({ env = process.env, home = os.homedir(), request = fetch, target = {}, appDirectory } = {}) {
+  const usage = readUsage(appDirectory || env.HERDR_APP_HOME || path.join(home, ".config", "herdr-app"), target);
+  // Official sessions are entirely local. Never fall back to another account,
+  // global provider settings, an OAuth file, or the macOS Keychain.
+  if (usage.provider !== "deepseek") return usage;
+  const file = usage.settingsFile || path.join(env.CLAUDE_CONFIG_DIR || path.join(home, ".claude"), "launchers", "deepseek.settings.json");
+  let settings;
+  try { settings = JSON.parse(await fs.promises.readFile(file, "utf8")); }
+  catch { return { provider: "deepseek", status: "api-key-missing", windows: [] }; }
+  const api = claudeApi(settings?.env || {});
+  if (api.provider !== "deepseek") return { provider: "deepseek", status: "api-unsupported", windows: [] };
+  return readDeepseek(api.token, request);
 }
 
 async function completeCodexUsage(usage) {
@@ -187,7 +169,7 @@ async function completeCodexUsage(usage) {
 module.exports = { windowUsage, codexUsage, claudeUsage, deepseekBalance, claudeApi, readDeepseek, codexCommand, readCodex, readClaude, completeCodexUsage };
 if (require.main === module || !require.main) {
   const provider = process.argv[require.main ? 2 : 1];
-  Promise.resolve().then(() => provider === "codex" ? readCodex().then(completeCodexUsage) : provider === "claude" ? readClaude() : { status: "unsupported", windows: [] })
+  Promise.resolve().then(() => provider === "codex" ? readCodex().then(completeCodexUsage) : provider === "claude" ? readClaude({ target: JSON.parse(process.argv[3] || "{}"), appDirectory: process.argv[4] }) : { status: "unsupported", windows: [] })
     .catch((error) => ({ status: ["missing-cli", "timeout", "sign-in", "rate-limited", "unavailable"].includes(error.message) ? error.message : "unavailable", windows: [] }))
     .then((result) => process.stdout.write(JSON.stringify(result) + "\n"));
 }

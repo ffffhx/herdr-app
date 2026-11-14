@@ -55,36 +55,6 @@ test("DeepSeek uses the balance GET endpoint and keeps raw diagnostics and crede
   assert.equal((await readDeepseek("", () => assert.fail("missing keys must not send a request"))).status, "api-key-missing");
 });
 
-test("Claude loads global DeepSeek settings before OAuth on Windows and macOS, including custom config directories", async () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "herdr-balance-"));
-  try {
-    for (const platform of ["win32", "darwin"]) {
-      for (const custom of [false, true]) {
-        const directory = path.join(home, custom ? "custom" : ".claude");
-        fs.mkdirSync(directory, { recursive: true });
-        fs.writeFileSync(path.join(directory, "settings.json"), JSON.stringify({ env: { ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic", ANTHROPIC_AUTH_TOKEN: "settings-key" } }));
-        fs.writeFileSync(path.join(directory, ".credentials.json"), JSON.stringify({ claudeAiOauth: { accessToken: "unrelated-oauth-key" } }));
-        const result = await readClaude({ home, platform, env: { ...(custom ? { CLAUDE_CONFIG_DIR: directory } : {}), ANTHROPIC_BASE_URL: "https://api.anthropic.com" }, request: async (url, options) => {
-          assert.equal(url, "https://api.deepseek.com/user/balance");
-          assert.equal(options.headers.Authorization, "Bearer settings-key");
-          return { ok: true, json: async () => deepseekReply };
-        } });
-        assert.equal(result.provider, "deepseek");
-      }
-    }
-    fs.writeFileSync(path.join(home, ".claude/settings.json"), "{}");
-    const oauth = await readClaude({ home, env: {}, platform: "win32", request: async (url, options) => {
-      assert.equal(url, "https://api.anthropic.com/api/oauth/usage");
-      assert.equal(options.headers.Authorization, "Bearer unrelated-oauth-key");
-      return { ok: true, json: async () => ({ five_hour: { utilization: 20 } }) };
-    } });
-    assert.equal(oauth.windows[0].remaining, 80);
-    const unknown = await readClaude({ home, env: { ANTHROPIC_BASE_URL: "https://gateway.example" }, request: () => assert.fail("must not query unrelated OAuth credentials") });
-    assert.equal(unknown.status, "api-unsupported");
-    fs.writeFileSync(path.join(home, ".claude/settings.json"), "invalid settings SECRET");
-    await assert.rejects(readClaude({ home, env: {} }), /^Error: unavailable$/);
-  } finally { fs.rmSync(home, { recursive: true, force: true }); }
-});
 
 test("remaining percentages are bounded; missing values are unknown, including null", () => {
   for (const value of [null, {}, { usedPercent: null }, { usedPercent: "25" }, { usedPercent: NaN }]) assert.equal(windowUsage(value, 300), null);
@@ -133,7 +103,7 @@ test("RPC failures are bounded and provider diagnostics are never surfaced", asy
 
 function harness() {
   const source = fs.readFileSync(path.join(__dirname, "../defaults/mods/workspace-status/quota.js"), "utf8").replace(/^import .*;\r?\n/gm, "").replace(/export /g, "");
-  let focus = { terminal: "t1", space: "s1" }, paneList = [{ terminal: "t1", app: "codex" }], spaceList = [{ id: "s1" }];
+  let focus = { terminal: "t1", space: "s1" }, paneList = [{ terminal: "t1", app: "codex" }], spaceList = [{ id: "s1" }], terminalList = [];
   const requests = [], tasks = [], notify = () => {};
   const element = () => {
     const node = { children: [], child(value) { this.children.push(value); return this; }, tooltip(value) { this.tip = value; return this; }, on_click(value) { this.click = value; return this; } };
@@ -141,13 +111,43 @@ function harness() {
     return node;
   };
   const english = (text, values = []) => text.replace(/\{(\d+)\}/g, (_, i) => String(values[i]));
-  const api = new Function("focused", "panes", "agents", "spaces", "exec", "tr", "div", "h_flex", source + ";return {Quota,quotaTarget};")(
-    () => focus, () => paneList, () => [], () => spaceList,
-    (...args) => new Promise(resolve => requests.push({ args, resolve })), english, element, element);
+  const api = new Function("focused", "panes", "agents", "spaces", "terminals", "appHome", "exec", "usageText", "tr", "div", "h_flex", source + ";return {Quota,quotaTarget};")(
+    () => focus, () => paneList, () => [], () => spaceList, () => terminalList, () => "test-home",
+    (...args) => new Promise(resolve => requests.push({ args, resolve })), english, english, element, element);
   const quota = new api.Quota(); quota.probe = "test";
   const cx = { spawn: fn => tasks.push(fn({ notify })), notify };
-  return { ...api, quota, cx, requests, tasks, setFocus: f => { focus = f; }, setPanes: p => { paneList = p; } };
+  return { ...api, quota, cx, requests, tasks, setFocus: f => { focus = f; }, setPanes: p => { paneList = p; }, setTerminals: t => { terminalList = t; } };
 }
+
+test("official and DeepSeek sessions have separate caches, including same-terminal relaunches", async () => {
+  const h = harness(), now = Date.now();
+  h.setPanes([{ terminal: "t1", app: "claude-code" }, { terminal: "t2", app: "claude-code" }]);
+  h.quota.refresh(h.cx);
+  h.setFocus({ terminal: "t2" }); h.quota.refresh(h.cx);
+  h.requests[0].resolve({ code: 0, stdout: JSON.stringify(deepseekBalance(deepseekReply)) });
+  h.requests[1].resolve({ code: 0, stdout: JSON.stringify({ provider: "claude-official", status: "ok", windows: [{ remaining: 75, minutes: 300, resetsAt: now + 60000 }], updatedAt: now }) });
+  await Promise.all(h.tasks);
+  const text = node => typeof node === "string" ? node : node.children.map(text).join(" ");
+  assert.match(text(h.quota.render(h.cx, {})), /Claude Official 5h 75% left/);
+  assert.match(h.quota.render(h.cx, {}).tip, /no account request/);
+  assert.doesNotMatch(text(h.quota.render(h.cx, {})), /DeepSeek|Balance/);
+  h.setFocus({ terminal: "t1" });
+  assert.match(text(h.quota.render(h.cx, {})), /DeepSeek Balance/);
+  h.setTerminals([{ address: "t1", pid: 99, created_ms: 12, labels: { "herdr.claude.launch": "new-launch" } }]);
+  assert.doesNotMatch(text(h.quota.render(h.cx, {})), /DeepSeek|Balance/);
+  h.requests[2].resolve({ code: 0, stdout: JSON.stringify({ provider: "claude-official", status: "waiting", windows: [] }) });
+  await Promise.all(h.tasks);
+  assert.match(text(h.quota.render(h.cx, {})), /Claude Official Waiting for usage update/);
+});
+
+test("official display hides expired values immediately and never invents a missing window", () => {
+  const h = harness(), now = Date.now();
+  h.setPanes([{ terminal: "t1", app: "claude-code" }]);
+  h.quota.cache["local:claude:t1:::"] = { provider: "claude-official", status: "ok", windows: [{ remaining: 75, minutes: 300, resetsAt: now - 1 }], updatedAt: now, attemptedAt: now };
+  const text = node => typeof node === "string" ? node : node.children.map(text).join(" ");
+  assert.match(text(h.quota.render(h.cx, {})), /Waiting for usage update/);
+  assert.doesNotMatch(text(h.quota.render(h.cx, {})), /75|100|Weekly/);
+});
 
 test("focus, shown terminal and remote account boundaries", () => {
   const { quotaTarget } = harness();
@@ -187,7 +187,7 @@ test("remote focus never probes the local account; rate limits back off for two 
 test("DeepSeek status bar displays account money and its breakdown, including exhausted accounts", () => {
   const h = harness(), now = Date.now();
   h.setPanes([{ terminal: "t1", app: "claude-code" }]);
-  h.quota.cache["local:claude"] = { ...deepseekBalance(deepseekReply), attemptedAt: now };
+  h.quota.cache["local:claude:t1:::"] = { ...deepseekBalance(deepseekReply), attemptedAt: now };
   const text = node => typeof node === "string" ? node : node.children.map(text).join(" ");
   const row = h.quota.render(h.cx, {});
   assert.match(text(row), /DeepSeek Balance ¥25\.42/);
@@ -195,10 +195,10 @@ test("DeepSeek status bar displays account money and its breakdown, including ex
   assert.match(row.tip, /Top-up balance: ¥25\.42/);
   assert.match(row.tip, /Granted balance: ¥0\.00/);
   assert.match(row.tip, /Updated:/);
-  h.quota.cache["local:claude"] = { ...deepseekBalance({ is_available: false, balance_infos: [{ currency: "CNY", total_balance: "0.00" }] }), attemptedAt: now };
+  h.quota.cache["local:claude:t1:::"] = { ...deepseekBalance({ is_available: false, balance_infos: [{ currency: "CNY", total_balance: "0.00" }] }), attemptedAt: now };
   assert.match(text(h.quota.render(h.cx, {})), /Balance ¥0\.00/);
   assert.match(h.quota.render(h.cx, {}).tip, /No balance available for API calls/);
-  h.quota.cache["local:claude"] = { provider: "deepseek", status: "api-key-invalid", windows: [], attemptedAt: now };
+  h.quota.cache["local:claude:t1:::"] = { provider: "deepseek", status: "api-key-invalid", windows: [], attemptedAt: now };
   assert.match(text(h.quota.render(h.cx, {})), /DeepSeek API key invalid or expired/);
 });
 
@@ -211,11 +211,11 @@ test("deduplicates concurrent refreshes and keeps late replies in their own prov
   h.requests[1].resolve({ code: 0, stdout: JSON.stringify({ status: "ok", windows: [{ remaining: 80 }] }) });
   h.requests[0].resolve({ code: 0, stdout: JSON.stringify({ status: "ok", windows: [{ remaining: 15 }] }) });
   await Promise.all(h.tasks);
-  assert.equal(h.quota.cache["local:claude"].windows[0].remaining, 80);
+  assert.equal(h.quota.cache["local:claude:t1:::"].windows[0].remaining, 80);
   h.quota.refresh(h.cx);
   assert.equal(h.requests.length, 2);
   h.quota.refresh(h.cx, true);
   h.requests[2].resolve({ code: 1, stdout: "" });
   await Promise.all(h.tasks);
-  assert.deepEqual(h.quota.cache["local:claude"].windows, []);
+  assert.deepEqual(h.quota.cache["local:claude:t1:::"].windows, []);
 });

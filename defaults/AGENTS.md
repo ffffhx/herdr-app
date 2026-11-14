@@ -205,21 +205,34 @@ parentheses and apostrophes, and preserves Unicode file and folder names
 (including Chinese). Directory links expand as folders; their contents load
 only when expanded.
 
-The main layout's status bar shows the focused local Codex or Claude agent's
-subscription quota: remaining percentages for the windows the provider reports,
-with reset times and last update in the tooltip. It checks every 30 seconds;
-click the quota to refresh. This uses the computer's CLI login and inherited
-`CODEX_HOME` / `CLAUDE_CONFIG_DIR`, not per-terminal account overrides. Remote
-agents report that quota is unavailable instead of showing the local account.
-The probe requires Node.js (18 or newer); Codex also needs its CLI on PATH.
-Claude with the official DeepSeek endpoint shows API account balance in CNY or
-USD instead of subscription percentages. It reads the inherited environment and
-global Claude `settings.json` environment, and queries DeepSeek's `/user/balance`;
-the tooltip includes top-up and granted balances. Missing/invalid API keys and
-unsupported API providers are explicit, not a subscription sign-in prompt.
-Claude subscriptions use the credential file, or the default macOS Keychain
-entry. Login and network failures can report unavailable. Unknown windows are
-never presented as 100% remaining. Credentials are not stored in mod state.
+The main layout's status bar follows the focused local Codex or Claude agent.
+Codex quota uses the computer's CLI login and inherited `CODEX_HOME`, refreshing
+every 30 seconds. Claude official quota only reads local `statusLine` snapshots:
+five-hour/weekly remaining percentages, reset times and the last received time.
+It does not read Claude OAuth credentials/Keychain, request `/api/oauth/usage`,
+or infer subscription quota from tokens/cost. Missing, reset or hour-old windows
+show waiting/expired instead of a fabricated full allowance. Clicking official
+quota only rereads local data; the five-second local refresh does not query Claude.
+Remote agents do not borrow the local account. Node.js is required.
+
+Explicit Claude launchers can register using
+`node mods/workspace-status/claude-usage.cjs register official|deepseek` with
+JSON options on stdin (`previous`: the original statusLine; `settingsFile`: the
+DeepSeek launcher's settings path; `launcherPid`: the supervisor process).
+The bridge binds local `HC_TERMINAL_ID`, core PID/creation time and a unique launch
+ID. It returns a descriptor and statusLine configuration; apply that statusLine
+only to the official process's settings, and call `end <descriptor>` on exit.
+`scripts/claude-launcher-usage.py` in the source checkout is a Python adapter.
+The previous statusLine command and its output are preserved. Only whitelisted
+session/usage fields are saved under `data/claude-usage`; credentials and
+transcripts are not collected. New sessions start with no usage and cannot inherit
+another session's allowance. Existing native unattended sessions are identified
+from their bound launch argv; tab titles and model names never establish provider.
+
+A registered DeepSeek launcher retains the `/user/balance` API display in CNY/USD,
+using its explicit settings file. Only the exact official DeepSeek endpoint is
+accepted, and secrets never enter mod state. Ambiguous/unsupported sessions report
+unknown instead of silently reading global Claude credentials or another provider.
 
 **Herdr's own layouts and mods are read-only.** They are replaced whole
 on every start. Use settings.json for look (fonts, sizes, theme, colors,
