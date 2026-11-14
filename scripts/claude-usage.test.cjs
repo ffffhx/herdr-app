@@ -131,7 +131,8 @@ test("the mod's actual probe argv reads a bound local snapshot without Claude", 
   const f = fixture();
   try {
     const registration = bridge.register("official", f.options);
-    bridge.capture(registration.descriptor, payload);
+    bridge.capture(registration.descriptor, { session_id: id,
+      rate_limits: { five_hour: { used_percentage: 25, resets_at: Date.now() / 1000 + 3600 } } });
     const result = spawnSync(process.execPath, [path.join(path.dirname(script), "quota-probe.cjs"), "claude", JSON.stringify(f.term), f.home],
       { encoding: "utf8", windowsHide: true, timeout: 5000 });
     assert.equal(result.status, 0);
