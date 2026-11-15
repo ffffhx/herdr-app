@@ -100,7 +100,7 @@ Move a tab to a position in its space (1 = first).
 
 ## `pane.split`
 
-Split a pane (default: the focused one) "right" or "down" with a new terminal, or with a mod (`mod`, its `props`) beside it.
+Split a pane (default: the focused one) "right" or "down" with a new terminal, or with a mod (`mod`, its `props`) beside it. Set focus:false to preserve that tab's focus, focus history and zoom for automatic background panes.
 
 | Argument | Required |
 |---|---|
@@ -109,6 +109,7 @@ Split a pane (default: the focused one) "right" or "down" with a new terminal, o
 | `argv` | no |
 | `mod` | no |
 | `props` | no |
+| `focus` | no |
 
 ## `pane.close`
 

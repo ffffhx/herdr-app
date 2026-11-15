@@ -10,9 +10,14 @@ OpenAI Codex `rust-v0.169.0-alpha.3`, commit
   Closing either pane or using `/quit` there leaves the other process running.
   The fork remains an ordinary persistent Codex conversation with full history.
   Outside Herdr, the existing in-terminal fork presentation remains available.
-- Native subagents appear automatically on the right, stacked vertically.
-  Creation preserves the current input focus. Each panel can be selected,
-  scrolled and expanded using Codex's existing pane controls.
+- Native subagents in local embedded Codex open separate Herdr terminal panes
+  on the right, stacked vertically, each with its own Codex icon and header.
+  They are read-only views of the parent-owned task: scroll with the wheel or
+  Page Up/Down, use End to follow new output, and zoom/close with Herdr's pane
+  controls. Send instructions through the parent Agent. Closing a view does
+  not interrupt, resume, archive or unsubscribe the child task.
+  Automatic creation preserves the current tab, input focus and zoom.
+  Other hosts and older Herdr builds retain the in-terminal presentation.
 - Closing an in-terminal fork or subagent panel hides that view without interrupting,
   archiving or unsubscribing the native thread. The agent retains its normal
   task ownership and permissions.
@@ -32,18 +37,21 @@ sidebar_width_percent = 50
 toggle_side_conversation = "f8"
 ```
 
-With that keymap, `F8` switches between the main chat and the selected peer.
+For in-terminal peers, `F8` switches between the main chat and the selected peer.
 Click a panel heading or its tab to select another peer. `Ctrl+X`, then `Z`
 zooms/restores the focused panel; `W` closes its view; `R` adjusts the split
 with the arrow keys; `=` restores equal widths. Child panels share the right
 column's height, so zoom a panel when its transcript needs more room.
 
-The patch uses Herdr's existing `ls` and `pane.split` commands to locate the
-source terminal; it does not guess from the currently active tab or change the
-app's model or shared mod APIs. The separate fork CLI creates its own native
-thread, so its process lifetime and write ownership are independent of the
-source. Native `/side` and subagent views still share their owner's terminal
-and app-server connection. It does not start a second writer on a child thread.
+The patch uses Herdr's `ls` and `pane.split` commands to locate the source
+terminal; it never guesses from the currently active tab. Child panes require
+the backward-compatible `pane.split` argument `focus:false`; the CLI checks
+that capability before opening an external view. The separate fork CLI creates
+its own native thread. A child viewer instead receives public transcript and
+status snapshots from an authenticated loopback relay owned by the parent TUI.
+It creates no app-server, model request, session database or second writer.
+If the parent disconnects, the view labels its retained content as the last
+received snapshot. `/side` continues to use the original in-terminal UI.
 At narrow terminal widths, the upstream single-column fallback and pane focus
 controls still apply to those in-terminal views.
 
@@ -59,9 +67,16 @@ what the normal executable build needs.
 
 The full upstream TUI test program can exceed the available memory on a busy
 16 GB machine even with one build job and incremental compilation disabled.
-`-SkipUnitTests` builds the CLI only and records `unitTests: "skipped"` in the
+`-SkipUnitTests` skips that large unit-test program and records `unitTests: "skipped"` in the
 build manifest. Use this only with explicit reporting of that validation gap
 and the isolated UI checks below; it does not mean the unit tests passed.
+The smaller `herdr_child` integration tests always run, including relay
+authentication, initial replay, streaming replacement and owner disconnection.
+
+Upstream check for this extension: official `herdrdev/herdr-app` master
+`5216e6f` and relevant Codex/subagent pull requests were inspected on 2026-11-15.
+No implementation of external native Codex child views was found; the existing
+Herdr split panes, headers, icons and close/zoom controls are reused.
 
 The upstream tag bumps the workspace version without updating `Cargo.lock`.
 The patch synchronizes those workspace package versions; external dependency

@@ -28,6 +28,10 @@ const server = http.createServer(async (req, res) => {
   const shouldSpawn = prompt.includes('CREATE TWO CHILDREN') && spawn
     && !results.length;
   if (log) appendFileSync(log, JSON.stringify({ path: req.url, prompt, tools, child, shouldSpawn }) + '\n');
+  res.on('close', () => {
+    if (log) appendFileSync(log, JSON.stringify({ phase: 'streamClosed', child,
+      completed: res.writableFinished }) + '\n');
+  });
   const stamp = Date.now();
   const id = `resp_${stamp}`;
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
@@ -50,8 +54,9 @@ const server = http.createServer(async (req, res) => {
       output.push(item);
     }
   } else {
-    const text = child ? `SUBAGENT ${child}: independent child task.\n` + Array.from({ length: 18 }, (_, i) => `Progress ${i + 1}: observing the isolated fixture.\n`).join('')
+    const text = child ? `SUBAGENT ${child}: independent child task.\n` + Array.from({ length: 60 }, (_, i) => `Progress ${i + 1}: observing the isolated fixture.\n`).join('')
       : prompt.includes('FORK FIXTURE') ? 'FORK SESSION: New session, with the original conversation still visible on the left.'
+      : prompt.includes('CONTINUE FIXTURE') ? 'MAIN CONTINUES: The child view closed without interrupting this session.'
       : prompt.includes('CREATE TWO CHILDREN') ? 'MAIN SESSION: Two child tasks are running. The main input stays available.'
       : prompt.includes('SIDE FIXTURE') || /Side conversation boundary/.test(JSON.stringify(input)) ? 'SIDE SESSION: Native side-chat behavior is preserved.'
       : 'MAIN SESSION: Original conversation. Keep this visible while opening a fork or child agents.';
@@ -59,7 +64,7 @@ const server = http.createServer(async (req, res) => {
     send({ type: 'response.output_item.added', output_index: 0, item: { ...item, status: 'in_progress', content: [] } });
     send({ type: 'response.content_part.added', output_index: 0, item_id: item.id, content_index: 0, part: { type: 'output_text', text: '', annotations: [] } });
     for (const line of text.split(/(?<=\n)/)) {
-      if (child) await delay(800);
+      if (child) await delay(250);
       send({ type: 'response.output_text.delta', output_index: 0, item_id: item.id, content_index: 0, delta: line });
     }
     send({ type: 'response.output_text.done', output_index: 0, item_id: item.id, content_index: 0, text });

@@ -1537,10 +1537,41 @@ index 97697be..cc65a48 100644
   "anyhow",
   "assert_cmd",
 diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
-index a1462ee..0e5cb4e 100644
+index a1462ee..f7b0d69 100644
 --- a/codex-rs/cli/src/main.rs
 +++ b/codex-rs/cli/src/main.rs
-@@ -2719,6 +2719,7 @@ fn finalize_fork_interactive(
+@@ -143,6 +143,12 @@ struct MultitoolCli {
+ 
+ #[derive(Debug, clap::Subcommand)]
+ enum Subcommand {
++    /// Internal read-only projection; never resumes the managed child thread.
++    #[clap(hide = true)]
++    HerdrChildView {
++        address: std::net::SocketAddr,
++        token: String,
++    },
+     /// Open the agent command center to browse and switch sessions.
+     Agents(AgentsCommand),
+ 
+@@ -1150,6 +1156,9 @@ async fn dispatch_cli(
+                 arg0_paths,
+             )));
+         }
++        Some(Subcommand::HerdrChildView { address, token }) => {
++            codex_tui::herdr_child_view::run(address, token)?;
++        }
+         Some(Subcommand::TcpTunnel(args)) => {
+             codex_tcp_tunnel::run(args).await?;
+         }
+@@ -2395,6 +2404,7 @@ fn unsupported_subcommand_name_for_strict_config(
+         Some(Subcommand::StdioToUds(_)) => Some("stdio-to-uds"),
+         Some(Subcommand::Features(_)) => Some("features"),
+         Some(Subcommand::TcpTunnel(_)) => Some("tcp-tunnel"),
++        Some(Subcommand::HerdrChildView { .. }) => Some("herdr-child-view"),
+     }
+ }
+ 
+@@ -2719,6 +2729,7 @@ fn finalize_fork_interactive(
      interactive.fork_last = last;
      interactive.fork_session_id = fork_session_id;
      interactive.fork_show_all = show_all;
@@ -1548,7 +1579,7 @@ index a1462ee..0e5cb4e 100644
  
      // Merge fork-scoped flags and overrides with highest precedence.
      merge_interactive_cli_flags(&mut interactive, fork_cli);
-@@ -4259,6 +4260,23 @@ enabled = true
+@@ -4259,6 +4270,23 @@ enabled = true
          assert!(interactive.fork_show_all);
      }
  
@@ -1573,7 +1604,7 @@ index a1462ee..0e5cb4e 100644
      fn app_server_analytics_default_disabled_without_flag() {
          let app_server = app_server_from_args(["codex", "app-server"].as_ref());
 diff --git a/codex-rs/tui/src/app.rs b/codex-rs/tui/src/app.rs
-index 84a42c3..0d5e556 100644
+index 84a42c3..0165745 100644
 --- a/codex-rs/tui/src/app.rs
 +++ b/codex-rs/tui/src/app.rs
 @@ -270,6 +270,7 @@ mod resume_config;
@@ -1592,15 +1623,16 @@ index 84a42c3..0d5e556 100644
  mod startup;
  pub(crate) mod startup_bootstrap;
  mod startup_prompts;
-@@ -661,6 +663,7 @@ pub(crate) struct App {
+@@ -661,6 +663,8 @@ pub(crate) struct App {
      agent_navigation: AgentNavigationState,
      agents_overview: agents_overview::AgentsOverviewState,
      side_threads: HashMap<ThreadId, SideThreadState>,
 +    split_threads: HashMap<ThreadId, ThreadId>,
++    herdr_children: HashMap<ThreadId, (String, crate::herdr_child_view::ChildRelay)>,
      sidebars: HashMap<Option<ThreadId>, sidebar::SidebarPane>,
      /// A parked parent view survives child cleanup until its own replay finishes.
      side_companions: HashMap<ThreadId, SideCompanion>,
-@@ -1074,15 +1077,19 @@ impl App {
+@@ -1074,15 +1078,19 @@ impl App {
          if let TuiEvent::Mouse(press) = &event
              && press.kind == MouseEventKind::Down(MouseButton::Left)
              && self.conversation_focus_available(tui)
@@ -1623,7 +1655,7 @@ index 84a42c3..0d5e556 100644
              {
                  let painted_area = painted.passive;
                  if let Some(url) = self.transcript_link_at(*press) {
-@@ -1106,7 +1113,10 @@ impl App {
+@@ -1106,7 +1114,10 @@ impl App {
                              .handle_mouse(*press, Default::default())
                              .then(|| draft.cursor())
                      });
@@ -1739,10 +1771,10 @@ index 3881aac..585e2df 100644
                      && (self.agents_overview.threads.iter().any(|(id, thread)| {
 diff --git a/codex-rs/tui/src/app/herdr_fork.rs b/codex-rs/tui/src/app/herdr_fork.rs
 new file mode 100644
-index 0000000..b80ad9d
+index 0000000..264ebb6
 --- /dev/null
 +++ b/codex-rs/tui/src/app/herdr_fork.rs
-@@ -0,0 +1,177 @@
+@@ -0,0 +1,283 @@
 +//! Forks launched from a local Herdr pane get their own terminal and backend.
 +//! Use Herdr's existing CLI; no window/model API or terminal parent-child link is added.
 +
@@ -1812,6 +1844,112 @@ index 0000000..b80ad9d
 +}
 +
 +impl App {
++    pub(super) async fn open_herdr_child(&mut self, child: ThreadId, label: String) {
++        if cfg!(test)
++            || self.herdr_children.contains_key(&child)
++            || !self.local_settings.workspace_enabled(&self.config)
++            || !matches!(self.app_server_target, AppServerTarget::Embedded)
++        {
++            return;
++        }
++        if let Err(error) = self.try_open_herdr_child(child, label).await {
++            // A failed/ambiguous IPC request is never retried automatically.
++            // The existing in-terminal child remains available with its history.
++            self.chat_widget
++                .add_info_message(format!("Sub-agent kept in this terminal: {error}"), None);
++        }
++    }
++
++    async fn try_open_herdr_child(&mut self, child: ThreadId, label: String) -> Result<()> {
++        let Ok(terminal) = std::env::var("HC_TERMINAL_ID") else {
++            return Ok(());
++        };
++        let layout = herdr(&["ls".into()]).await?;
++        let Some(parent_pane) = source_pane(&layout, &terminal) else {
++            return Ok(());
++        };
++        let commands = herdr(&["commands".into()]).await?;
++        let supported = commands.as_array().is_some_and(|commands| {
++            commands.iter().any(|command| {
++                command["name"] == "pane.split"
++                    && command["args"]
++                        .as_array()
++                        .is_some_and(|args| args.iter().any(|arg| arg["name"] == "focus"))
++            })
++        });
++        if !supported {
++            return Ok(());
++        }
++        // Stack further children in the existing right column, never repeatedly
++        // halve the main conversation. Resolve live panes: an old view may be closed.
++        let sibling = layout["spaces"]
++            .as_array()
++            .into_iter()
++            .flatten()
++            .filter(|space| space["machine"].is_null())
++            .flat_map(|space| space["tabs"].as_array().into_iter().flatten())
++            .filter(|tab| {
++                tab["terminals"]
++                    .as_array()
++                    .is_some_and(|panes| panes.iter().any(|pane| pane["pane"] == parent_pane))
++            })
++            .flat_map(|tab| tab["terminals"].as_array().into_iter().flatten())
++            .filter_map(|pane| pane["pane"].as_str())
++            .filter(|pane| {
++                self.herdr_children
++                    .values()
++                    .any(|(existing, _)| existing == pane)
++            })
++            .last()
++            .map(str::to_owned);
++        let mut relay = crate::herdr_child_view::ChildRelay::new(label).await?;
++        if let Some(channel) = self.thread_event_channels.get(&child) {
++            let snapshot = channel.store.lock().await.snapshot();
++            for turn in snapshot.turns {
++                relay.apply(&json!({"method":"turn/completed","params":{"turn":turn}}));
++            }
++            for event in snapshot.events {
++                if let ThreadBufferedEvent::Notification(notification) = event {
++                    relay.apply(&serde_json::to_value(notification)?);
++                }
++            }
++        }
++        // The viewer needs no profile/config or shell wrapper. A direct argv
++        // gives Herdr the Codex icon without impersonating a root agent.
++        let argv = vec![
++            std::env::current_exe()?.to_string_lossy().into_owned(),
++            "herdr-child-view".into(),
++            relay.address.to_string(),
++            relay.token.clone(),
++        ];
++        let result = herdr(&[
++            "do".into(),
++            "pane.split".into(),
++            json!({
++                "direction":if sibling.is_some() {"down"} else {"right"},
++                "pane":sibling.unwrap_or(parent_pane), "argv":argv, "focus":false
++            })
++            .to_string(),
++        ])
++        .await?;
++        let pane = result["pane"].as_str().ok_or_else(|| {
++            color_eyre::eyre::eyre!(
++                "Herdr did not confirm the child pane; inspect the layout before retrying"
++            )
++        })?;
++        if !relay.wait_connected().await {
++            color_eyre::eyre::bail!(
++                "Child viewer did not connect; inspect its new pane before retrying"
++            );
++        }
++        self.herdr_children.insert(child, (pane.into(), relay));
++        if let Some(sidebar) = self.sidebars.get_mut(&self.pane_parent(child)) {
++            sidebar.remove_chat(child, crate::app_server_session::SideChatStorage::Temporary);
++        }
++        self.chat_widget.request_redraw();
++        Ok(())
++    }
++
 +    /// Return false only before any mutation, when the source isn't a local Herdr pane.
 +    pub(super) async fn fork_in_herdr(
 +        &mut self,
@@ -2401,10 +2539,10 @@ index 010606f..2fccb1f 100644
      };
 diff --git a/codex-rs/tui/src/app/split_threads.rs b/codex-rs/tui/src/app/split_threads.rs
 new file mode 100644
-index 0000000..7411190
+index 0000000..5d03875
 --- /dev/null
 +++ b/codex-rs/tui/src/app/split_threads.rs
-@@ -0,0 +1,453 @@
+@@ -0,0 +1,455 @@
 +//! Present ordinary forks and parent-owned agents beside their source conversation.
 +//! These are display relationships only: side-chat policies and cleanup never apply.
 +
@@ -2464,7 +2602,7 @@ index 0000000..7411190
 +            self.sync_agent_picker_thread(child);
 +            let parent = self.pane_parent(child);
 +            if let Some(pane) = self.sidebars.get_mut(&parent) {
-+                pane.set_chat_name(child, label);
++                pane.set_chat_name(child, label.clone());
 +            }
 +            // Replay events that beat the parent's spawn acknowledgement without changing focus.
 +            let store = Arc::clone(&self.ensure_thread_channel(child).store);
@@ -2478,6 +2616,8 @@ index 0000000..7411190
 +                    }
 +                }
 +            }
++            drop(store);
++            self.open_herdr_child(child, label).await;
 +        }
 +    }
 +
@@ -2859,7 +2999,7 @@ index 0000000..7411190
 +    }
 +}
 diff --git a/codex-rs/tui/src/app/startup.rs b/codex-rs/tui/src/app/startup.rs
-index 15f7f45..3b65250 100644
+index 15f7f45..064c3d6 100644
 --- a/codex-rs/tui/src/app/startup.rs
 +++ b/codex-rs/tui/src/app/startup.rs
 @@ -272,6 +272,7 @@ impl App {
@@ -2895,43 +3035,47 @@ index 15f7f45..3b65250 100644
                      if let Some(worktree) = managed_worktree.as_ref()
                          && let Err(err) = worktree.bind(forked.session.thread_id)
                      {
-@@ -1069,6 +1078,7 @@ See the Codex keymap documentation for supported actions and examples."
+@@ -1069,6 +1078,8 @@ See the Codex keymap documentation for supported actions and examples."
              agent_navigation: AgentNavigationState::default(),
              agents_overview,
              side_threads: HashMap::new(),
 +            split_threads: HashMap::new(),
++            herdr_children: HashMap::new(),
              sidebars: HashMap::new(),
              side_companions: HashMap::new(),
              zoomed_thread: None,
 diff --git a/codex-rs/tui/src/app/test_support.rs b/codex-rs/tui/src/app/test_support.rs
-index 6376a1c..30c076c 100644
+index 6376a1c..75238df 100644
 --- a/codex-rs/tui/src/app/test_support.rs
 +++ b/codex-rs/tui/src/app/test_support.rs
-@@ -127,6 +127,7 @@ pub(crate) async fn make_test_app() -> Box<App> {
+@@ -127,6 +127,8 @@ pub(crate) async fn make_test_app() -> Box<App> {
          agent_navigation: AgentNavigationState::default(),
          agents_overview: Default::default(),
          side_threads: HashMap::new(),
 +        split_threads: HashMap::new(),
++        herdr_children: HashMap::new(),
          sidebars: HashMap::new(),
          side_companions: HashMap::new(),
          zoomed_thread: None,
 diff --git a/codex-rs/tui/src/app/tests.rs b/codex-rs/tui/src/app/tests.rs
-index 88e0a94..bce4c4b 100644
+index 88e0a94..cfeb227 100644
 --- a/codex-rs/tui/src/app/tests.rs
 +++ b/codex-rs/tui/src/app/tests.rs
-@@ -8443,6 +8443,7 @@ async fn make_test_app() -> Box<App> {
+@@ -8443,6 +8443,8 @@ async fn make_test_app() -> Box<App> {
          pending_server_profiles: HashMap::new(),
          agents_overview: Default::default(),
          side_threads: HashMap::new(),
 +        split_threads: HashMap::new(),
++        herdr_children: HashMap::new(),
          sidebars: HashMap::new(),
          side_companions: HashMap::new(),
          zoomed_thread: None,
-@@ -8582,6 +8583,7 @@ pub(super) async fn make_test_app_with_channels() -> (
+@@ -8582,6 +8584,8 @@ pub(super) async fn make_test_app_with_channels() -> (
              pending_server_profiles: HashMap::new(),
              agents_overview: Default::default(),
              side_threads: HashMap::new(),
 +            split_threads: HashMap::new(),
++            herdr_children: HashMap::new(),
              sidebars: HashMap::new(),
              side_companions: HashMap::new(),
              zoomed_thread: None,
@@ -2948,15 +3092,20 @@ index b95fffb..524ec5c 100644
      .await
  }
 diff --git a/codex-rs/tui/src/app/thread_routing.rs b/codex-rs/tui/src/app/thread_routing.rs
-index ccd5d3f..15a75eb 100644
+index ccd5d3f..bc36491 100644
 --- a/codex-rs/tui/src/app/thread_routing.rs
 +++ b/codex-rs/tui/src/app/thread_routing.rs
-@@ -1074,6 +1074,38 @@ impl App {
+@@ -1074,6 +1074,52 @@ impl App {
          if self.abandoned_side_threads.contains(&thread_id) {
              return Ok(());
          }
 +        self.track_split_spawn_notification(thread_id, &notification)
 +            .await;
++        if let Some((_, relay)) = self.herdr_children.get_mut(&thread_id)
++            && let Ok(event) = serde_json::to_value(&notification)
++        {
++            relay.apply(&event);
++        }
 +        if let ServerNotification::ThreadStarted(started) = &notification
 +            && let codex_app_server_protocol::SessionSource::SubAgent(
 +                codex_protocol::protocol::SubAgentSource::ThreadSpawn {
@@ -2985,6 +3134,15 @@ index ccd5d3f..15a75eb 100644
 +            }
 +            if crate::app_server_session::thread_blocks_direct_input(&started.thread) {
 +                self.agent_navigation.mark_parent_owned(thread_id);
++            }
++            let label = crate::app_server_session::source_agent_path(&started.thread.source)
++                .or_else(|| started.thread.agent_nickname.clone())
++                .unwrap_or_else(|| self.thread_label(thread_id));
++            self.open_herdr_child(thread_id, label).await;
++            if let Some((_, relay)) = self.herdr_children.get_mut(&thread_id)
++                && let Ok(event) = serde_json::to_value(&notification)
++            {
++                relay.apply(&event);
 +            }
 +        }
          self.track_side_chat_title(thread_id, &notification);
@@ -3020,11 +3178,400 @@ index ca006e9..e48c8ba 100644
      #[clap(flatten)]
      pub shared: TuiSharedCliOptions,
  
+diff --git a/codex-rs/tui/src/herdr_child_view.rs b/codex-rs/tui/src/herdr_child_view.rs
+new file mode 100644
+index 0000000..c4125ed
+--- /dev/null
++++ b/codex-rs/tui/src/herdr_child_view.rs
+@@ -0,0 +1,375 @@
++//! A read-only projection of a parent-owned child. This process never opens an
++//! app-server or resumes the child's thread: the parent remains its only writer.
++use std::io::{BufRead, BufReader, Write};
++use std::net::{SocketAddr, TcpStream};
++use std::sync::{Arc, Mutex};
++use std::time::Duration;
++
++use crossterm::event::{self, Event, KeyCode, KeyModifiers, MouseEventKind};
++use crossterm::{execute, terminal};
++use ratatui::backend::CrosstermBackend;
++use ratatui::layout::{Constraint, Layout};
++use ratatui::style::{Modifier, Style};
++use ratatui::text::Line;
++use ratatui::widgets::Paragraph;
++use serde::{Deserialize, Serialize};
++use serde_json::{Value, json};
++use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
++use tokio::sync::watch;
++
++#[derive(Clone, Debug, Default, Serialize, Deserialize)]
++pub struct ChildSnapshot {
++    pub title: String,
++    pub status: String,
++    pub items: Vec<Value>,
++}
++
++impl ChildSnapshot {
++    fn upsert(&mut self, item: Value) {
++        if item["type"] == "reasoning" {
++            return;
++        }
++        let Some(id) = item["id"].as_str() else {
++            return;
++        };
++        if let Some(old) = self.items.iter_mut().find(|old| old["id"] == id) {
++            *old = item;
++        } else {
++            self.items.push(item);
++        }
++    }
++
++    /// Only public transcript events enter the projection. Raw reasoning,
++    /// credentials, approval replies and requests from the viewer are excluded.
++    pub fn apply(&mut self, event: &Value) -> bool {
++        let p = &event["params"];
++        match event["method"].as_str().unwrap_or_default() {
++            "turn/started" => self.status = "Working".into(),
++            "turn/completed" => {
++                self.status = p["turn"]["status"].as_str().unwrap_or("Finished").into();
++                for item in p["turn"]["items"].as_array().into_iter().flatten() {
++                    self.upsert(item.clone());
++                }
++            }
++            "thread/closed" => self.status = "Closed by parent".into(),
++            "thread/status/changed" => match p["status"]["type"].as_str() {
++                Some("active") => {
++                    self.status = if p["status"]["activeFlags"]
++                        .as_array()
++                        .is_some_and(|flags| !flags.is_empty())
++                    {
++                        "Waiting for parent".into()
++                    } else {
++                        "Working".into()
++                    };
++                }
++                Some("systemError") => self.status = "Error: see parent".into(),
++                _ => return false,
++            },
++            "item/started" | "item/completed" => {
++                let item = &p["item"];
++                if item["type"] == "reasoning" {
++                    return false;
++                }
++                self.upsert(item.clone());
++            }
++            "item/agentMessage/delta" | "item/commandExecution/outputDelta" => {
++                let Some(id) = p["itemId"].as_str() else {
++                    return false;
++                };
++                let Some(delta) = p["delta"].as_str() else {
++                    return false;
++                };
++                let answer = event["method"] == "item/agentMessage/delta";
++                let field = if answer { "text" } else { "aggregatedOutput" };
++                if !self.items.iter().any(|v| v["id"] == id) {
++                    self.upsert(json!({"id":id,"type":if answer {"agentMessage"} else {"commandExecution"}}));
++                }
++                if let Some(item) = self.items.iter_mut().find(|v| v["id"] == id) {
++                    let text = format!("{}{}", item[field].as_str().unwrap_or_default(), delta);
++                    item[field] = Value::String(text);
++                }
++            }
++            "error" => {
++                self.status = format!(
++                    "Error: {}",
++                    p["error"]["message"].as_str().unwrap_or("See parent")
++                )
++            }
++            _ => return false,
++        }
++        true
++    }
++}
++
++/// Drop closes the relay, including an already attached viewer. It has no
++/// child-thread lifecycle actions and does not outlive the owning TUI.
++pub struct ChildRelay {
++    pub address: SocketAddr,
++    pub token: String,
++    pub snapshot: ChildSnapshot,
++    sender: watch::Sender<ChildSnapshot>,
++    connected: watch::Receiver<bool>,
++    task: tokio::task::JoinHandle<()>,
++}
++
++impl Drop for ChildRelay {
++    fn drop(&mut self) {
++        self.task.abort();
++    }
++}
++
++impl ChildRelay {
++    pub async fn new(title: String) -> std::io::Result<Self> {
++        let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).await?;
++        let address = listener.local_addr()?;
++        let token = uuid::Uuid::new_v4().to_string();
++        let secret = token.clone();
++        let snapshot = ChildSnapshot {
++            title,
++            status: "Starting".into(),
++            items: vec![],
++        };
++        let (sender, mut receiver) = watch::channel(snapshot.clone());
++        let (attached, connected) = watch::channel(false);
++        let task = tokio::spawn(async move {
++            while let Ok((stream, _)) = listener.accept().await {
++                let mut stream = tokio::io::BufReader::new(stream);
++                let mut greeting = String::new();
++                // Bounded authentication read; an unrelated local client cannot
++                // reserve the listener indefinitely or request any operation.
++                let valid = tokio::time::timeout(Duration::from_secs(2), async {
++                    use tokio::io::AsyncReadExt;
++                    (&mut stream).take(128).read_line(&mut greeting).await
++                })
++                .await
++                .is_ok_and(|result| result.is_ok());
++                if !valid || greeting.trim_end() != secret {
++                    continue;
++                }
++                let _ = attached.send(true);
++                loop {
++                    let snapshot = receiver.borrow_and_update().clone();
++                    let Ok(mut bytes) = serde_json::to_vec(&snapshot) else {
++                        return;
++                    };
++                    bytes.push(b'\n');
++                    if !tokio::time::timeout(
++                        Duration::from_secs(2),
++                        stream.get_mut().write_all(&bytes),
++                    )
++                    .await
++                    .is_ok_and(|result| result.is_ok())
++                    {
++                        return;
++                    }
++                    // EOF closes this view's listener even while the agent is
++                    // idle. Any post-authentication input is rejected, never
++                    // forwarded to the parent or an app-server.
++                    tokio::select! {
++                        changed = receiver.changed() => if changed.is_err() { return; },
++                        _ = stream.fill_buf() => return,
++                    }
++                    // Coalesce fast deltas; publishing must never block the parent.
++                    tokio::time::sleep(Duration::from_millis(40)).await;
++                }
++            }
++        });
++        Ok(Self {
++            address,
++            token,
++            snapshot,
++            sender,
++            connected,
++            task,
++        })
++    }
++
++    pub fn apply(&mut self, event: &Value) {
++        if self.is_closed() {
++            self.snapshot.items.clear();
++            self.sender.send_replace(self.snapshot.clone());
++            return;
++        }
++        if self.snapshot.apply(event) {
++            self.sender.send_replace(self.snapshot.clone());
++        }
++    }
++
++    pub fn is_closed(&self) -> bool {
++        self.sender.is_closed()
++    }
++
++    pub async fn wait_connected(&mut self) -> bool {
++        tokio::time::timeout(Duration::from_secs(8), async {
++            while !*self.connected.borrow_and_update() {
++                if self.connected.changed().await.is_err() {
++                    return false;
++                }
++            }
++            true
++        })
++        .await
++        .unwrap_or(false)
++    }
++}
++
++fn text<'a>(item: &'a Value, key: &str) -> &'a str {
++    item[key].as_str().unwrap_or_default()
++}
++
++fn lines(snapshot: &ChildSnapshot, width: u16) -> Vec<Line<'static>> {
++    let mut result = Vec::new();
++    for item in &snapshot.items {
++        match text(item, "type") {
++            "agentMessage" => crate::markdown::append_markdown(
++                text(item, "text"),
++                Some(width as usize),
++                None,
++                &mut result,
++            ),
++            "userMessage" => {
++                for input in item["content"].as_array().into_iter().flatten() {
++                    if let Some(message) = input["text"].as_str() {
++                        result.push(Line::from(format!("› {message}")));
++                    }
++                }
++            }
++            "reasoning" => continue,
++            kind => {
++                let label = match kind {
++                    "commandExecution" => format!("$ {}", text(item, "command")),
++                    "mcpToolCall" | "dynamicToolCall" => format!("Tool: {}", text(item, "tool")),
++                    "fileChange" => "File changes".into(),
++                    _ => kind.to_owned(),
++                };
++                result.push(Line::styled(
++                    format!("{label}  {}", text(item, "status")),
++                    Style::default().add_modifier(Modifier::BOLD),
++                ));
++                for line in text(item, "aggregatedOutput").lines() {
++                    result.push(Line::from(line.to_owned()));
++                }
++            }
++        }
++        result.push(Line::default());
++    }
++    if result.is_empty() {
++        result.push(Line::from("Waiting for the sub-agent…"));
++    }
++    for line in &mut result {
++        for span in &mut line.spans {
++            span.content =
++                crate::history_cell::sanitize_user_text(std::mem::take(&mut span.content));
++        }
++    }
++    crate::wrapping::word_wrap_lines(result, width as usize)
++}
++
++/// Internal CLI entry point. No Config/App/AppServer is constructed here.
++pub fn run(address: SocketAddr, token: String) -> anyhow::Result<()> {
++    anyhow::ensure!(
++        address.ip().is_loopback(),
++        "The child viewer only accepts a local parent relay"
++    );
++    let mut socket = TcpStream::connect_timeout(&address, Duration::from_secs(3))?;
++    socket.write_all(format!("{token}\n").as_bytes())?;
++    let state = Arc::new(Mutex::new((ChildSnapshot::default(), true)));
++    let reader_state = Arc::clone(&state);
++    std::thread::spawn(move || {
++        let mut input = BufReader::new(socket);
++        loop {
++            let mut line = String::new();
++            // A full frame is bounded; input is data, never terminal escapes.
++            let read = std::io::Read::take(&mut input, 64 * 1024 * 1024).read_line(&mut line);
++            if !matches!(read, Ok(n) if n > 0) || !line.ends_with('\n') {
++                break;
++            }
++            let Ok(snapshot) = serde_json::from_str::<ChildSnapshot>(&line) else {
++                break;
++            };
++            reader_state.lock().unwrap().0 = snapshot;
++        }
++        reader_state.lock().unwrap().1 = false;
++    });
++    terminal::enable_raw_mode()?;
++    struct Restore;
++    impl Drop for Restore {
++        fn drop(&mut self) {
++            let _ = execute!(
++                std::io::stdout(),
++                event::DisableMouseCapture,
++                terminal::LeaveAlternateScreen
++            );
++            let _ = terminal::disable_raw_mode();
++        }
++    }
++    let _restore = Restore;
++    execute!(
++        std::io::stdout(),
++        terminal::EnterAlternateScreen,
++        event::EnableMouseCapture
++    )?;
++    let mut screen = ratatui::Terminal::new(CrosstermBackend::new(std::io::stdout()))?;
++    let mut scroll: Option<usize> = None;
++    let mut current_top = 0usize;
++    let mut input_hint = false;
++    let mut reported_title = String::new();
++    loop {
++        let (snapshot, connected) = state.lock().unwrap().clone();
++        let name: String = snapshot
++            .title
++            .chars()
++            .filter(|ch| !ch.is_control())
++            .take(160)
++            .collect();
++        let title = if name.is_empty() {
++            "Codex".to_owned()
++        } else {
++            format!("Codex · {name}")
++        };
++        if title != reported_title {
++            execute!(std::io::stdout(), terminal::SetTitle(&title))?;
++            reported_title = title;
++        }
++        // This is a view, not another root agent. Do not emit OSC 7501 agent
++        // reports or trigger session recovery; Herdr gets its Codex icon from argv.
++        screen.draw(|frame| {
++            let areas = Layout::vertical([Constraint::Length(2), Constraint::Min(1), Constraint::Length(2)]).split(frame.area());
++            let heading = format!("{} · {}", snapshot.title, if connected { &snapshot.status } else { "Parent disconnected · last received content" });
++            frame.render_widget(Paragraph::new(crate::history_cell::sanitize_user_text(heading.into())).style(Style::default().add_modifier(Modifier::BOLD)), areas[0]);
++            let content = lines(&snapshot, areas[1].width.max(1));
++            let max_scroll = content.len().saturating_sub(areas[1].height as usize);
++            current_top = scroll.unwrap_or(max_scroll).min(max_scroll);
++            let visible: Vec<_> = content.into_iter().skip(current_top).take(areas[1].height as usize).collect();
++            frame.render_widget(Paragraph::new(visible), areas[1]);
++            let footer = if input_hint { "Send instructions through the parent Agent.\nPgUp/PgDn scroll · End latest · q close view" }
++                else { "Sub-agent · controlled by parent\nPgUp/PgDn scroll · End latest · q close view" };
++            frame.render_widget(Paragraph::new(footer), areas[2]);
++        })?;
++        if !event::poll(Duration::from_millis(100))? {
++            continue;
++        }
++        match event::read()? {
++            Event::Key(key) if key.kind != event::KeyEventKind::Release => match key.code {
++                KeyCode::Char('q') | KeyCode::Esc => break,
++                KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break,
++                KeyCode::PageUp => scroll = Some(current_top.saturating_sub(12)),
++                KeyCode::Up => scroll = Some(current_top.saturating_sub(1)),
++                KeyCode::PageDown => scroll = Some(current_top.saturating_add(12)),
++                KeyCode::Down => scroll = Some(current_top.saturating_add(1)),
++                KeyCode::Home => scroll = Some(0),
++                KeyCode::End => scroll = None,
++                _ => input_hint = true,
++            },
++            Event::Mouse(mouse) => match mouse.kind {
++                MouseEventKind::ScrollUp => scroll = Some(current_top.saturating_sub(3)),
++                MouseEventKind::ScrollDown => scroll = Some(current_top.saturating_add(3)),
++                _ => {}
++            },
++            Event::Paste(_) => input_hint = true,
++            _ => {}
++        }
++    }
++    Ok(())
++}
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index 115f083..40cb46b 100644
+index 115f083..ac5f3ff 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
-@@ -2354,7 +2354,8 @@ async fn run_ratatui_app(
+@@ -26,6 +26,7 @@ pub use crate::startup_error::LocalStateDbStartupError;
+ use additional_dirs::add_dir_warning_message;
+ use app::App;
+ pub use app::AppExitInfo;
++pub mod herdr_child_view;
+ pub use app::DisconnectInfo;
+ pub use app::ExitReason;
+ pub use app::ResumableThread;
+@@ -2354,6 +2355,7 @@ async fn run_ratatui_app(
          startup_draft,
          managed_worktree,
          daemon_cli_executable,
@@ -3032,4 +3579,113 @@ index 115f083..40cb46b 100644
      ))
      .await;
  
-     terminal_restore_guard.restore_silently();
+diff --git a/codex-rs/tui/tests/herdr_child.rs b/codex-rs/tui/tests/herdr_child.rs
+new file mode 100644
+index 0000000..1144662
+--- /dev/null
++++ b/codex-rs/tui/tests/herdr_child.rs
+@@ -0,0 +1,104 @@
++use codex_tui::herdr_child_view::{ChildRelay, ChildSnapshot};
++use serde_json::json;
++use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
++
++#[test]
++fn child_projection_replaces_deltas_and_keeps_order() {
++    let mut state = ChildSnapshot::default();
++    state.apply(&json!({"method":"turn/started","params":{}}));
++    state.apply(&json!({"method":"item/agentMessage/delta","params":{"itemId":"a","delta":"hel"}}));
++    state.apply(&json!({"method":"item/agentMessage/delta","params":{"itemId":"a","delta":"lo"}}));
++    state.apply(&json!({"method":"item/completed","params":{"item":{"id":"a","type":"agentMessage","text":"hello"}}}));
++    state.apply(&json!({"method":"item/started","params":{"item":{"id":"cmd","type":"commandExecution","command":"check"}}}));
++    state.apply(&json!({"method":"item/commandExecution/outputDelta","params":{"itemId":"cmd","delta":"passed"}}));
++    assert_eq!(state.items.len(), 2);
++    assert_eq!(state.items[0]["text"], "hello");
++    assert_eq!(state.items[1]["aggregatedOutput"], "passed");
++    state.apply(
++        &json!({"method":"turn/completed","params":{"turn":{"status":"completed","items":[]}}}),
++    );
++    assert_eq!(state.status, "completed");
++}
++
++#[test]
++fn child_projection_excludes_raw_reasoning_and_unknown_requests() {
++    let mut state = ChildSnapshot::default();
++    for method in [
++        "item/reasoning/textDelta",
++        "item/commandExecution/requestApproval",
++        "turn/start",
++    ] {
++        assert!(!state.apply(&json!({"method":method,"params":{"text":"private"}})));
++    }
++    assert!(!state.apply(&json!({"method":"item/completed","params":{"item":{"id":"r","type":"reasoning","text":"private"}}})));
++    assert!(state.items.is_empty());
++    state.apply(&json!({"method":"turn/completed","params":{"turn":{"status":"completed","items":[{"id":"r","type":"reasoning","text":"private"}]}}}));
++    assert!(state.items.is_empty());
++}
++
++#[tokio::test]
++async fn relay_authentication_replay_and_owner_disconnect() -> anyhow::Result<()> {
++    let mut relay = ChildRelay::new("/root/reviewer".into()).await?;
++    relay.apply(&json!({"method":"item/completed","params":{"item":{"id":"a","type":"agentMessage","text":"before attachment"}}}));
++    let mut invalid = tokio::net::TcpStream::connect(relay.address).await?;
++    invalid.write_all(b"wrong token\n").await?;
++    let mut invalid = BufReader::new(invalid);
++    let mut line = String::new();
++    assert_eq!(
++        tokio::time::timeout(
++            std::time::Duration::from_secs(3),
++            invalid.read_line(&mut line)
++        )
++        .await??,
++        0
++    );
++    let mut valid = tokio::net::TcpStream::connect(relay.address).await?;
++    valid
++        .write_all(format!("{}\n", relay.token).as_bytes())
++        .await?;
++    let mut valid = BufReader::new(valid);
++    assert!(relay.wait_connected().await);
++    valid.read_line(&mut line).await?;
++    let state: ChildSnapshot = serde_json::from_str(&line)?;
++    assert_eq!(state.items[0]["text"], "before attachment");
++    relay.apply(&json!({"method":"turn/started","params":{}}));
++    line.clear();
++    valid.read_line(&mut line).await?;
++    assert_eq!(
++        serde_json::from_str::<ChildSnapshot>(&line)?.status,
++        "Working"
++    );
++    drop(relay);
++    line.clear();
++    assert_eq!(
++        tokio::time::timeout(
++            std::time::Duration::from_secs(3),
++            valid.read_line(&mut line)
++        )
++        .await??,
++        0
++    );
++    Ok(())
++}
++
++#[tokio::test]
++async fn viewer_close_releases_its_listener_without_waiting_for_agent_output() -> anyhow::Result<()>
++{
++    let mut relay = ChildRelay::new("/root/reviewer".into()).await?;
++    let mut stream = tokio::net::TcpStream::connect(relay.address).await?;
++    stream
++        .write_all(format!("{}\n", relay.token).as_bytes())
++        .await?;
++    assert!(relay.wait_connected().await);
++    drop(stream);
++    tokio::time::timeout(std::time::Duration::from_secs(2), async {
++        while !relay.is_closed() {
++            tokio::task::yield_now().await;
++        }
++    })
++    .await?;
++    assert!(tokio::net::TcpStream::connect(relay.address).await.is_err());
++    relay.apply(&json!({"method":"item/completed","params":{"item":{"id":"after-close","type":"agentMessage","text":"task continued"}}}));
++    assert!(relay.snapshot.items.is_empty());
++    Ok(())
++}

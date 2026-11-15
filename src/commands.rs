@@ -39,7 +39,7 @@ pub const COMMANDS: &[Command] = &[
     cmd("tab.close", &[opt("id"), opt("confirmed")], "Close a tab and end its terminals."),
     cmd("tab.rename", &[opt("id"), opt("name")], "Rename a tab (asks the person when no name; an empty name: called by its number again)."),
     cmd("tab.move", &[req("id"), req("index")], "Move a tab to a position in its space (1 = first)."),
-    cmd("pane.split", &[req("direction"), opt("pane"), opt("argv"), opt("mod"), opt("props")], "Split a pane (default: the focused one) \"right\" or \"down\" with a new terminal, or with a mod (`mod`, its `props`) beside it."),
+    cmd("pane.split", &[req("direction"), opt("pane"), opt("argv"), opt("mod"), opt("props"), opt("focus")], "Split a pane (default: the focused one) \"right\" or \"down\" with a new terminal, or with a mod (`mod`, its `props`) beside it. Set focus:false to preserve that tab's focus, focus history and zoom for automatic background panes."),
     cmd("pane.close", &[opt("pane")], "Close a pane and end its terminal."),
     cmd("terminal.open", &[opt("argv"), opt("folder"), opt("place"), opt("name")], "Start a terminal: as a new tab (place \"tab\", default), or \"right\"/\"down\" of the focused pane."),
     cmd("terminal.keep", &[req("terminal"), opt("place")], "Give a running terminal without a pane (a sub-agent) a pane: a new tab, or \"right\"/\"down\"."),

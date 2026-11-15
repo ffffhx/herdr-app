@@ -2,6 +2,11 @@
 
 <!-- Written by the Herdr app on every start. Edits here are overwritten. -->
 
+For an automatically opened background pane, use `pane.split` with
+`focus:false` to preserve the person's pane focus, focus history and zoom.
+Codex child views use this mode; closing a child view leaves the parent-owned
+task running. Send instructions to managed children through their parent Agent.
+
 This folder is **the Herdr app's whole interface, as files**. The Herdr app
 is a desktop app for terminals and coding agents, and it redraws itself from
 these files while it runs: change a layout, a key or a panel here and the

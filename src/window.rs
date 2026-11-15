@@ -2892,6 +2892,11 @@ impl AppWindow {
             }
             // ---- panes
             "pane.split" => {
+                let preserve = (a.get("focus").and_then(Value::as_bool) == Some(false))
+                    .then(|| Self::owned(a, "pane").or_else(|| self.model.focused_pane()))
+                    .flatten()
+                    .and_then(|pane| self.model.tab_of(&pane))
+                    .map(|tab| (tab.id.clone(), tab.focused.clone(), tab.before.clone(), tab.zoomed.clone()));
                 let axis = match Self::arg(a, "direction") {
                     Some("right") => Axis::Row,
                     Some("down") => Axis::Column,
@@ -2901,6 +2906,13 @@ impl AppWindow {
                     Some(name) => self.split_mod(Self::owned(a, "pane"), axis, name, a.get("props").cloned().unwrap_or(Value::Null)),
                     None => self.split(Self::owned(a, "pane"), axis, Self::argv(a), None, window),
                 };
+                if let Some((id, focused, before, zoomed)) = preserve
+                    && let Some(tab) = self.model.tab_mut(&id)
+                {
+                    tab.focused = focused;
+                    tab.before = before;
+                    tab.zoomed = zoomed;
+                }
                 self.answer(r);
             }
             "pane.close" => {

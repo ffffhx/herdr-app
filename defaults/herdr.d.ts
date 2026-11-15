@@ -54,7 +54,7 @@ export function playSound(sound: string): null;
  *   or {name?, space?, mod, props?} (a tab whose only pane is a mod),
  *   tab.close {id?}, tab.rename {id?, name}, tab.move {id, index}, tab.select {index | id},
  *   tab.next, tab.prev.
- * Panes: pane.split {direction: "right" | "down", pane?}, pane.close {pane?}, pane.zoom {pane?},
+ * Panes: pane.split {direction: "right" | "down", pane?, focus?: boolean} (false preserves focus and zoom), pane.close {pane?}, pane.zoom {pane?},
  *   pane.focus {pane | terminal}, pane.go {direction}, pane.swap {direction}. Pane menus get target { pane, terminal }.
  * Terminals: terminal.open {argv?, folder?, place?: "tab" | "right" | "down"}, terminal.kill {terminal},
  *   terminal.keep {terminal, place?} (a running one without a pane, e.g. a sub-agent, gets one),

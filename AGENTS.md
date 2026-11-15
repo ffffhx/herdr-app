@@ -6,6 +6,12 @@ maintains it.
 
 If AGENTS.local.md exists, read it too: the maintainer's local rules.
 
+Before implementing any new feature or bug fix, check the official
+[herdrdev/herdr-app](https://github.com/herdrdev/herdr-app) source, commits and
+relevant pull requests for an existing solution. Reuse the official implementation
+when it already covers the request; implement a local solution only when upstream
+does not cover it. Record what was checked and any compatibility adaptations.
+
 ## Compatibility
 
 Preserve compatibility with released versions and installed user data.

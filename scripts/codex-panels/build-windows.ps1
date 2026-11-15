@@ -46,10 +46,15 @@ $env:PATH = "$env:USERPROFILE/.cargo/bin;$env:PATH"
 if ($CargoHome) { $env:CARGO_HOME = [IO.Path]::GetFullPath($CargoHome) }
 $env:CARGO_TARGET_DIR = $target
 $env:CARGO_PROFILE_DEV_DEBUG = '0'
+$env:CARGO_PROFILE_TEST_DEBUG = '0'
 $env:CARGO_BUILD_JOBS = '1'
 $env:CARGO_NET_GIT_FETCH_WITH_CLI = 'true'
 Push-Location -LiteralPath (Join-Path $source 'codex-rs')
 try {
+    # Integration tests link the normal TUI library, avoiding its very large
+    # unit-test executable. Always run the read-only child relay checks.
+    & cargo "+$Toolchain" --config 'profile.test.package.codex-tui.incremental=false' test -p codex-tui --test herdr_child --locked
+    if ($LASTEXITCODE -ne 0) { throw 'Read-only child pane integration tests failed.' }
     if (-not $SkipUnitTests) {
         # The upstream TUI test crate is large. Avoid its incremental hashing
         # overhead while keeping the dependency caches intact.
@@ -63,7 +68,7 @@ try {
         & cargo "+$Toolchain" --config $testProfile --config 'profile.test.package.codex-app-server.incremental=false' test -p codex-cli --bin codex 'fork_' --locked
         if ($LASTEXITCODE -ne 0) { throw 'Native fork CLI argument tests failed.' }
     }
-    & cargo "+$Toolchain" build -p codex-cli --bin codex --locked
+    & cargo "+$Toolchain" --config 'profile.dev.package.codex-tui.incremental=false' build -p codex-cli --bin codex --locked
     if ($LASTEXITCODE -ne 0) { throw 'Native Codex build failed.' }
 } finally { Pop-Location }
 $binary = Join-Path $target 'debug/codex.exe'
@@ -72,6 +77,7 @@ $record = [ordered]@{
     tag = $tag
     toolchain = $Toolchain
     unitTests = $(if ($SkipUnitTests) { 'skipped' } else { 'passed' })
+    childIntegrationTests = 'passed'
     patchSha256 = (Get-FileHash -LiteralPath $patch -Algorithm SHA256).Hash
     binary = $binary
     binarySha256 = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash
