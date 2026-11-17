@@ -49,15 +49,16 @@ unattended task finished just because an approval was delivered.
 
 ## Inspect before acting
 
-**Session recovery** (status bar and tab/pane menus) captures local Codex/Claude
-root conversation IDs and resumes them in their original kept terminals after
-process loss. Closing just the window preserves live programs. Open the panel
-with `herdr-app do tab.new --name "Session recovery" --mod recovery` to see saved
+**Session recovery** (status bar and tab/pane menus) captures local Codex,
+Claude and Antigravity (`agy`) root conversation IDs and resumes them in their
+original kept terminals after process loss. Closing just the window preserves
+live programs. Open the panel with `herdr-app do tab.new --name "Session recovery" --mod recovery` to see saved
 IDs, failures, uncaptured conversations, safe retries and the persistent
 automatic-recovery switch. Uncaptured rows cannot be resumed automatically.
 Hooks use a durable helper beside the provider configuration. Isolated previews
-must use explicit, separate `CODEX_HOME` and `CLAUDE_CONFIG_DIR` directories;
-they do not install hooks into the daily provider homes.
+must use explicit, separate `CODEX_HOME`, `CLAUDE_CONFIG_DIR` and
+`ANTIGRAVITY_CONFIG_DIR` directories; they do not install hooks into the daily
+provider homes.
 It needs Node.js 20+, the provider's allowed session hooks and a captured ID;
 never guess IDs from the newest history in a folder. Manual Codex launches use
 `codex --no-daemon`. An unknown send outcome is not replayed. Automatic approval

@@ -146,8 +146,8 @@ the highlighted line shows where it will land.
   Terminal panes are kept by their machine's core (`keep: true`). A lost
   terminal (core crash, reboot, logout) gets a shell in its last folder,
   with the same address. The recovery mod can then resume a captured local
-  Codex/Claude conversation by its exact ID; it never replays an arbitrary
-  original command or task. Splits and mod panes stay. An exited or killed
+  Codex, Claude or Antigravity conversation by its exact ID; it never replays
+  an arbitrary original command or task. Splits and mod panes stay. An exited or killed
   terminal is closed, not restarted.
   Focus, zoom, recent spaces, settled tabs and seen attention stay on this screen.
 - Every terminal is a core terminal. Herdr labels the ones it starts with
@@ -944,32 +944,36 @@ mistake delivery of an approval for completion of the task.
 
 ### Session recovery
 
-The bundled `recovery` mod restores local Codex and Claude Code conversations
-after their terminal process is lost (reboot, logout or holder crash). Closing
-only the window leaves terminals running; reopening connects to those same
-processes. The status bar and tab/pane menus open **Session recovery**:
-`herdr-app do tab.new --name "Session recovery" --mod recovery`.
+The bundled `recovery` mod restores local Codex, Claude Code and Antigravity
+(`agy`) conversations after their terminal process is lost (reboot, logout or
+holder crash). Closing only the window leaves terminals running; reopening
+connects to those same processes. The status bar and tab/pane menus open
+**Session recovery**: `herdr-app do tab.new --name "Session recovery" --mod recovery`.
 
 It requires Node.js 20+. A hidden core worker merges Herdr hooks into the local
-`CODEX_HOME/hooks.json` and `CLAUDE_CONFIG_DIR/settings.json` (default CLI homes
-when unset), preserving foreign hooks/settings and backing up changed files.
+`CODEX_HOME/hooks.json`, `CLAUDE_CONFIG_DIR/settings.json` and
+`ANTIGRAVITY_CONFIG_DIR/hooks.json` (`~/.gemini/config/hooks.json` by default),
+preserving foreign hooks/settings and backing up changed files.
 The helper is stored in a versioned `herdr-recovery/` directory beside each
 provider's configuration, so removing an old Herdr or preview home does not
 break capture. The worker checks and repairs its launcher every 30 seconds
 without changing provider trust. A custom app home or named core session must
-use separate explicit `CODEX_HOME` / `CLAUDE_CONFIG_DIR` directories; it does
-not install into the daily provider homes, including inherited default paths.
+use separate explicit `CODEX_HOME` / `CLAUDE_CONFIG_DIR` /
+`ANTIGRAVITY_CONFIG_DIR` directories; it does not install into the daily provider
+homes, including inherited default paths.
 Malformed configuration is left intact and reported in the panel. The provider
 must allow the hook; do not bypass its trust screen. Existing sessions must
-load the hook before they can be captured. The Codex menu uses `--no-daemon`
+load the hook before they can be captured (active Antigravity sessions with the
+statusLine bridge also record their verified root conversation ID on the next
+statusLine refresh). The Codex menu uses `--no-daemon`
 so process ancestry identifies the root terminal; use it for manual launches too.
 
 Hooks validate root process ancestry and transcript identity and save exact IDs
 in the core document `herdr-agent-sessions`. Each binding includes the terminal's
 address/creation time, process/holder generation, native executable and folder.
 No latest-by-folder heuristic is used. Recovery claims one attempt durably before
-sending `codex --no-daemon resume <id>` or `claude --resume <id>` in an empty shell
-in that same folder. Invalid/duplicate IDs, missing transcripts, changed folders,
+sending `codex --no-daemon resume <id>`, `claude --resume <id>` or
+`agy --conversation <id>` in an empty shell in that same folder. Invalid/duplicate IDs, missing transcripts, changed folders,
 draft input and unknown/custom prompts remain explicit failures. A timed-out send
 is never blindly replayed. **Retry recovery** is available for known safe failures;
 **Disable automatic recovery** persists in the document without deleting history.

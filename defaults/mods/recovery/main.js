@@ -53,7 +53,7 @@ export default class Recovery extends View {
       .child(div().text_size(12).text_color(t.muted).child(tr("Allow Herdr's session hook when the agent asks. Existing sessions need to load the hook before their identity can be saved.")))
       .when(Boolean(this.error), el => el.child(div().text_color(t.blocked).child(this.error)))
       .children(this.integrations.map(i => div().text_size(12).text_color(i.state === "error" ? t.blocked : t.muted).child(`${i.agent}: ${i.state === "installed" ? tr("Session capture installed") : i.state === "isolated" ? tr("An isolated Herdr instance requires its own agent configuration directory") : i.error || tr("Agent not installed")}`)))
-      .when(!rows.length, el => el.child(div().py(20).text_color(t.muted).child(tr("No conversation captured yet. Start or resume Codex or Claude Code in Herdr to save its identity."))))
+      .when(!rows.length, el => el.child(div().py(20).text_color(t.muted).child(tr("No conversation captured yet. Start or resume Codex, Claude Code or Antigravity in Herdr to save its identity."))))
       .children(rows.map(row => v_flex().p(14).gap(6).rounded(8).border(1).border_color(t.border)
         .child(h_flex().gap(12).child(div().font_semibold().child(`${row.agent} · ${row.terminal}`)).child(div().text_color(t.muted).child(tr(STATES[row.state] || "Conversation saved"))))
         .child(div().text_size(12).text_color(t.dim).child(row.cwd))

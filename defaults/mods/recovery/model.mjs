@@ -2,7 +2,9 @@ import { basename } from "node:path";
 
 export const DOC = "herdr-agent-sessions";
 export const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
-export const agentOf = term => term.status?.app === "codex" ? "codex" : ["claude", "claude-code"].includes(term.status?.app) ? "claude" : null;
+export const agentOf = term => term.status?.app === "codex" ? "codex"
+  : ["claude", "claude-code"].includes(term.status?.app) ? "claude"
+  : ["antigravity", "agy"].includes(term.status?.app) ? "antigravity" : null;
 export const keyOf = term => `${term.address}:${term.created_ms}`;
 export function shellOf(term) {
   const name = basename(String(term.foreground?.name || term.argv?.[0] || "").replaceAll("\\", "/")).replace(/\.exe$/i, "").toLowerCase();
@@ -11,10 +13,13 @@ export function shellOf(term) {
 export const managed = term => /^t[0-9a-z]+$/.test(term.address) && Boolean(term.labels?.["herdr.space"]) && term.keep;
 export function resumeArgv(record) {
   if (!UUID.test(record.sessionId)) throw new Error("The saved conversation ID is invalid");
-  const program = record.executable || record.agent;
-  if (basename(program.replaceAll("\\", "/")).replace(/\.exe$/i, "").toLowerCase() !== record.agent) throw new Error("The saved agent executable does not match the integration");
+  const program = record.executable || (record.agent === "antigravity" ? "agy" : record.agent);
+  const base = basename(program.replaceAll("\\", "/")).replace(/\.exe$/i, "").toLowerCase();
+  const expected = record.agent === "antigravity" ? ["agy", "antigravity"] : [record.agent];
+  if (!expected.includes(base)) throw new Error("The saved agent executable does not match the integration");
   if (record.agent === "codex") return [program, "--no-daemon", "resume", record.sessionId];
   if (record.agent === "claude") return [program, "--resume", record.sessionId];
+  if (record.agent === "antigravity") return [program, "--conversation", record.sessionId];
   throw new Error("This agent does not have a verified resume integration");
 }
 export function commandLine(record, shell) {

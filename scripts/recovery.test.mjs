@@ -4,8 +4,8 @@ import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eligible, keyOf, duplicateSessions, commandLine, emptyPrompt, DOC } from "../defaults/mods/recovery/model.mjs";
-import { rootTranscript, rootProcess, resumedProcess, capture } from "../defaults/mods/recovery/hook.mjs";
-import { mergeHooks, install } from "../defaults/mods/recovery/install.mjs";
+import { rootTranscript, rootProcess, resumedProcess, capture, resolveAntigravityTranscript } from "../defaults/mods/recovery/hook.mjs";
+import { mergeHooks, mergeAntigravityHooks, install } from "../defaults/mods/recovery/install.mjs";
 import { Recovery, requestRetry } from "../defaults/mods/recovery/service.mjs";
 import { recoveredEntry } from "../defaults/mods/unattended/recovery.mjs";
 import { lockSession } from "../defaults/mods/unattended/sessions.mjs";
@@ -40,6 +40,8 @@ test("duplicates, unrelated programs, shell injection and already-claimed input 
   assert(!eligible(rows[0], records["t1:1"], "new", duplicateSessions(records, rows)));
   assert.equal(commandLine(record(), "powershell"), `& 'codex' '--no-daemon' 'resume' '${id}'`);
   assert.equal(commandLine(record({ agent: "claude" }), "zsh"), `'claude' '--resume' '${id}'`);
+  assert.equal(commandLine(record({ agent: "antigravity" }), "powershell"), `& 'agy' '--conversation' '${id}'`);
+  assert.equal(commandLine(record({ agent: "antigravity", executable: "D:\\Tools\\AntigravityCLI\\bin\\agy.exe" }), "powershell"), `& 'D:\\Tools\\AntigravityCLI\\bin\\agy.exe' '--conversation' '${id}'`);
   assert.throws(() => commandLine(record({ sessionId: "'; rm -rf /" }), "bash"));
   assert.throws(() => commandLine(record(), "cmd"));
 });
@@ -48,9 +50,13 @@ test("root transcript and process ancestry exclude spawned agents and preserve f
   const read = source => JSON.stringify({ type: "session_meta", payload: { id, source, thread_source: "user" } });
   assert(rootTranscript("codex", payload, () => read("cli")));
   assert(!rootTranscript("codex", payload, () => read({ subagent: "spawn" })));
+  assert(rootTranscript("antigravity", { conversationId: id, transcriptPath: "/test" }, () => JSON.stringify({ step_index: 0, source: "USER_EXPLICIT", type: "USER_INPUT" })));
+  assert(!rootTranscript("antigravity", { conversationId: id, transcriptPath: "/test" }, () => JSON.stringify({ step_index: 0, source: "SYSTEM", type: "SYSTEM_MESSAGE" })));
   const rows = [{ pid: 1, parent: 0, name: "powershell.exe" }, { pid: 2, parent: 1, name: "codex.exe" }, { pid: 3, parent: 2, name: "node.exe" }];
   assert(rootProcess(1, 3, rows, "codex"));
   assert(!rootProcess(1, 5, [...rows, { pid: 4, parent: 3, name: "codex.exe" }, { pid: 5, parent: 4, name: "node.exe" }], "codex"));
+  const agyRows = [{ pid: 1, parent: 0, name: "powershell.exe" }, { pid: 2, parent: 1, name: "agy.exe" }, { pid: 3, parent: 2, name: "node.exe" }];
+  assert(rootProcess(1, 3, agyRows, "antigravity"));
 });
 test("hook setup preserves foreign settings, is idempotent, and keeps unreadable files intact", () => {
   const original = { permissions: { allow: ["Read"] }, hooks: { Stop: [{ hooks: [{ command: "echo herdr-recovery-hook.ps1", type: "command" }] }] } };
@@ -61,9 +67,12 @@ test("hook setup preserves foreign settings, is idempotent, and keeps unreadable
   assert.deepEqual(mergeHooks(next, command), next);
   const home = mkdtempSync(join(tmpdir(), "herdr-config-")), root = join(home, "codex"); mkdirSync(root);
   writeFileSync(join(root, "hooks.json"), "broken-json");
-  const result = install(home, { CODEX_HOME: root, CLAUDE_CONFIG_DIR: join(home, "absent") });
+  const result = install(home, { CODEX_HOME: root, CLAUDE_CONFIG_DIR: join(home, "absent"), ANTIGRAVITY_CONFIG_DIR: join(home, "absent-agy") });
   assert.equal(result[0].state, "error");
   assert.equal(readFileSync(join(root, "hooks.json"), "utf8"), "broken-json");
+  const agyMerged = mergeAntigravityHooks({ linter: { PostToolUse: [{ matcher: "run_command", hooks: [{ command: "lint" }] }] } }, command);
+  assert.equal(agyMerged.linter.PostToolUse[0].matcher, "run_command");
+  assert.deepEqual(mergeAntigravityHooks(agyMerged, command), agyMerged);
 });
 test("parallel recovery and disconnects never replay an uncertain send", async () => {
   const home = mkdtempSync(join(tmpdir(), "herdr-recover-")), transcript = join(home, "thread.jsonl"); writeFileSync(transcript, JSON.stringify({ type: "session_meta", payload: { id, source: "cli" } }));
@@ -148,6 +157,8 @@ test("a native exact-ID resume confirms recovery even when SessionStart is defer
   assert.equal(resumedProcess(term(), record(), rows).pid, 21);
   assert.equal(resumedProcess(term(), record({ sessionId: "87654321-1234-1234-1234-123456789abc" }), rows), null);
   assert.equal(resumedProcess(term({ pid: 100 }), record(), rows), null);
+  const agyRows = [{ pid: 20, parent: 0, name: "powershell.exe" }, { pid: 22, parent: 20, name: "agy.exe", command: `"D:\\Tools\\AntigravityCLI\\bin\\agy.exe" --conversation ${id}` }];
+  assert.equal(resumedProcess(term(), record({ agent: "antigravity" }), agyRows).pid, 22);
   const home = mkdtempSync(join(tmpdir(), "herdr-deferred-hook-"));
   const c = new FakeCore(term({ status: { app: "codex" } }), record({ state: "restoring", attempt: { pid: 20, generation: "new", at: 0 } }));
   await new Recovery(c, home, { verify: async (term, record) => resumedProcess(term, record, rows) }).tick();
@@ -182,10 +193,11 @@ test("lost-terminal recovery reclaims only dead native observer leases", () => {
 });
 
 test("hook launchers support spaces, apostrophes and Unicode on the running platform", () => {
-  const root = mkdtempSync(join(tmpdir(), "herdr-hook-path-")), home = join(root, "app's 中文"), codex = join(root, "codex's 中文");
-  mkdirSync(join(home, "mods/recovery"), { recursive: true }); mkdirSync(codex);
-  const result = install(home, { CODEX_HOME: codex, CLAUDE_CONFIG_DIR: join(root, "missing") });
+  const root = mkdtempSync(join(tmpdir(), "herdr-hook-path-")), home = join(root, "app's 中文"), codex = join(root, "codex's 中文"), agyCfg = join(root, "agy's 中文");
+  mkdirSync(join(home, "mods/recovery"), { recursive: true }); mkdirSync(codex); mkdirSync(agyCfg);
+  const result = install(home, { CODEX_HOME: codex, CLAUDE_CONFIG_DIR: join(root, "missing"), ANTIGRAVITY_CONFIG_DIR: agyCfg });
   assert.equal(result[0].state, "installed");
+  assert.equal(result[2].state, "installed");
   const args = process.platform === "win32" ? ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", join(codex, "herdr-recovery-hook.ps1")] : [join(codex, "herdr-recovery-hook.sh")];
   const env = { ...process.env }; delete env.HC_TERMINAL_ID;
   // The provider-owned helper still loads after the app's temporary home is gone.
@@ -194,26 +206,41 @@ test("hook launchers support spaces, apostrophes and Unicode on the running plat
   assert.equal(run.status, 0, run.stderr);
   assert.equal(run.stdout, "");
   assert(existsSync(join(result[0].runtime, "hook.mjs")));
+  // Antigravity hooks always emit valid JSON responses (including Stop decision) on stdout.
+  const agyArgs = process.platform === "win32" ? ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", join(agyCfg, "herdr-recovery-hook.ps1")] : [join(agyCfg, "herdr-recovery-hook.sh")];
+  const stopRun = spawnSync(process.platform === "win32" ? "powershell.exe" : "sh", agyArgs, {
+    env, input: JSON.stringify({ conversationId: id, hookEventName: "Stop" }), encoding: "utf8", windowsHide: true,
+  });
+  assert.equal(stopRun.status, 0, stopRun.stderr);
+  assert.deepEqual(JSON.parse(stopRun.stdout), { decision: "allow" });
+  const cliBrain = join(root, ".gemini/antigravity-cli/brain", id, ".system_generated/logs");
+  mkdirSync(cliBrain, { recursive: true });
+  const realTranscript = join(cliBrain, "transcript.jsonl");
+  writeFileSync(realTranscript, JSON.stringify({ step_index: 0, source: "USER_EXPLICIT", type: "USER_INPUT" }));
+  assert.equal(resolveAntigravityTranscript(id, join(root, ".gemini/antigravity/brain", id, ".system_generated/logs/transcript.jsonl"), root, {}), realTranscript);
 });
 
 test("preview startup cannot replace either daily provider's hook, even with inherited default roots", t => {
   const user = mkdtempSync(join(tmpdir(), "herdr-isolation-"));
   t.after(() => rmSync(user, { recursive: true, force: true }));
   const home = join(user, ".config/herdr-app"), preview = join(user, "preview");
-  const roots = { codex: join(user, ".codex"), claude: join(user, ".claude") };
+  const roots = { codex: join(user, ".codex"), claude: join(user, ".claude"), antigravity: join(user, ".gemini/config") };
   for (const root of Object.values(roots)) mkdirSync(root, { recursive: true });
   const installed = install(home, {}, process.platform, user);
-  const names = agent => [join(roots[agent], agent === "codex" ? "hooks.json" : "settings.json"), join(roots[agent], process.platform === "win32" ? "herdr-recovery-hook.ps1" : "herdr-recovery-hook.sh")];
+  const names = agent => [join(roots[agent], agent === "claude" ? "settings.json" : "hooks.json"), join(roots[agent], process.platform === "win32" ? "herdr-recovery-hook.ps1" : "herdr-recovery-hook.sh")];
   const before = Object.keys(roots).flatMap(names).map(p => [p, readFileSync(p, "utf8"), statSync(p).mtimeMs]);
-  for (const env of [{}, { CODEX_HOME: roots.codex, CLAUDE_CONFIG_DIR: roots.claude }, { HC_SESSION: "preview" }]) {
+  for (const env of [{}, { CODEX_HOME: roots.codex, CLAUDE_CONFIG_DIR: roots.claude, ANTIGRAVITY_CONFIG_DIR: roots.antigravity }, { HC_SESSION: "preview" }]) {
     assert(install(preview, env, process.platform, user).every(r => r.state === "isolated"));
   }
   assert(install(home, { HC_SESSION: "preview" }, process.platform, user).every(r => r.state === "isolated"));
   install(home, {}, process.platform, user);
   for (const [p, text, mtime] of before) { assert.equal(readFileSync(p, "utf8"), text); assert.equal(statSync(p).mtimeMs, mtime); }
   for (const row of installed) assert(row.runtime.startsWith(roots[row.agent]));
-  const own = join(preview, "codex"); mkdirSync(own, { recursive: true });
-  assert.equal(install(preview, { CODEX_HOME: own, HC_SESSION: "preview" }, process.platform, user)[0].state, "installed");
+  const own = join(preview, "codex"), ownAgy = join(preview, "agy-cfg");
+  mkdirSync(own, { recursive: true }); mkdirSync(ownAgy, { recursive: true });
+  const previewRes = install(preview, { CODEX_HOME: own, ANTIGRAVITY_CONFIG_DIR: ownAgy, HC_SESSION: "preview" }, process.platform, user);
+  assert.equal(previewRes[0].state, "installed");
+  assert.equal(previewRes[2].state, "installed");
 });
 
 test("an overwritten launcher is repaired without changing hook trust identity or foreign hooks", t => {

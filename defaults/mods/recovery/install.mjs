@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, copyFileSync, openSync, fsyncSync, closeSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, copyFileSync, openSync, fsyncSync, closeSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createHash } from "node:crypto";
@@ -25,21 +25,37 @@ export function mergeHooks(config, command) {
   }
   return result;
 }
+export function mergeAntigravityHooks(config, command) {
+  if (!config || Array.isArray(config) || typeof config !== "object") throw new Error("Invalid agent hook configuration");
+  const result = structuredClone(config);
+  for (const [name, spec] of Object.entries(result)) {
+    if (name === "herdr-recovery") continue;
+    if (!spec || typeof spec !== "object" || Array.isArray(spec)) throw new Error(`Invalid ${name} hook group`);
+    for (const event of ["SessionStart", "PreInvocation", "Stop"]) {
+      if (spec[event] !== undefined && !Array.isArray(spec[event])) throw new Error(`Invalid ${name}.${event} hooks`);
+    }
+  }
+  const handler = { type: "command", command, timeout: 10 };
+  result["herdr-recovery"] = { SessionStart: [handler], PreInvocation: [handler], Stop: [handler] };
+  return result;
+}
 export function install(home, env = process.env, platform = process.platform, userHome = homedir()) {
-  const configured = { codex: env.CODEX_HOME, claude: env.CLAUDE_CONFIG_DIR };
-  const roots = { codex: configured.codex || join(userHome, ".codex"), claude: configured.claude || join(userHome, ".claude") };
-  const samePath = (a, b) => platform === "win32" ? resolve(a).toLowerCase() === resolve(b).toLowerCase() : resolve(a) === resolve(b);
+  const configured = { codex: env.CODEX_HOME, claude: env.CLAUDE_CONFIG_DIR, antigravity: env.ANTIGRAVITY_CONFIG_DIR };
+  const defaults = { codex: join(userHome, ".codex"), claude: join(userHome, ".claude"), antigravity: join(userHome, ".gemini", "config") };
+  const roots = { codex: configured.codex || defaults.codex, claude: configured.claude || defaults.claude, antigravity: configured.antigravity || defaults.antigravity };
+  const canonical = target => { try { return realpathSync(target); } catch { return resolve(target); } };
+  const samePath = (a, b) => platform === "win32" ? canonical(a).toLowerCase() === canonical(b).toLowerCase() : canonical(a) === canonical(b);
   const defaultHome = join(env.XDG_CONFIG_HOME || join(userHome, ".config"), "herdr-app");
   const isolated = !samePath(home, defaultHome) || Boolean(env.HC_SESSION && env.HC_SESSION !== "default");
   const results = [];
   for (const [agent, root] of Object.entries(roots)) {
     // A preview must not redirect the daily provider's shared hook launcher.
     // This also protects an explicitly inherited default provider directory.
-    if (isolated && (!configured[agent] || samePath(root, join(userHome, agent === "codex" ? ".codex" : ".claude")))) {
+    if (isolated && (!configured[agent] || samePath(root, defaults[agent]))) {
       results.push({ agent, state: "isolated", error: "An isolated Herdr instance requires its own agent configuration directory" }); continue;
     }
     if (!existsSync(root)) { results.push({ agent, state: "not-installed" }); continue; }
-    const path = join(root, agent === "codex" ? "hooks.json" : "settings.json");
+    const path = join(root, agent === "claude" ? "settings.json" : "hooks.json");
     try {
       // The provider can outlive any Herdr window or its installation directory.
       // Publish a complete, versioned helper beside its own configuration, then
@@ -62,7 +78,8 @@ export function install(home, env = process.env, platform = process.platform, us
       const text = platform === "win32" ? `\uFEFF& ${ps(process.execPath)} ${ps(script)} ${agent}\r\nexit $LASTEXITCODE\r\n` : `#!/bin/sh\nexec ${quote(process.execPath)} ${quote(script)} ${agent}\n`;
       const command = platform === "win32" ? `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${launcher}"` : `sh ${quote(launcher)}`;
       const original = existsSync(path) ? readFileSync(path, "utf8") : "{}";
-      const config = mergeHooks(JSON.parse(original.replace(/^\uFEFF/, "")), command);
+      const merge = agent === "antigravity" ? mergeAntigravityHooks : mergeHooks;
+      const config = merge(JSON.parse(original.replace(/^\uFEFF/, "")), command);
       if (!existsSync(launcher) || readFileSync(launcher, "utf8") !== text) atomicText(launcher, text);
       if (JSON.stringify(JSON.parse(original.replace(/^\uFEFF/, ""))) !== JSON.stringify(config)) {
         if (existsSync(path) && readFileSync(path, "utf8") !== original) throw new Error("Agent configuration changed during hook setup; reopen Herdr to retry");

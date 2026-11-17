@@ -788,6 +788,7 @@
   "This conversation cannot restore automatically yet. Check that the session hook is allowed and working; its history has not been deleted.": "此对话尚不能自动恢复。请检查会话记录钩子是否已获允许且正常工作；聊天历史没有被删除。",
   "Agent not installed": "未找到 Agent 配置目录",
   "No conversation captured yet. Start or resume Codex or Claude Code in Herdr to save its identity.": "尚未记录对话。在 Herdr 中启动或恢复 Codex、Claude Code 后，将保存其会话标识。",
+  "No conversation captured yet. Start or resume Codex, Claude Code or Antigravity in Herdr to save its identity.": "尚未记录对话。在 Herdr 中启动或恢复 Codex、Claude Code 或 Antigravity 后，将保存其会话标识。",
   "Show terminal": "查看原终端",
   "Retry recovery": "重试恢复",
   "Enable automatic recovery": "开启自动恢复",

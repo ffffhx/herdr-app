@@ -6,6 +6,7 @@ const crypto = require("node:crypto");
 const { execFileSync, spawnSync } = require("node:child_process");
 
 const TTL = 60 * 60 * 1000;
+const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const SIMPLE_TOKEN = /^[A-Za-z0-9_./:@+-]+$/;
 
 function appHome(env = process.env, userHome = os.homedir()) {
@@ -185,6 +186,19 @@ function installStatusLine({ home, env = process.env, platform = process.platfor
   return { state: "installed", path: settingsPath, runtime: runtimeScript, configPath, command };
 }
 
+function recoveryHookScript(home, env = process.env, userHome = os.homedir()) {
+  const configDir = env.ANTIGRAVITY_CONFIG_DIR || path.join(userHome, ".gemini", "config");
+  const versionedRoot = path.join(configDir, "herdr-recovery");
+  try {
+    for (const entry of fs.readdirSync(versionedRoot)) {
+      const candidate = path.join(versionedRoot, entry, "hook.mjs");
+      if (fs.existsSync(candidate)) return candidate;
+    }
+  } catch {}
+  const bundled = path.join(home, "mods", "recovery", "hook.mjs");
+  return fs.existsSync(bundled) ? bundled : null;
+}
+
 function capture(payload, { env = process.env, platform = process.platform, userHome = os.homedir(), now = Date.now(), term,
   core = args => JSON.parse(execFileSync(hcExecutable(env, platform, userHome), [...args, "--json"],
     { encoding: "utf8", env, windowsHide: true, timeout: 2500, maxBuffer: 1024 * 1024 })) } = {}) {
@@ -195,7 +209,30 @@ function capture(payload, { env = process.env, platform = process.platform, user
   term ||= core(["get", env.HC_TERMINAL_ID]);
   if (term?.address !== env.HC_TERMINAL_ID || term.state !== "live" || !identity(term)) return false;
   const home = appHome(env, userHome);
-  atomic(recordPath(home, term), { version: 1, provider: "antigravity", pool: usage.pool, windows: usage.windows, updatedAt: usage.updatedAt });
+  const targetFile = recordPath(home, term);
+  let prior = null;
+  try { prior = load(targetFile); } catch {}
+  let capturedHash = prior?.capturedHash || null;
+  const convId = payload?.conversation_id || payload?.session_id || "";
+  if (UUID.test(convId)) {
+    const nextHash = crypto.createHash("sha256").update(convId).digest("hex");
+    if (nextHash !== capturedHash) {
+      const hook = recoveryHookScript(home, env, userHome);
+      if (hook) {
+        try {
+          const res = spawnSync(process.execPath, [hook, "antigravity"], {
+            input: JSON.stringify({ conversationId: convId, transcriptPath: payload.transcript_path, cwd: payload.cwd, hookEventName: "StatusLine" }),
+            env, windowsHide: true, timeout: 8000, stdio: ["pipe", "ignore", "ignore"],
+          });
+          if (res.status === 0) capturedHash = nextHash;
+        } catch {}
+      }
+    }
+  }
+  atomic(targetFile, {
+    version: 1, provider: "antigravity", pool: usage.pool, windows: usage.windows, updatedAt: usage.updatedAt,
+    ...(capturedHash ? { capturedHash } : {}),
+  });
   return true;
 }
 
