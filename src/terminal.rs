@@ -501,41 +501,68 @@ impl TerminalView {
         .detach();
     }
 
-    /// Text as a paste; copied files (Finder, a clipboard manager's image) as
-    /// if dropped; an image alone (a screenshot) as Ctrl+V pastes it.
+    /// Text as a paste; copied files (Finder, Explorer, a clipboard manager's
+    /// image) and lone clipboard images as pasted file paths (copied first when
+    /// the terminal is on another machine).
     pub fn paste(&mut self, cx: &mut Context<Self>) {
         let Some(item) = cx.read_from_clipboard() else { return };
         if let Some(paths) = copied_files(&item) {
             self.dropped(paths, cx);
+        } else if let Some(text) = non_empty_clipboard_text(&item) {
+            let bytes = self.grid.borrow().vt.paste_bytes(text);
+            self.send(&bytes);
+        } else if self.paste_clipboard_image(&item, cx) {
+            return;
         } else if let Some(text) = item.text() {
             let bytes = self.grid.borrow().vt.paste_bytes(&text);
             self.send(&bytes);
-        } else if item.entries().iter().any(|e| matches!(e, ClipboardEntry::Image(_))) {
-            self.paste_image(cx);
         }
     }
 
-    /// Ctrl+V: a remote image, clipboard text on Windows, or the key itself.
+    /// Ctrl+V: on another machine, copied files or a clipboard image go there as
+    /// files; on Windows, clipboard files, text or an image paste like Ctrl+Shift+V;
+    /// otherwise Ctrl+V goes to the program.
     pub fn paste_image(&mut self, cx: &mut Context<Self>) {
-        if self.send_image(cx) {
-            return;
+        let item = cx.read_from_clipboard();
+        if let Some(item) = item.as_ref() {
+            if cfg!(windows) {
+                if let Some(paths) = copied_files(item) {
+                    return self.dropped(paths, cx);
+                }
+                if let Some(text) = non_empty_clipboard_text(item) {
+                    let bytes = self.grid.borrow().vt.paste_bytes(text);
+                    return self.send(&bytes);
+                }
+                if self.paste_clipboard_image(item, cx) {
+                    return;
+                }
+            } else if self.address.contains('/') {
+                if let Some(paths) = copied_files(item) {
+                    return self.put_there(paths, false, cx);
+                }
+                if self.paste_clipboard_image(item, cx) {
+                    return;
+                }
+            }
         }
-        let text = if cfg!(windows) { cx.read_from_clipboard().and_then(|c| c.text()) } else { None };
+        let text = if cfg!(windows) { item.as_ref().and_then(|c| c.text()) } else { None };
         let bytes = paste_image_fallback(&mut self.grid.borrow_mut().vt, text.as_deref());
         if let Some(bytes) = bytes {
             self.send(&bytes);
         }
     }
 
-    /// An agent on another machine reads that machine's clipboard, so this
-    /// one's image goes there as a file, and its path is pasted. A local
-    /// program reads the clipboard itself: nothing to do.
-    fn send_image(&self, cx: &mut Context<Self>) -> bool {
-        if !self.address.contains('/') {
-            return false;
+    /// Saves a clipboard image to a file and pastes its path (copying it to the
+    /// terminal's machine first when remote). Local Windows agents otherwise
+    /// spawn slow PowerShell clipboard readers, and plain-text prompts such as
+    /// Codex's "Other (write an answer)" ignore raw Ctrl+V/Alt+V keystrokes.
+    fn paste_clipboard_image(&mut self, item: &ClipboardItem, cx: &mut Context<Self>) -> bool {
+        let Some(path) = image_file(item) else { return false };
+        if self.address.contains('/') {
+            self.put_there(vec![path], true, cx);
+        } else {
+            self.dropped(vec![path], cx);
         }
-        let Some(path) = cx.read_from_clipboard().and_then(|item| image_file(&item)) else { return false };
-        self.put_there(vec![path], true, cx);
         true
     }
 
@@ -562,6 +589,23 @@ impl TerminalView {
         // Typing clears a selection, as in Herdr.
         if !k.key.starts_with("shift") && !k.key.starts_with("control") && !k.key.starts_with("alt") {
             self.grid.borrow_mut().vt.clear_selection();
+        }
+        // Windows agent CLIs advertise Alt+V for image paste and spawn slow PowerShell
+        // helpers on it; when bracketed paste is on and the clipboard holds an image
+        // (not plain text), paste the saved image path directly instead.
+        if cfg!(windows) && alt_v_pastes_image(k, self.grid.borrow().vt.bracketed_paste())
+            && let Some(item) = cx.read_from_clipboard()
+            && non_empty_clipboard_text(&item).is_none()
+        {
+            if let Some(paths) = copied_files(&item) {
+                self.dropped(paths, cx);
+                cx.stop_propagation();
+                return;
+            }
+            if self.paste_clipboard_image(&item, cx) {
+                cx.stop_propagation();
+                return;
+            }
         }
         let bytes = key_bytes(&mut self.grid.borrow_mut().vt, ev);
         if let Some(bytes) = bytes {
@@ -766,8 +810,21 @@ fn copied_files(item: &ClipboardItem) -> Option<Vec<std::path::PathBuf>> {
     })
 }
 
+fn non_empty_clipboard_text(item: &ClipboardItem) -> Option<&str> {
+    item.entries().iter().find_map(|e| match e {
+        ClipboardEntry::String(s) if !s.text().is_empty() => Some(s.text().as_str()),
+        _ => None,
+    })
+}
+
+fn alt_v_pastes_image(k: &Keystroke, bracketed_paste: bool) -> bool {
+    let m = k.modifiers;
+    bracketed_paste && k.key.eq_ignore_ascii_case("v") && m.alt && !m.control && !m.shift && !m.platform && !m.function
+}
+
 /// The clipboard's image saved to a file of its own, for its path to be pasted.
 fn image_file(item: &ClipboardItem) -> Option<std::path::PathBuf> {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
     let image = item.entries().iter().find_map(|e| match e {
         ClipboardEntry::Image(i) => Some(i),
         _ => None,
@@ -781,7 +838,8 @@ fn image_file(item: &ClipboardItem) -> Option<std::path::PathBuf> {
         _ => "png",
     };
     let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok()?.as_nanos();
-    let path = std::env::temp_dir().join(format!("herdr-paste-{stamp}.{ext}"));
+    let seq = NEXT.fetch_add(1, Ordering::Relaxed);
+    let path = std::env::temp_dir().join(format!("herdr-paste-{stamp}-{seq}.{ext}"));
     std::fs::write(&path, bytes).ok()?;
     Some(path)
 }
@@ -793,9 +851,14 @@ fn paste_image_bytes(format: ImageFormat, bytes: &[u8]) -> Option<(ImageFormat, 
         _ => return Some((format, std::borrow::Cow::Borrowed(bytes))),
     };
     let image = image::load_from_memory_with_format(bytes, source).ok()?;
-    let mut png = std::io::Cursor::new(Vec::new());
-    image.write_to(&mut png, image::ImageFormat::Png).ok()?;
-    Some((ImageFormat::Png, std::borrow::Cow::Owned(png.into_inner())))
+    let mut png = Vec::new();
+    let encoder = image::codecs::png::PngEncoder::new_with_quality(
+        &mut png,
+        image::codecs::png::CompressionType::Fast,
+        image::codecs::png::FilterType::Sub,
+    );
+    image.write_with_encoder(encoder).ok()?;
+    Some((ImageFormat::Png, std::borrow::Cow::Owned(png)))
 }
 
 fn link_mods(m: &Modifiers) -> bool {
@@ -2069,6 +2132,79 @@ mod tests {
             is_held: false,
             prefer_character_input: false,
         }
+    }
+
+    #[test]
+    fn empty_clipboard_text_does_not_shadow_clipboard_images() {
+        use gpui::{ClipboardEntry, ClipboardItem, Image, ImageFormat};
+        let png = {
+            let img = image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(1, 1, image::Rgba([9, 8, 7, 255])));
+            let mut out = std::io::Cursor::new(Vec::new());
+            img.write_to(&mut out, image::ImageFormat::Png).unwrap();
+            out.into_inner()
+        };
+        let empty_text = ClipboardItem::new_string(String::new()).entries.remove(0);
+        let item = ClipboardItem {
+            entries: vec![empty_text, ClipboardEntry::Image(Image::from_bytes(ImageFormat::Png, png.clone()))],
+        };
+        assert_eq!(super::non_empty_clipboard_text(&item), None);
+        let saved = super::image_file(&item).expect("image saved despite empty text slot");
+        assert_eq!(std::fs::read(&saved).unwrap(), png);
+        let _ = std::fs::remove_file(saved);
+
+        let with_text = ClipboardItem {
+            entries: vec![
+                ClipboardItem::new_string("caption".into()).entries.remove(0),
+                ClipboardEntry::Image(Image::from_bytes(ImageFormat::Png, png)),
+            ],
+        };
+        assert_eq!(super::non_empty_clipboard_text(&with_text), Some("caption"));
+    }
+
+    #[test]
+    fn alt_v_only_intercepts_when_bracketed_paste_is_active_without_other_modifiers() {
+        assert!(super::alt_v_pastes_image(&press("alt-v", Some("v")).keystroke, true));
+        assert!(!super::alt_v_pastes_image(&press("alt-v", Some("v")).keystroke, false));
+        assert!(!super::alt_v_pastes_image(&press("ctrl-alt-v", None).keystroke, true));
+        assert!(!super::alt_v_pastes_image(&press("alt-shift-v", Some("V")).keystroke, true));
+        assert!(!super::alt_v_pastes_image(&press("ctrl-v", None).keystroke, true));
+        assert!(!super::alt_v_pastes_image(&press("alt-b", Some("b")).keystroke, true));
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn windows_dib_v1_and_v5_bitfields_convert_to_valid_png() {
+        let mut dib_v1 = vec![0u8; 40 + 12 + 4];
+        dib_v1[0..4].copy_from_slice(&40u32.to_le_bytes());
+        dib_v1[4..8].copy_from_slice(&1i32.to_le_bytes());
+        dib_v1[8..12].copy_from_slice(&1i32.to_le_bytes());
+        dib_v1[12..14].copy_from_slice(&1u16.to_le_bytes());
+        dib_v1[14..16].copy_from_slice(&32u16.to_le_bytes());
+        dib_v1[16..20].copy_from_slice(&3u32.to_le_bytes()); // BI_BITFIELDS
+        dib_v1[40..44].copy_from_slice(&0x00ff0000u32.to_le_bytes());
+        dib_v1[44..48].copy_from_slice(&0x0000ff00u32.to_le_bytes());
+        dib_v1[48..52].copy_from_slice(&0x000000ffu32.to_le_bytes());
+        dib_v1[52..56].copy_from_slice(&[0x34, 0x12, 0xab, 0xff]);
+        let bmp_v1 = gpui_windows::convert_dib_to_bmp(&dib_v1).unwrap();
+        let (_, png_v1) = super::paste_image_bytes(gpui::ImageFormat::Bmp, &bmp_v1).unwrap();
+        assert_eq!(image::load_from_memory(&png_v1).unwrap().to_rgba8().get_pixel(0, 0).0, [0xab, 0x12, 0x34, 0xff]);
+
+        // BITMAPV5HEADER (124 bytes) stores bitfield masks inside the header itself.
+        let mut dib_v5 = vec![0u8; 124 + 4];
+        dib_v5[0..4].copy_from_slice(&124u32.to_le_bytes());
+        dib_v5[4..8].copy_from_slice(&1i32.to_le_bytes());
+        dib_v5[8..12].copy_from_slice(&1i32.to_le_bytes());
+        dib_v5[12..14].copy_from_slice(&1u16.to_le_bytes());
+        dib_v5[14..16].copy_from_slice(&32u16.to_le_bytes());
+        dib_v5[16..20].copy_from_slice(&3u32.to_le_bytes()); // BI_BITFIELDS
+        dib_v5[40..44].copy_from_slice(&0x00ff0000u32.to_le_bytes());
+        dib_v5[44..48].copy_from_slice(&0x0000ff00u32.to_le_bytes());
+        dib_v5[48..52].copy_from_slice(&0x000000ffu32.to_le_bytes());
+        dib_v5[52..56].copy_from_slice(&0xff000000u32.to_le_bytes());
+        dib_v5[124..128].copy_from_slice(&[0x78, 0x56, 0x34, 0xff]);
+        let bmp_v5 = gpui_windows::convert_dib_to_bmp(&dib_v5).unwrap();
+        let (_, png_v5) = super::paste_image_bytes(gpui::ImageFormat::Bmp, &bmp_v5).unwrap();
+        assert_eq!(image::load_from_memory(&png_v5).unwrap().to_rgba8().get_pixel(0, 0).0, [0x34, 0x56, 0x78, 0xff]);
     }
 
     #[test]

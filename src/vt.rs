@@ -1251,9 +1251,13 @@ impl Vt {
         unsafe { ghostty_terminal_scroll_viewport(self.term, s) };
     }
 
+    pub fn bracketed_paste(&self) -> bool {
+        self.mode(BRACKETED_PASTE)
+    }
+
     /// Wraps pasted text the way the program asked (bracketed paste or not).
     pub fn paste_bytes(&self, text: &str) -> Vec<u8> {
-        if self.mode(BRACKETED_PASTE) {
+        if self.bracketed_paste() {
             let clean = text.replace("\x1b[201~", "");
             [b"\x1b[200~".as_slice(), clean.as_bytes(), b"\x1b[201~"].concat()
         } else {

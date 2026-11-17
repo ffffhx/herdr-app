@@ -23,6 +23,8 @@ use gpui::{
 };
 
 const DRAGDROP_GET_FILES_COUNT: u32 = 0xFFFFFFFF;
+// HERDR: WinUser.h CF_DIBV5 (17), used by Windows screenshot and clipboard tools alongside CF_DIB.
+const CF_DIBV5_FORMAT: u32 = 17;
 
 static CLIPBOARD_HASH_FORMAT: LazyLock<u32> =
     LazyLock::new(|| register_clipboard_format(windows::core::w!("GPUI internal text hash")));
@@ -92,31 +94,42 @@ pub(crate) fn write_to_clipboard(item: ClipboardItem) {
 pub(crate) fn read_from_clipboard() -> Option<ClipboardItem> {
     let _clip = ClipboardGuard::open()?;
 
-    let mut entries = Vec::new();
-    let mut have_text = false;
-    let mut have_image = false;
-    let mut have_files = false;
-
-    let count = unsafe { CountClipboardFormats() };
+    let mut formats = Vec::new();
     let mut format = 0;
-    for _ in 0..count {
+    loop {
         format = unsafe { EnumClipboardFormats(format) };
+        if format == 0 {
+            break;
+        }
+        formats.push(format);
+    }
 
-        if !have_text && format == CF_UNICODETEXT.0 as u32 {
-            if let Some(entry) = read_string() {
-                entries.push(entry);
-                have_text = true;
-            }
-        } else if !have_image && is_image_format(format) {
-            if let Some(entry) = read_image(format) {
-                entries.push(entry);
-                have_image = true;
-            }
-        } else if !have_files && format == CF_HDROP.0 as u32 {
-            if let Some(entry) = read_files() {
-                entries.push(entry);
-                have_files = true;
-            }
+    let mut entries = Vec::new();
+    if formats.contains(&(CF_UNICODETEXT.0 as u32)) {
+        if let Some(entry) = read_string() {
+            entries.push(entry);
+        }
+    }
+    // HERDR: Prefer already-encoded clipboard images (PNG, JPEG, GIF, SVG) over raw
+    // CF_DIB/CF_DIBV5 bitmaps so pasting screenshots avoids copying and re-encoding tens of MB.
+    let encoded_image = formats
+        .iter()
+        .copied()
+        .find(|format| IMAGE_FORMATS_MAP.contains_key(format))
+        .and_then(read_image);
+    let dib_image = || {
+        formats
+            .iter()
+            .copied()
+            .find(|&format| is_dib_format(format))
+            .and_then(read_image)
+    };
+    if let Some(entry) = encoded_image.or_else(dib_image) {
+        entries.push(entry);
+    }
+    if formats.contains(&(CF_HDROP.0 as u32)) {
+        if let Some(entry) = read_files() {
+            entries.push(entry);
         }
     }
 
@@ -173,8 +186,8 @@ fn get_clipboard_string(format: u32) -> Option<String> {
     Some(String::from_utf16_lossy(&slice[..actual_len]))
 }
 
-fn is_image_format(format: u32) -> bool {
-    IMAGE_FORMATS_MAP.contains_key(&format) || format == CF_DIB.0 as u32
+fn is_dib_format(format: u32) -> bool {
+    format == CF_DIB.0 as u32 || format == CF_DIBV5_FORMAT
 }
 
 fn write_string(item: &ClipboardString) -> Result<()> {
@@ -250,7 +263,7 @@ fn read_clipboard_metadata(text: &str) -> Option<String> {
 
 fn read_image(format: u32) -> Option<ClipboardEntry> {
     let locked = get_clipboard_data(format)?;
-    let (bytes, image_format) = if format == CF_DIB.0 as u32 {
+    let (bytes, image_format) = if is_dib_format(format) {
         (convert_dib_to_bmp(locked.as_bytes())?, ImageFormat::Bmp)
     } else {
         let image_format = *IMAGE_FORMATS_MAP.get(&format)?;
@@ -275,7 +288,7 @@ fn read_files() -> Option<ClipboardEntry> {
 }
 
 /// DIB is BMP without the 14-byte BITMAPFILEHEADER. Prepend one.
-fn convert_dib_to_bmp(dib: &[u8]) -> Option<Vec<u8>> {
+pub fn convert_dib_to_bmp(dib: &[u8]) -> Option<Vec<u8>> {
     if dib.len() < 40 {
         return None;
     }
@@ -284,6 +297,8 @@ fn convert_dib_to_bmp(dib: &[u8]) -> Option<Vec<u8>> {
     let bit_count = u16::from_le_bytes(dib[14..16].try_into().ok()?);
     let compression = u32::from_le_bytes(dib[16..20].try_into().ok()?);
 
+    // HERDR: Only a 40-byte BITMAPINFOHEADER stores BI_BITFIELDS (12B) or
+    // BI_ALPHABITFIELDS (16B) masks after the header; V2..V5 headers include masks in header_size.
     let color_table_size = if bit_count <= 8 {
         let colors_used = u32::from_le_bytes(dib[32..36].try_into().ok()?);
         (if colors_used == 0 {
@@ -291,8 +306,10 @@ fn convert_dib_to_bmp(dib: &[u8]) -> Option<Vec<u8>> {
         } else {
             colors_used
         }) * 4
-    } else if compression == 3 {
+    } else if header_size == 40 && compression == 3 {
         12 // BI_BITFIELDS
+    } else if header_size == 40 && compression == 6 {
+        16 // BI_ALPHABITFIELDS
     } else {
         0
     };
@@ -344,13 +361,24 @@ struct ClipboardGuard;
 
 impl ClipboardGuard {
     fn open() -> Option<Self> {
-        match unsafe { OpenClipboard(None) } {
-            Ok(()) => Some(Self),
-            Err(e) => {
-                log::error!("Failed to open clipboard: {e}");
-                None
+        // HERDR: Clipboard watchers (Snipaste, ClipRelay, history) briefly hold OpenClipboard
+        // right after a screenshot is captured; retry briefly before giving up.
+        let mut last_err = None;
+        for attempt in 0..10 {
+            match unsafe { OpenClipboard(None) } {
+                Ok(()) => return Some(Self),
+                Err(e) => {
+                    last_err = Some(e);
+                    if attempt + 1 < 10 {
+                        std::thread::sleep(std::time::Duration::from_millis(5));
+                    }
+                }
             }
         }
+        if let Some(e) = last_err {
+            log::error!("Failed to open clipboard: {e}");
+        }
+        None
     }
 }
 

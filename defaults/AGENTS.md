@@ -614,11 +614,12 @@ The main ones:
   `terminal.keep {terminal, place?}`, `terminal.park {terminal}`,
   `terminal.peek {terminal}` (peek over the tab, with keep-as-tab and close),
   `terminal.show {terminal?, pane?}`, `terminal.copy`, `terminal.paste` (copied
-  files, such as Finder's or a clipboard manager's image, as if dropped; an image
-  alone as `terminal.paste_image` pastes it), `terminal.paste_image` (Ctrl+V: an
-  image, into a terminal on another machine: copied there, its path pasted; on
-  Windows, clipboard text is pasted; otherwise Ctrl+V goes to the program, which
-  reads the clipboard itself). TIFF and BMP clipboard
+  files, such as Finder's or Explorer's, and lone clipboard images paste as file
+  paths, copied there first when the terminal is on another machine),
+  `terminal.paste_image` (Ctrl+V: on another machine, copied files or a clipboard
+  image are copied there and their paths pasted; on Windows, clipboard files, text
+  or a lone image paste as paths/text, and Alt+V in bracketed-paste terminals does
+  the same for clipboard images; otherwise Ctrl+V goes to the program). TIFF and BMP clipboard
   images are converted to PNG before sending,
   `terminal.right_click {to: "program" | "menu", terminal?}` (where right-clicks go
   when the program takes the mouse; kept as its label `herdr.right-click=program`;

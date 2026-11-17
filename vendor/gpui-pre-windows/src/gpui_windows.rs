@@ -38,6 +38,7 @@ pub(crate) use vsync::*;
 pub(crate) use window::*;
 pub(crate) use wrapper::*;
 
+pub use clipboard::convert_dib_to_bmp;
 pub use keyboard::is_native_character_input;
 pub use platform::WindowsPlatform;
 
