@@ -154,6 +154,26 @@ test("focus, shown terminal and remote account boundaries", () => {
   assert.equal(quotaTarget({ terminal: null }, [], [], []), null);
   assert.equal(quotaTarget({ terminal: "t1", space: "s1" }, [{ terminal: "t1", app: "codex" }], [], [{ id: "s1", machine: "server" }]).remote, true);
   assert.equal(quotaTarget({ terminal: "t1", shown: "t2" }, [], [{ address: "t2", app: "claude-code" }], []).provider, "claude");
+  assert.equal(quotaTarget({ terminal: "t1" }, [{ terminal: "t1", app: "antigravity" }], [], []).provider, "antigravity");
+  assert.equal(quotaTarget({ terminal: "t1" }, [{ terminal: "t1", program: { key: "agy" } }], [], []).provider, "antigravity");
+});
+
+test("Antigravity sessions keep per-terminal local quota and 3P pool labels without fabricating windows", async () => {
+  const h = harness(), now = Date.now();
+  h.setPanes([{ terminal: "t1", app: "antigravity" }, { terminal: "t2", app: "antigravity" }]);
+  h.setTerminals([{ address: "t1", pid: 10, created_ms: 100 }, { address: "t2", pid: 20, created_ms: 200 }]);
+  h.quota.refresh(h.cx);
+  h.setFocus({ terminal: "t2" }); h.quota.refresh(h.cx);
+  h.requests[0].resolve({ code: 0, stdout: JSON.stringify({ provider: "antigravity", pool: "gemini", status: "ok", windows: [{ remaining: 85.2, minutes: 300, resetsAt: now + 60000 }, { remaining: 95.1, minutes: 10080, resetsAt: now + 120000 }], updatedAt: now }) });
+  h.requests[1].resolve({ code: 0, stdout: JSON.stringify({ provider: "antigravity", pool: "3p", status: "ok", windows: [{ remaining: 100, minutes: 300, resetsAt: now + 60000 }], updatedAt: now }) });
+  await Promise.all(h.tasks);
+  const text = node => typeof node === "string" ? node : node.children.map(text).join(" ");
+  assert.match(text(h.quota.render(h.cx, {})), /Antigravity 3P 5h 100% left/);
+  assert.match(h.quota.render(h.cx, {}).tip, /Antigravity session.*no account request/);
+  h.setFocus({ terminal: "t1" });
+  assert.match(text(h.quota.render(h.cx, {})), /Antigravity 5h 85% left Weekly 95% left/);
+  h.quota.cache["local:antigravity:t1:10:100:"] = { provider: "antigravity", status: "ok", windows: [{ remaining: 85, minutes: 300, resetsAt: now - 1 }], updatedAt: now, attemptedAt: now };
+  assert.match(text(h.quota.render(h.cx, {})), /Antigravity Waiting for usage update/);
 });
 
 test("status bar shows remaining quota, last update and reset time; a click refreshes", async () => {

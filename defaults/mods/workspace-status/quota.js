@@ -9,14 +9,17 @@ export function quotaTarget(focus, paneList, agentList, spaceList, terminalList 
   const agent = agentList.find(a => a.address === terminal);
   const pane = paneList.find(p => p.terminal === terminal);
   const program = agent?.app || pane?.app || agent?.program?.key || pane?.program?.key;
-  const provider = /^(codex|codex-cli)$/.test(program || "") ? "codex" : /^(claude|claude-code)$/.test(program || "") ? "claude" : null;
+  const provider = /^(codex|codex-cli)$/.test(program || "") ? "codex"
+    : /^(claude|claude-code)$/.test(program || "") ? "claude"
+    : /^(antigravity|agy)$/.test(program || "") ? "antigravity" : null;
   if (!provider) return null;
   const remote = Boolean(spaceList.find(s => s.id === focus.space)?.machine || terminal.includes("/"));
   const source = terminalList.find(t => t.address === terminal);
   const term = source && { address: source.address, pid: source.pid, created_ms: source.created_ms, argv: source.argv,
     labels: { "herdr.unattended.control": source.labels?.["herdr.unattended.control"], "herdr.claude.launch": source.labels?.["herdr.claude.launch"] } };
+  const sessionScoped = provider === "claude" || provider === "antigravity";
   return { provider, remote, term, key: `${remote ? "remote" : "local"}:${provider}`
-    + (provider === "claude" ? `:${terminal}:${source?.pid || ""}:${source?.created_ms || ""}:${source?.labels?.["herdr.claude.launch"] || ""}` : "") };
+    + (sessionScoped ? `:${terminal}:${source?.pid || ""}:${source?.created_ms || ""}:${source?.labels?.["herdr.claude.launch"] || ""}` : "") };
 }
 
 const current = () => quotaTarget(focused(), panes(), agents(), spaces(), terminals());
@@ -35,7 +38,8 @@ export class Quota {
     const target = current();
     if (!target || target.remote || this.pending.has(target.key)) return;
     const prior = this.cache[target.key], now = Date.now();
-    const delay = prior?.status === "rate-limited" ? 120000 : target.provider === "claude" && prior?.provider !== "deepseek" ? 5000 : 30000;
+    const localSnapshot = (target.provider === "claude" && prior?.provider !== "deepseek") || target.provider === "antigravity";
+    const delay = prior?.status === "rate-limited" ? 120000 : localSnapshot ? 4500 : 30000;
     if (!force && prior && now - prior.attemptedAt < delay) return;
     this.pending.add(target.key);
     // A clone keeps the probe and local bridge together. Use argv, never shell
@@ -61,11 +65,15 @@ export class Quota {
     const data = this.cache[target.key];
     const pending = this.pending.has(target.key);
     const official = data?.provider === "claude-official";
-    const windows = official ? (data?.windows || []).filter(w => w.resetsAt > Date.now()) : data?.windows || [];
+    const antigravity = target.provider === "antigravity" || data?.provider === "antigravity";
+    const localOnly = official || antigravity;
+    const windows = localOnly ? (data?.windows || []).filter(w => w.resetsAt > Date.now()) : data?.windows || [];
     let status = target.remote ? "remote" : data?.status || "loading";
-    if (official && status === "ok" && (!windows.length || Date.now() - data.updatedAt > 3600000)) status = "waiting";
+    if (localOnly && status === "ok" && (!windows.length || Date.now() - data.updatedAt > 3600000)) status = "waiting";
     const balance = data?.provider === "deepseek";
-    const name = balance ? "DeepSeek" : official ? usageText("Claude Official") : target.provider === "codex" ? "Codex" : "Claude";
+    const name = balance ? "DeepSeek" : official ? usageText("Claude Official")
+      : antigravity ? (data?.pool === "3p" ? "Antigravity 3P" : "Antigravity")
+      : target.provider === "codex" ? "Codex" : "Claude";
     const messages = {
       loading: tr("Checking quota…"), remote: tr("Remote quota unavailable"),
       "sign-in": tr("Sign in to check quota"), "missing-cli": tr("Agent CLI not found"),
@@ -79,9 +87,11 @@ export class Quota {
     if (balance) Object.assign(messages, {
       unavailable: tr("Balance unavailable"), "rate-limited": tr("Balance check rate limited"), timeout: tr("Balance check timed out"),
     });
-    const stale = !official && data?.updatedAt && Date.now() - data.updatedAt > 90000;
+    const stale = !localOnly && data?.updatedAt && Date.now() - data.updatedAt > 90000;
     let tooltip = official
       ? usageText("Usage received locally from this Claude Code session. Click to reread local data; no account request is sent. Start a new official session to enable collection if needed.")
+      : antigravity
+      ? usageText("Usage received locally from this Antigravity session. Click to reread local data; no account request is sent. Start or resume a session to enable collection if needed.")
       : balance ? usageText("DeepSeek API balance for this session's launcher. Refreshes every 30 seconds. Click to refresh.")
       : tr("Account quota from this computer's Agent login. Refreshes every 30 seconds. Click to refresh.");
     if (status === "provider-unknown") tooltip = usageText("Use an explicit Claude launcher to identify this session. No Claude account request is sent.");

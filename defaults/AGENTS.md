@@ -210,14 +210,20 @@ parentheses and apostrophes, and preserves Unicode file and folder names
 (including Chinese). Directory links expand as folders; their contents load
 only when expanded.
 
-The main layout's status bar follows the focused local Codex or Claude agent.
-Codex quota uses the computer's CLI login and inherited `CODEX_HOME`, refreshing
-every 30 seconds. Claude official quota only reads local `statusLine` snapshots:
-five-hour/weekly remaining percentages, reset times and the last received time.
-It does not read Claude OAuth credentials/Keychain, request `/api/oauth/usage`,
+The main layout's status bar follows the focused local Codex, Claude or Antigravity
+(`agy`) agent. Codex quota uses the computer's CLI login and inherited `CODEX_HOME`,
+refreshing every 30 seconds. Claude official and Antigravity quotas only read local
+`statusLine` snapshots: five-hour/weekly remaining percentages, reset times and the
+last received time. They do not read OAuth credentials/Keychain, request usage APIs,
 or infer subscription quota from tokens/cost. Missing, reset or hour-old windows
-show waiting/expired instead of a fabricated full allowance. Clicking official
-quota only rereads local data; the five-second local refresh does not query Claude.
+show waiting/expired instead of a fabricated full allowance. Clicking local quota
+only rereads local data; the five-second local refresh does not query the provider.
+For Antigravity, `mods/workspace-status/antigravity-usage.cjs` installs a versioned
+`statusLine` helper into `~/.gemini/antigravity-cli/settings.json` (or
+`ANTIGRAVITY_CLI_HOME`), preserving any previous `statusLine` command and default
+status line (`stack_with_default: true`), and saving whitelisted Gemini/3P window
+snapshots under `data/antigravity-usage` bound to `HC_TERMINAL_ID`, core PID and
+creation time. Isolated Herdr instances require an explicit `ANTIGRAVITY_CLI_HOME`.
 Remote agents do not borrow the local account. Node.js is required.
 
 Explicit Claude launchers can register using

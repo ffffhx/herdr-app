@@ -5,6 +5,7 @@ const path = require("node:path");
 const os = require("node:os");
 const { spawn, execFile } = require("node:child_process");
 const { readUsage } = require("./claude-usage.cjs");
+const { installStatusLine, readUsage: readAntigravityUsage } = require("./antigravity-usage.cjs");
 
 function windowUsage(value, fallbackMinutes) {
   const used = value?.usedPercent ?? value?.utilization;
@@ -166,10 +167,19 @@ async function completeCodexUsage(usage) {
   } catch { return usage; }
 }
 
-module.exports = { windowUsage, codexUsage, claudeUsage, deepseekBalance, claudeApi, readDeepseek, codexCommand, readCodex, readClaude, completeCodexUsage };
+async function readAntigravity({ env = process.env, home = os.homedir(), platform = process.platform, target = {}, appDirectory } = {}) {
+  const directory = appDirectory || env.HERDR_APP_HOME || path.join(env.XDG_CONFIG_HOME || path.join(home, ".config"), "herdr-app");
+  try { installStatusLine({ home: directory, env, platform, userHome: home }); } catch {}
+  return readAntigravityUsage(directory, target);
+}
+
+module.exports = { windowUsage, codexUsage, claudeUsage, deepseekBalance, claudeApi, readDeepseek, codexCommand, readCodex, readClaude, readAntigravity, completeCodexUsage };
 if (require.main === module || !require.main) {
   const provider = process.argv[require.main ? 2 : 1];
-  Promise.resolve().then(() => provider === "codex" ? readCodex().then(completeCodexUsage) : provider === "claude" ? readClaude({ target: JSON.parse(process.argv[3] || "{}"), appDirectory: process.argv[4] }) : { status: "unsupported", windows: [] })
+  Promise.resolve().then(() => provider === "codex" ? readCodex().then(completeCodexUsage)
+    : provider === "claude" ? readClaude({ target: JSON.parse(process.argv[3] || "{}"), appDirectory: process.argv[4] })
+    : provider === "antigravity" ? readAntigravity({ target: JSON.parse(process.argv[3] || "{}"), appDirectory: process.argv[4] })
+    : { status: "unsupported", windows: [] })
     .catch((error) => ({ status: ["missing-cli", "timeout", "sign-in", "rate-limited", "unavailable"].includes(error.message) ? error.message : "unavailable", windows: [] }))
     .then((result) => process.stdout.write(JSON.stringify(result) + "\n"));
 }
