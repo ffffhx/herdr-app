@@ -68,6 +68,8 @@ function icon(p, size, color) {
   return p.tint ? svg(p.icon).size(size).flex_none().text_color(color) : image(p.icon).w(size).h(size).flex_none();
 }
 
+const tint = (hex, a) => (typeof hex === "string" && hex.length === 7 ? hex + a : hex);
+
 export default class Agents extends View {
   init(_props, cx) {
     if (props()?.sortMenu) return;
@@ -192,8 +194,10 @@ export default class Agents extends View {
       .gap(0)
       .items_center()
       .text_size(12.5)
-      .when(on, (el) => el.bg(t.raised))
-      .hover((s) => s.bg(t.hover))
+      .border(1)
+      .border_color(on ? t.accent : "#00000000")
+      .when(on, (el) => el.bg(tint(t.accent, "20")).font_semibold())
+      .when(!on, (el) => el.hover((s) => s.bg(t.hover)))
       .on_click(() => this.peek(k.address))
       .children(s.lines.map(l => div().self_start().mt(-4).w(9).h(17).mr(4).flex_none()
         .when(Boolean(l), el => el.border_l(1.5).border_color(t.input))
@@ -293,13 +297,18 @@ export default class Agents extends View {
         return h_flex()
           .id(`ag-${a.address}`)
           .h(26)
-          .px(8)
+          .mx(4)
+          .px(4)
+          .rounded(6)
           .flex_none()
           .items_center()
           .gap(4)
-          .hover((s) => s.bg(t.hover))
+          .border(1)
+          .border_color(a.focused ? t.accent : "#00000000")
+          .when(a.focused, (el) => el.bg(tint(t.accent, "24")).font_semibold())
+          .when(!a.focused, (el) => el.hover((s) => s.bg(t.hover)))
           .on_click(() => run("pane.focus", { pane: a.pane }))
-          .child(div().flex_1().min_w(0).whitespace_nowrap().text_right().text_color(t.muted).child(String(i + 1)))
+          .child(div().flex_1().min_w(0).whitespace_nowrap().text_right().text_color(a.focused ? t.foreground : t.muted).child(String(i + 1)))
           .child(h_flex().w(14).flex_none().items_center().justify_center().child(this.status(t, a, true)));
       }
       const when = this.since(a);
@@ -334,24 +343,26 @@ export default class Agents extends View {
         .rounded(8)
         .items_center()
         .gap(9)
-        .when(a.focused, (el) => el.bg(t.selected))
+        .border(1.5)
+        .border_color(a.focused ? t.accent : "#00000000")
+        .when(a.focused, (el) => el.bg(tint(t.accent, "24")))
         .cursor_pointer()
-        .hover((s) => s.bg(t.hover))
+        .when(!a.focused, (el) => el.hover((s) => s.bg(t.hover)))
         .on_hover((on, cx) => {
           if (on) this.hovered = a.address;
           else if (this.hovered === a.address) this.hovered = null;
           cx.notify();
         })
         .on_click(() => run("pane.focus", { pane: a.pane }))
-        .when(Boolean(pic), el => el.child(div().id(`agent-fold-${a.address}`)
+        .when(Boolean(pic), el => el.child(div().id(`agent-fold-${a.address}`).when(!a.focused, d => d.opacity(0.8))
           .when(subs.length > 0, el => el.on_click((_e, cx) => {
             cx.stop_propagation();
             this.folded.has(a.address) ? this.folded.delete(a.address) : this.folded.add(a.address);
             cx.notify();
           })).child(pic)))
         .child(h_flex().flex_1().min_w(0).gap(5).items_center()
-          .child(div().min_w(0).max_w(full && more ? 120 : 200).truncate().text_color(idle ? t.muted : t.foreground).child(name))
-          .when(full && Boolean(more), el => el.child(div().flex_1().min_w(0).truncate().text_color(t.dim).child(`\u00b7 ${more}`))))
+          .child(div().min_w(0).max_w(full && more ? 120 : 200).truncate().when(a.focused, el => el.font_semibold()).text_color(idle ? t.muted : t.foreground).child(name))
+          .when(full && Boolean(more), el => el.child(div().flex_1().min_w(0).truncate().text_color(a.focused ? t.muted : t.dim).child(`\u00b7 ${more}`))))
         .when(Boolean(machine), el => el.child(div().text_size(10).text_color(t.dim).child(machine)))
         .when(subs.length > 0, el => el.child(fold(a, subs)))
         .when(this.hovered === a.address, el => el.child(pin))

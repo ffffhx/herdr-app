@@ -883,3 +883,33 @@ fn unattended_badge_follows_live_approval_label(cx: &mut TestAppContext) {
         }
     }
 }
+
+#[gpui::test]
+fn active_agent_tabs_rows_and_split_headers_use_accent_highlight(cx: &mut TestAppContext) {
+    cx.update(gpui_shell::init);
+    let staged = Staged::new();
+    let values = fixture(true, props(), updates("current", "current"));
+    let accent = values["theme"]["accent"].as_str().unwrap().to_owned();
+
+    let tabs_tree = describe_with_values(cx, &staged, "mods/tabs", values.clone(), None).unwrap();
+    assert!(tabs_tree.contains(&accent) && tabs_tree.contains(&format!("{accent}24")), "tabs missing accent highlight: {tabs_tree}");
+
+    let agents_tree = describe_with_values(cx, &staged, "mods/agents", values.clone(), None).unwrap();
+    assert!(agents_tree.contains(&accent) && agents_tree.contains(&format!("{accent}24")), "agents missing accent highlight: {agents_tree}");
+
+    // Single-pane tabs stay calm; split tabs highlight the focused pane's header.
+    let single_pane = describe_with_values(cx, &staged, "mods/pane", values.clone(), None).unwrap();
+    assert!(!single_pane.contains(&format!("{accent}1f")), "single pane should not tint header: {single_pane}");
+
+    let mut split_values = values;
+    split_values.insert("panes".into(), json!([
+        {"pane":"p1","terminal":"t1","tab":"tab1","title":"Build","cwd":"/fixture/project","status":"working","focused":true,"zoomed":false},
+        {"pane":"p2","terminal":"t2","tab":"tab1","title":"Review","cwd":"/fixture/project","status":"idle","focused":false,"zoomed":false}
+    ]));
+    let focused_pane = describe_with_values(cx, &staged, "mods/pane", split_values.clone(), None).unwrap();
+    assert!(focused_pane.contains(&format!("{accent}1f")) && focused_pane.contains(&format!("{accent}80")), "focused split pane missing accent header: {focused_pane}");
+
+    split_values.insert("props".into(), json!({"pane":"p2","terminal":"t2"}));
+    let unfocused_pane = describe_with_values(cx, &staged, "mods/pane", split_values, None).unwrap();
+    assert!(!unfocused_pane.contains(&format!("{accent}1f")), "unfocused split pane should not tint header: {unfocused_pane}");
+}

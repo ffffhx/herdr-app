@@ -42,10 +42,14 @@ export default class Pane extends View {
 
   render(cx) {
     const t = theme();
-    const p = this.me();
+    const tint = (hex, a) => (typeof hex === "string" && hex.length === 7 ? hex + a : hex);
+    const all = panes();
+    const p = all.find((x) => x.pane === props()?.pane);
     if (!p) return div();
+    const split = all.filter((x) => x.tab === p.tab).length > 1;
+    const active = split && Boolean(p.focused);
     const name = ((p.program?.agent || p.program?.shell) && p.program.name) || p.title || p.program?.name || "shell";
-    const pic = icon(p.program, 14, t.dim);
+    const pic = icon(p.program, 14, active ? t.foreground : t.dim);
     const st = p.status;
     const pane = p.pane;
     const unattended = terminals().some(t => t.address === (p.shown ?? p.terminal) && t.state !== "finished" && t.labels?.["herdr.unattended"] === "on");
@@ -55,14 +59,14 @@ export default class Pane extends View {
       .px(10)
       .gap(8)
       .items_center()
-      .bg(t.background)
+      .bg(active ? tint(t.accent, "1f") : t.background)
       .border_b(1)
-      .border_color(t.border)
+      .border_color(active ? tint(t.accent, "80") : t.border)
       .text_size(12)
       .on_hover((hovered, cx) => { this.hovered = hovered; cx.notify(); })
       .on_click(() => run("pane.focus", { pane }))
-      .when(Boolean(pic), (el) => el.child(pic))
-      .child(div().flex_none().truncate().max_w(260).font_medium().text_color(t.foreground).child(name))
+      .when(Boolean(pic), (el) => el.child(div().flex_none().when(split && !p.focused, d => d.opacity(0.7)).child(pic)))
+      .child(div().flex_none().truncate().max_w(260).when(active, el => el.font_semibold()).when(!active, el => el.font_medium()).text_color(split && !p.focused ? t.muted : t.foreground).child(name))
       .when(unattended, el => el.child(div().flex_none().px(5).py(2).rounded(4).bg(t.selected).text_color(t.foreground).text_size(10).child(tr("Unattended"))))
       .child(div().flex_1().truncate().text_color(t.dim).child(folder(p.cwd)))
       .when(st === "working", el => el.child(svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))

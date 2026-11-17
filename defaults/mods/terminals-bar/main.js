@@ -116,7 +116,7 @@ export default class TerminalsBar extends View {
         .border_1()
         .cursor_pointer()
         .text_size(13)
-        .when(c.active, (el) => el.bg(C.tab).border_color(C.tabEdge))
+        .when(c.active, (el) => el.bg(C.tab).border_color(t.accent ?? C.tabEdge))
         .when(!c.active, (el) => el.border_color("#00000000").hover((s) => s.bg(C.hover)))
         .on_click(() => run("tab.select", { id: c.id }))
         .on_mouse_down("right", () =>
@@ -128,7 +128,7 @@ export default class TerminalsBar extends View {
             .min_w(0)
             .gap(6)
             .truncate()
-            .child(div().flex_none().text_color(c.active ? C.text : "#c4c6ca").child(c.name))
+            .child(div().flex_none().when(c.active, (el) => el.font_semibold()).text_color(c.active ? C.text : "#c4c6ca").child(c.name))
             .when(Boolean(where), (el) => el.child(div().truncate().text_color(C.dim).child(where))),
         );
     };
