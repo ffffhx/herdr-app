@@ -974,7 +974,11 @@ in the core document `herdr-agent-sessions`. Each binding includes the terminal'
 address/creation time, process/holder generation, native executable and folder.
 No latest-by-folder heuristic is used. Recovery claims one attempt durably before
 sending `codex --no-daemon resume <id>`, `claude --resume <id>` or
-`agy --conversation <id>` in an empty shell in that same folder. Invalid/duplicate IDs, missing transcripts, changed folders,
+`agy --conversation <id>` in an empty shell in that same folder. A Claude session
+started by an explicit `claude-official` or `claude-deepseek` launcher resumes
+through that same entrypoint, so its provider environment and the official exit
+guard survive; the saved command is reused only when it is exactly such a
+launcher and does not already choose a conversation. Invalid/duplicate IDs, missing transcripts, changed folders,
 draft input and unknown/custom prompts remain explicit failures. A timed-out send
 is never blindly replayed. **Retry recovery** is available for known safe failures;
 **Disable automatic recovery** persists in the document without deleting history.

@@ -1,7 +1,37 @@
-import { basename } from "node:path";
+import { readFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 
 export const DOC = "herdr-agent-sessions";
 export const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+// Explicit Claude entrypoints own the provider environment (and, for the
+// official one, the exit guard). A resumed session must keep them.
+const LAUNCHERS = ["claude-official", "claude-deepseek"];
+const RESUME_ARGS = new Set(["--resume", "--continue", "-c", "-r", "--session-id", "--fork-session"]);
+
+// Returns the saved launcher command only when it is exactly one of the
+// explicit Claude entrypoints and does not already choose a conversation.
+export function launcherArgv(argv, agent = "claude") {
+  if (agent !== "claude" || !Array.isArray(argv) || !argv.length || argv.length > 8) return null;
+  if (argv.some(arg => typeof arg !== "string" || !arg || arg.length > 260)) return null;
+  const name = basename(String(argv[0]).replaceAll("\\", "/")).replace(/\.(cmd|ps1|exe)$/i, "").toLowerCase();
+  if (!LAUNCHERS.includes(name)) return null;
+  if (argv.slice(1).some(arg => RESUME_ARGS.has(arg.split("=")[0]))) return null;
+  return [...argv];
+}
+
+// The unattended run that started a session records its argv beside its
+// control document; recovered runs written by this version carry it too. The
+// observer stops before recovery starts, so a saved run still describes the
+// launcher its terminal used — that is the binding, not a guessed one.
+export function runLauncher(control, agent = "claude") {
+  if (typeof control !== "string" || !/[\\/]control\.json$/.test(control)) return null;
+  const directory = dirname(control);
+  try {
+    const state = JSON.parse(readFileSync(join(directory, "state.json"), "utf8"));
+    if (state?.native !== true) return null;
+    return launcherArgv(JSON.parse(readFileSync(join(directory, "task.json"), "utf8")).argv, agent);
+  } catch { return null; }
+}
 export const agentOf = term => term.status?.app === "codex" ? "codex"
   : ["claude", "claude-code"].includes(term.status?.app) ? "claude"
   : ["antigravity", "agy"].includes(term.status?.app) ? "antigravity" : null;
@@ -13,6 +43,8 @@ export function shellOf(term) {
 export const managed = term => /^t[0-9a-z]+$/.test(term.address) && Boolean(term.labels?.["herdr.space"]) && term.keep;
 export function resumeArgv(record) {
   if (!UUID.test(record.sessionId)) throw new Error("The saved conversation ID is invalid");
+  const launcher = launcherArgv(record.launcher, record.agent);
+  if (launcher) return [...launcher, "--resume", record.sessionId];
   const program = record.executable || (record.agent === "antigravity" ? "agy" : record.agent);
   const base = basename(program.replaceAll("\\", "/")).replace(/\.exe$/i, "").toLowerCase();
   const expected = record.agent === "antigravity" ? ["agy", "antigravity"] : [record.agent];

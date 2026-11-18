@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import { Core } from "./core.mjs";
-import { DOC, keyOf, managed, agentOf, shellOf, commandLine, emptyPrompt, eligible, duplicateSessions } from "./model.mjs";
+import { DOC, keyOf, managed, agentOf, shellOf, commandLine, emptyPrompt, eligible, duplicateSessions, launcherArgv, runLauncher } from "./model.mjs";
 import { install, atomic } from "./install.mjs";
 import { rootTranscript, verifyResume } from "./hook.mjs";
 
@@ -21,11 +21,14 @@ export class Recovery {
   }
   async recover(term, record, generation) {
     const key = keyOf(term), stamp = randomUUID();
+    // Resume through the launcher that started this session, so the provider
+    // environment and the official exit guard survive the restart.
+    const launcher = launcherArgv(record.launcher, record.agent) ?? runLauncher(record.unattendedControl, record.agent);
     const claimed = await this.core.update(DOC, doc => {
       const current = doc?.records?.[key];
       if (doc.enabled === false || !eligible(term, current, generation)) return;
       if (current.sessionId !== record.sessionId || current.agent !== record.agent || current.transcript !== record.transcript || current.pid !== record.pid || current.generation !== record.generation) return;
-      doc.records[key] = { ...current, state: "restoring", error: null, attempt: { pid: term.pid, generation, stamp, at: this.now(), state: "claimed" } };
+      doc.records[key] = { ...current, ...(launcher && !current.launcher ? { launcher } : {}), state: "restoring", error: null, attempt: { pid: term.pid, generation, stamp, at: this.now(), state: "claimed" } };
       return doc;
     });
     if (claimed?.records?.[key]?.attempt?.stamp !== stamp) return;
@@ -43,7 +46,7 @@ export class Recovery {
       // Never clear a composer or send a prompt. This starts only a native
       // resume command in a newly recovered shell, with the exact saved ID.
       sent = true;
-      await this.core.call("terminal.send", { terminal: term.address, text: commandLine(record, shellOf(fresh)) });
+      await this.core.call("terminal.send", { terminal: term.address, text: commandLine({ ...record, ...(launcher ? { launcher } : {}) }, shellOf(fresh)) });
       await this.change(key, r => r.attempt?.stamp !== stamp ? r : ({ ...r, attempt: { ...r.attempt, state: "sent" } }));
     } catch (error) {
       await this.change(key, r => r.attempt?.stamp !== stamp ? r : ({ ...r, state: "failed", error: error.message, attempt: { ...r.attempt, state: sent ? "unknown" : "not-sent" } }));
@@ -92,6 +95,12 @@ export class Recovery {
             record = { ...record, unattended: policy.enabled, unattendedControl: control };
           }
         } catch {}
+      }
+      // Keep the launcher when the control path moves to a recovered run,
+      // whose descriptor alone cannot say which entrypoint started the agent.
+      if (record && !record.launcher) {
+        const launcher = runLauncher(record.unattendedControl, record.agent);
+        if (launcher) { await this.change(key, r => ({ ...r, launcher })); record = { ...record, launcher }; }
       }
       // Old persisted badges cannot claim that a dead observer is active.
       if (term.labels?.["herdr.unattended"] === "on") {
@@ -148,7 +157,11 @@ export class Recovery {
     if (policy.enabled !== true || !Array.isArray(policy.exceptions) || term.labels?.["herdr.unattended"] === "on") return;
     // Share the native observer's lease directory with manual attachments.
     const directory = join(this.home, "data/unattended/runs", `recovered-${term.address}-${term.pid}-${Date.now()}`);
+    // Carry the launcher into the recovered run so provider identification
+    // survives the restart that lost the original run descriptor's context.
+    const launcher = launcherArgv(record.launcher, record.agent) ?? runLauncher(record.unattendedControl, record.agent);
     const config = { agent: record.agent, cwd: record.cwd, native: true, recovered: true, enabled: true, exceptions: policy.exceptions,
+      ...(launcher ? { argv: launcher } : {}),
       source: { address: term.address, created_ms: term.created_ms, pid: term.pid, cwd: record.cwd, app: record.agent } };
     atomic(join(directory, "task.json"), config);
     const stamp = randomUUID();

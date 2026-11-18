@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { Core } from "./core.mjs";
-import { DOC, UUID, keyOf, managed } from "./model.mjs";
+import { DOC, UUID, keyOf, managed, runLauncher } from "./model.mjs";
 
 export function resolveAntigravityTranscript(sessionId, rawPath, userHome = homedir(), env = process.env) {
   const candidates = [];
@@ -138,7 +138,11 @@ export async function capture(core, agent, rawPayload, terminal = process.env.HC
     // An old turn completing after /fork must not overwrite the new session.
     if (previous && previous.sessionId !== payload.session_id && !["SessionStart", "PreInvocation", "StatusLine"].includes(payload.hook_event_name)
       && !previous.closed && (!verified.pid || previous.agentPid === verified.pid)) return;
-    doc.records[key] = { ...previous, key, terminal, created: term.created_ms, pid: term.pid, generation,
+    // Remember an explicit launcher while its run descriptor still describes
+    // this session; a continuation keeps it when the descriptor is gone.
+    const launcher = runLauncher(term.labels?.["herdr.unattended.control"], agent)
+      ?? (previous?.sessionId === payload.session_id ? previous?.launcher : null) ?? null;
+    doc.records[key] = { ...previous, key, terminal, created: term.created_ms, pid: term.pid, generation, launcher,
       attempt: previous?.sessionId === payload.session_id ? previous.attempt : null,
       agent, agentPid: verified.pid, executable: verified.executable || previous?.executable, sessionId: payload.session_id, transcript: payload.transcript_path, cwd: payload.cwd || term.cwd,
       captured: now, closed: false, enabled: previous?.enabled !== false, state: "ready", error: null,
