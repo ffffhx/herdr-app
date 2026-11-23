@@ -1,7 +1,7 @@
-import { existsSync, openSync, readSync, closeSync } from "node:fs";
+import { existsSync, realpathSync, openSync, readSync, closeSync } from "node:fs";
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { Core } from "./core.mjs";
@@ -152,7 +152,8 @@ export async function capture(core, agent, rawPayload, terminal = process.env.HC
     return doc;
   });
 }
-if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+// Older Node 20 releases lack import.meta.main. macOS may launch via /var, a symlink to /private/var.
+if (import.meta.main ?? (process.argv[1] && existsSync(process.argv[1]) && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url)) {
   const agent = process.argv[2];
   const inTerminal = /^t[0-9a-z]+$/.test(process.env.HC_TERMINAL_ID || "");
   let parsed = null;

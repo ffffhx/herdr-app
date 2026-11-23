@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync, existsSync, realpathSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import { Core } from "./core.mjs";
@@ -187,7 +187,8 @@ export async function requestRetry(core, key) {
   await core.update(DOC, doc => { const r = doc.records[key]; if (r.sessionId !== record.sessionId) throw new Error("The saved conversation changed"); doc.records[key] = { ...r, closed: false, attempt: null, state: "pending", error: null }; return doc; });
 }
 
-if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+// Older Node 20 releases lack import.meta.main. macOS may launch via /var, a symlink to /private/var.
+if (import.meta.main ?? (process.argv[1] && existsSync(process.argv[1]) && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url)) {
   const [mode, home, key] = process.argv.slice(2);
   const core = new Core();
   try {
