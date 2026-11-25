@@ -22,8 +22,8 @@ async function checkout(folder, on) {
 }
 
 function unattendedItem(term, pane, spaceId) {
-  const app = term?.report?.app;
-  const agent = app === "codex" ? "codex" : ["claude", "claude-code"].includes(app) ? "claude" : null;
+  const app = term?.report?.app || (term?.program?.key === "antigravity" ? "antigravity" : null);
+  const agent = app === "codex" ? "codex" : ["claude", "claude-code"].includes(app) ? "claude" : ["agy", "antigravity"].includes(app) ? "antigravity" : null;
   const managed = !term?.labels?.["herdr.unattended.control"] && term?.argv?.some(a => a.endsWith("/unattended/runner.mjs") || a.endsWith("\\unattended\\runner.mjs") || a.endsWith("/runner.mjs"));
   if (!agent || managed) return null;
   const space = spaceId ?? spaces().find(s => s.tabs?.some(t => t.id === pane?.tab))?.id;

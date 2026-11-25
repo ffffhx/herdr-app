@@ -4,6 +4,7 @@ import { tr, spaces, panes, props, run, theme, shared, setShared, readTextFile, 
 import { prepare, observe, changeCurrent, changePolicy, originalTerminal } from "./launch.js";
 import { recoveredEntry } from "./recovery.mjs";
 
+const NAMES = { codex: "Codex", claude: "Claude Code", antigravity: "Antigravity" };
 const HISTORY = "unattended.runs";
 const STATUS = { working: "Working", blocked: "Needs input", done: "Done", idle: "Idle", error: "Error" };
 
@@ -13,7 +14,7 @@ export default class Unattended extends View {
     this.space = space?.id;
     this.on = space?.machine ?? null;
     this.sourceAddress = props()?.source ?? null;
-    this.agent = props()?.agent === "claude" ? "claude" : "codex";
+    this.agent = Object.hasOwn(NAMES, props()?.agent) ? props().agent : "codex";
     this.launch = props()?.launch ?? null;
     this.busy = false; this.error = ""; this.states = {};
     this.confirmHandle = cx.focus_handle();
@@ -39,7 +40,7 @@ export default class Unattended extends View {
       try {
         const source = await originalTerminal(this.sourceAddress, this.on);
         if (props()?.sourceCreated !== undefined && source.created_ms !== props().sourceCreated) throw new Error(tr("The selected terminal changed. Open its menu again."));
-        const agent = source.app === "codex" ? "codex" : ["claude", "claude-code"].includes(source.app) ? "claude" : null;
+        const agent = source.app === "codex" ? "codex" : ["claude", "claude-code"].includes(source.app) ? "claude" : ["agy", "antigravity"].includes(source.app) ? "antigravity" : null;
         if (!agent || agent !== this.agent) throw new Error(tr("The selected agent is no longer running."));
         if (props()?.disable && !source.controlPath) throw new Error(tr("The automatic approval observer is no longer connected"));
         if (source.controlPath) {
@@ -50,7 +51,7 @@ export default class Unattended extends View {
             return;
           } catch (error) { if (props()?.disable) throw error; }
         }
-        const config = { agent, source, native: true, cwd: source.cwd, exceptions: [], on: this.on,
+        const config = { agent, source, native: true, cwd: source.cwd, exceptions: agent === "antigravity" ? shared("unattended.exceptions") ?? [] : [], on: this.on,
           task: tr("Automatic approval in the existing terminal") };
         const entry = await prepare(config);
         await observe(entry);
@@ -114,7 +115,7 @@ export default class Unattended extends View {
     cx.spawn(async cx => {
       try {
         const entry = await prepare(config);
-        run("tab.new", { space: this.space, name: props()?.name || (entry.agent === "claude" ? "Claude Code" : "Codex"), folder: config.cwd || undefined, argv: entry.argv });
+        run("tab.new", { space: this.space, name: props()?.name || NAMES[entry.agent], folder: config.cwd || undefined, argv: entry.argv });
         setShared(HISTORY, [entry, ...this.entries()].slice(0, 20));
         setShared("unattended.exceptions", exceptions);
         if (this.launch && props()?.overlay) closeOverlay(props().overlay);
@@ -139,7 +140,7 @@ export default class Unattended extends View {
     const t = theme();
     if (this.sourceAddress) return this.renderSwitch(t);
     if (this.launch) return v_flex().id("unattended-launch").size_full().p(20).gap(12).bg(t.popover).text_color(t.foreground).text_size(13)
-      .child(div().text_size(16).font_semibold().child(props()?.name || (this.agent === "claude" ? "Claude Code" : "Codex")))
+      .child(div().text_size(16).font_semibold().child(props()?.name || NAMES[this.agent]))
       .child(div().text_color(t.dim).child(tr("Unattended")))
       .when(this.busy, el => el.child(div().child(tr("Starting…"))))
       .when(Boolean(this.error), el => el.child(div().flex_1().min_h(0).overflow_y_scrollbar().text_color(t.blocked).child(this.error))
@@ -152,6 +153,7 @@ export default class Unattended extends View {
       .child(h_flex().gap(8)
         .child(this.button("unattended-codex", "Codex", cx => { this.agent = "codex"; cx.notify(); }, this.agent === "codex", !this.sourceAddress && !this.busy))
         .child(this.button("unattended-claude", "Claude Code", cx => { this.agent = "claude"; cx.notify(); }, this.agent === "claude", !this.sourceAddress && !this.busy))
+        .child(this.button("unattended-antigravity", "Antigravity", cx => { this.agent = "antigravity"; cx.notify(); }, this.agent === "antigravity", !this.sourceAddress && !this.busy))
         .child(div().flex_1()).child(div().text_color(t.dim).child(this.on ?? tr("This computer"))))
       .child(label("Working folder"))
       .child(input(Input.new(this.folder)).h(36))
@@ -174,7 +176,7 @@ export default class Unattended extends View {
           .child(h_flex().gap(8).items_center().child(div().font_medium().child(entry.agent))
             .child(div().text_color(t.dim).child(tr(stale && state?.status !== "done" ? "Not connected" : STATUS[state?.status] ?? "Starting…")))
             .child(div().flex_1()).child(div().text_size(11).text_color(t.dim).child(tr("{0} automatic approvals", [state?.approvalCount ?? 0]))))
-          .child(div().truncate().child(entry.task || (entry.agent === "claude" ? "Claude Code" : "Codex")))
+          .child(div().truncate().child(entry.task || NAMES[entry.agent]))
           .when(Boolean(state?.error), el => el.child(div().text_color(t.destructive).child(state.error)))
           .child(h_flex().gap(8)
             .child(this.button(`open-${entry.id}`, tr("Open terminal"), () => run("terminal.peek", { terminal: address }), false, Boolean(address)))

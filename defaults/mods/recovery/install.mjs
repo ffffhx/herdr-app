@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, copyFileSync, openSync, fsyncSync, closeSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 
 export function atomic(path, value) { atomicText(path, JSON.stringify(value, null, 2) + "\n"); }
@@ -36,10 +37,11 @@ export function mergeAntigravityHooks(config, command) {
     }
   }
   const handler = { type: "command", command, timeout: 10 };
-  result["herdr-recovery"] = { SessionStart: [handler], PreInvocation: [handler], Stop: [handler] };
+  result["herdr-recovery"] = { SessionStart: [handler], PreInvocation: [handler], Stop: [handler],
+    PreToolUse: [{ matcher: "*", hooks: [handler] }] };
   return result;
 }
-export function install(home, env = process.env, platform = process.platform, userHome = homedir()) {
+export function install(home, env = process.env, platform = process.platform, userHome = homedir(), onlyAgent) {
   const configured = { codex: env.CODEX_HOME, claude: env.CLAUDE_CONFIG_DIR, antigravity: env.ANTIGRAVITY_CONFIG_DIR };
   const defaults = { codex: join(userHome, ".codex"), claude: join(userHome, ".claude"), antigravity: join(userHome, ".gemini", "config") };
   const roots = { codex: configured.codex || defaults.codex, claude: configured.claude || defaults.claude, antigravity: configured.antigravity || defaults.antigravity };
@@ -49,6 +51,7 @@ export function install(home, env = process.env, platform = process.platform, us
   const isolated = !samePath(home, defaultHome) || Boolean(env.HC_SESSION && env.HC_SESSION !== "default");
   const results = [];
   for (const [agent, root] of Object.entries(roots)) {
+    if (onlyAgent && agent !== onlyAgent) continue;
     // A preview must not redirect the daily provider's shared hook launcher.
     // This also protects an explicitly inherited default provider directory.
     if (isolated && (!configured[agent] || samePath(root, defaults[agent]))) {
@@ -90,4 +93,10 @@ export function install(home, env = process.env, platform = process.platform, us
     } catch (error) { results.push({ agent, state: "error", error: error.message }); }
   }
   return results;
+}
+
+if (process.argv[2] === "--antigravity" && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
+  const home = process.argv[3] || process.env.HERDR_APP_HOME || join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "herdr-app");
+  const [result] = install(home, process.env, process.platform, homedir(), "antigravity");
+  if (result.state !== "installed") throw new Error(result.error || "Antigravity configuration directory not found");
 }

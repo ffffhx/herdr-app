@@ -19,13 +19,13 @@ panel only hides it; ask the parent agent to stop its task. `/side` keeps its
 native policy. This requires the separately built CLI described in
 `docs/codex-panels.md`; installing Herdr alone does not enable these views.
 
-Creating Codex or Claude Code from the + menu or its number shortcuts defaults
+Creating Codex, Claude Code or Antigravity from the + menu or its number shortcuts defaults
 to unattended mode with saved exceptions and an empty native conversation.
-The + menu's **Unattended agents** starts Codex or Claude Code with automatic
+The + menu's **Unattended agents** starts Codex, Claude Code or Antigravity with automatic
 approval and an approval journal. Open its panel with
 `herdr-app do tab.new --name "Unattended agents" --mod unattended`.
 It requires Node.js 20+ and an authenticated CLI on the task machine; it starts
-a separate native interactive session. An existing Codex/Claude Code terminal's
+a separate native interactive session. An existing Codex, Claude Code or Antigravity terminal's
 Herdr tab or pane right-click menu offers **Switch to unattended**. This attaches
 a background approval observer to that exact terminal without restarting it,
 interrupting work, clearing a draft or changing the tab, pane or conversation.
@@ -36,6 +36,12 @@ visible for the person. Use **Turn automatic approval off** in the same right-cl
 menu or the Unattended agents panel. An **Unattended** badge on the original tab
 and pane header follows the approval state. All slash commands in native terminals
 keep their agent-defined meaning.
+Antigravity (`agy`) uses its native `PreToolUse` hook. It checks the terminal's
+live observer and current policy before each tool request. Matching exception
+keywords request manual review. Automatic decisions appear in the run journal.
+An existing CLI must load the hook to process new requests. A permission card
+already on screen still needs an answer in the terminal.
+
 Observers subscribe to terminal state events, with a 10-second fallback and
 automatic reconnection. Policy changes wake them immediately. State files update
 on change or a 5-second heartbeat, rather than on a half-second polling loop.

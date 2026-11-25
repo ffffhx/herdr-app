@@ -1,7 +1,7 @@
-import { existsSync, realpathSync, openSync, readSync, closeSync } from "node:fs";
+import { appendFileSync, readFileSync, existsSync, realpathSync, openSync, readSync, closeSync } from "node:fs";
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { Core } from "./core.mjs";
@@ -152,6 +152,35 @@ export async function capture(core, agent, rawPayload, terminal = process.env.HC
     return doc;
   });
 }
+// The provider calls this before prompting. An empty response delegates to
+// its configured policy, including when the terminal or observer has exited.
+export async function antigravityDecision(core, payload, terminal, verify = term => verifyProcess(term, "antigravity")) {
+  const call = payload.toolCall;
+  if (!/^t[0-9a-z]+$/.test(terminal) || !UUID.test(payload.conversationId || "")
+    || (payload.rootConversationId && payload.rootConversationId !== payload.conversationId)
+    || !call || typeof call.name !== "string" || !call.name || !call.args || typeof call.args !== "object") return {};
+  const term = await core.call("terminal.get", { terminal });
+  const control = term.labels?.["herdr.unattended.control"];
+  if (term.address !== terminal || term.state !== "live" || term.labels?.["herdr.unattended"] !== "on"
+    || !control || basename(control) !== "control.json") return {};
+  const owner = await verify(term);
+  if (!owner?.pid) return {};
+  const directory = dirname(control);
+  const state = JSON.parse(readFileSync(join(directory, "state.json"), "utf8"));
+  if ((state.agentPid && state.agentPid !== owner.pid) || state.agent !== "antigravity" || !state.native || !state.ready || !state.running || state.terminal !== terminal
+    || state.sourceCreated !== term.created_ms || state.sourcePid !== term.pid || !Number.isFinite(state.updated)
+    || Date.now() - state.updated > 15000 || !Number.isInteger(state.pid) || state.pid <= 0) return {};
+  process.kill(state.pid, 0);
+  const policy = JSON.parse(readFileSync(control, "utf8"));
+  if (policy.enabled !== true || !Array.isArray(policy.exceptions) || policy.exceptions.some(v => typeof v !== "string")) return {};
+  const context = JSON.stringify(call).toLowerCase();
+  if (policy.exceptions.some(v => v.trim() && context.includes(v.trim().toLowerCase()))) return { decision: "force_ask" };
+  if (["ask_question", "notify_user"].includes(call.name) || /(?:hand back|return control|交还控制|归还控制)/i.test(context)) return {};
+  appendFileSync(join(directory, "events.jsonl"), JSON.stringify({ time: new Date().toISOString(), type: "decision",
+    source: "automatic", kind: "antigravity/PreToolUse", terminal, conversation: payload.conversationId,
+    tool: call.name, step: payload.stepIdx }) + "\n", { mode: 0o600 });
+  return { decision: "auto_approve" };
+}
 // Older Node 20 releases lack import.meta.main. macOS may launch via /var, a symlink to /private/var.
 if (import.meta.main ?? (process.argv[1] && existsSync(process.argv[1]) && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url)) {
   const agent = process.argv[2];
@@ -164,9 +193,14 @@ if (import.meta.main ?? (process.argv[1] && existsSync(process.argv[1]) && pathT
     if (text.trim()) { try { parsed = JSON.parse(text); } catch {} }
   }
   // Outside a core-owned terminal this hook does nothing, including no server start.
+  const event = parsed?.hookEventName || parsed?.hook_event_name;
+  let response = event === "Stop" ? { decision: "allow" } : {};
   if (inTerminal && parsed) {
     const core = new Core();
-    try { await capture(core, agent, parsed); }
+    try {
+      if (agent === "antigravity" && event === "PreToolUse") response = await antigravityDecision(core, parsed, process.env.HC_TERMINAL_ID);
+      else await capture(core, agent, parsed);
+    }
     catch (error) {
       if (agent !== "antigravity") { console.error(`[Herdr session capture] ${error.message}`); process.exitCode = 1; }
     }
@@ -174,7 +208,6 @@ if (import.meta.main ?? (process.argv[1] && existsSync(process.argv[1]) && pathT
   }
   // Antigravity hooks require a JSON response object on stdout.
   if (agent === "antigravity") {
-    const event = parsed?.hookEventName || parsed?.hook_event_name;
-    process.stdout.write(event === "Stop" ? '{"decision":"allow"}\n' : "{}\n");
+    process.stdout.write(JSON.stringify(response) + "\n");
   }
 }

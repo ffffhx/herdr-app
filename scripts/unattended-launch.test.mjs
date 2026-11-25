@@ -23,7 +23,7 @@ function harness({ remote = false, failAgent = false } = {}) {
       if (args[0] === "--version") return { code: failAgent && command === "codex" ? 1 : 0, stdout: command === "node" ? "v22.1.0" : "installed", stderr: failAgent ? "missing CLI" : "" };
       if (args[0] === "-e" && ["codex", "claude"].includes(args[2])) return { code: failAgent ? 1 : 0, stdout: failAgent ? "" : "installed", stderr: failAgent ? "missing CLI" : "" };
       assert(remote); assert.equal(options.on, "test-machine"); assert.equal(command, "node");
-      const r = spawnSync(process.execPath, args, { encoding: "utf8", env: { ...process.env, HOME: home, USERPROFILE: home } });
+      const r = spawnSync(process.execPath, args, { encoding: "utf8", env: { ...process.env, HOME: home, USERPROFILE: home, ANTIGRAVITY_CONFIG_DIR: join(home, ".gemini", "config"), XDG_CONFIG_HOME: join(home, ".config"), HC_SESSION: "default", HERDR_APP_HOME: "" } });
       return { code: r.status, stdout: r.stdout, stderr: r.stderr };
     },
   };
@@ -110,7 +110,8 @@ function menuHarness({ on = null } = {}) {
   const view = new Menu();
   view.agents = [{ key: "codex", name: "Codex", installed: true, run: ["codex", "--no-daemon"] },
     { key: "claude", name: "Claude Code", installed: true, run: ["claude"] },
-    { key: "pi", name: "Pi", installed: true, run: ["pi"] }];
+    { key: "pi", name: "Pi", installed: true, run: ["pi"] },
+    { key: "antigravity", name: "Antigravity", installed: true, run: ["agy"] }];
   const tree = view.render();
   const find = (node, id) => node?.elementId === id ? node : node?.nodes?.map(child => find(child, id)).find(Boolean);
   return { overlays, runs, closed,
@@ -127,6 +128,14 @@ test("agent menu clicks and number shortcuts use the unattended launcher in the 
       launch: method === "click" ? ["codex", "--no-daemon"] : ["claude"], folder: "/project/subfolder" } }]);
     assert.deepEqual(h.runs, []);
     assert.deepEqual(h.closed, ["menu"]);
+  }
+});
+
+test("Antigravity opens the unattended launcher through either menu input", () => {
+  for (const method of ["click", "key"]) {
+    const h = menuHarness(); h[method](method === "click" ? "antigravity" : "4");
+    assert.equal(h.overlays[0].props.agent, "antigravity");
+    assert.deepEqual(h.overlays[0].props.launch, ["agy"]);
   }
 });
 
@@ -172,4 +181,20 @@ test("remote preparation copies a self-contained runtime and preserves literal U
   writeFileSync(join(entry.directory, "control.json"), JSON.stringify({ enabled: true, exceptions: ["发布"] }));
   await changePolicy(entry, false);
   assert.deepEqual(JSON.parse(readFileSync(join(entry.directory, "control.json"), "utf8")), { enabled: false, exceptions: ["发布"] });
+});
+
+test("remote Antigravity launch stages and installs its hook on the task machine", async t => {
+  const { home, prepare } = harness({ remote: true });
+  const { cpSync, rmSync } = await import("node:fs");
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  for (const mod of ["unattended", "recovery"]) {
+    cpSync(new URL(`../defaults/mods/${mod}/`, import.meta.url), join(home, "mods", mod), { recursive: true });
+  }
+  const config = join(home, ".gemini", "config");
+  mkdirSync(config, { recursive: true });
+  const entry = await prepare({ agent: "antigravity", argv: ["agy"], native: true, exceptions: [], on: "test-machine" });
+  assert(entry.argv[1].endsWith("native.mjs"));
+  const hooks = JSON.parse(readFileSync(join(config, "hooks.json"), "utf8"));
+  assert.equal(hooks["herdr-recovery"].PreToolUse[0].matcher, "*");
+  assert(!existsSync(join(home, ".codex", "hooks.json")));
 });

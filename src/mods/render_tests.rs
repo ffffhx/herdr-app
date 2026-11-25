@@ -13,8 +13,8 @@ struct Staged(PathBuf);
 impl Staged {
     fn new() -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
-        let path = PathBuf::from(format!(
-            "/var/tmp/herdr-render-{}-{}",
+        let path = std::env::temp_dir().join(format!(
+            "herdr-render-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
@@ -863,6 +863,10 @@ fn unattended_resume_confirms_current_agent_without_configuration(cx: &mut TestA
     let mut values = fixture(true, props(), updates("current", "current"));
     values.insert("terminals".into(), json!([{"address":"t1","report":{"app":"codex"},"argv":["codex"],"cwd":"/fixture/project"}]));
     let tree = describe_with_values(cx, &staged, "mods/menu", values, None).unwrap();
+    assert!(tree.contains("Switch to unattended"), "{tree}");
+    let mut agy = fixture(true, props(), updates("current", "current"));
+    agy.insert("terminals".into(), json!([{"address":"t1","program":{"key":"antigravity"},"argv":["agy"]}]));
+    let tree = describe_with_values(cx, &staged, "mods/menu", agy, None).unwrap();
     assert!(tree.contains("Switch to unattended"), "{tree}");
     let mut tab_values = fixture(true, json!({"tab":"tab","target":{"id":"tab2","space":"s2"}}), updates("current", "current"));
     tab_values.insert("terminals".into(), json!([{"address":"t2","report":{"app":"claude-code"},"argv":["claude"],"cwd":"/remote/project"}]));

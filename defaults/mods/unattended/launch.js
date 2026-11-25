@@ -6,7 +6,7 @@ const FILES = ["native.mjs", "events.mjs", "runner.mjs", "adapters.mjs", "superv
 const probeCLI = `
 const {spawnSync}=require('node:child_process'),{existsSync}=require('node:fs');
 const agent=process.argv[1];
-if(!['codex','claude'].includes(agent))process.exit(2);
+if(!['codex','claude','agy'].includes(agent))process.exit(2);
 const env={...process.env},win=process.platform==='win32';
 if(win){
   const key=Object.keys(env).find(k=>k.toLowerCase()==='path'),seen=new Set();
@@ -33,13 +33,14 @@ async function checked(command, args, on) {
 }
 
 export async function prepare({ agent, task = "", argv, cwd, exceptions, on, resumeSessionId, source, resumeOriginal, native = false }) {
-  if (!["codex", "claude"].includes(agent) || (!native && !task.trim())) throw new Error("Choose an agent and enter a task");
+  const supported = ["codex", "claude"].includes(agent) || (native && agent === "antigravity");
+  if (!supported || (!native && !task.trim())) throw new Error("Choose an agent and enter a task");
   if (argv !== undefined && (!native || !Array.isArray(argv) || !argv.length || argv.some(a => typeof a !== "string") || !argv[0])) throw new Error("Invalid native agent command");
   const version = await checked("node", ["--version"], on);
   if (Number(/^v(\d+)/.exec(version)?.[1] ?? 0) < 20) throw new Error("Node.js 20 or newer is required on the task machine");
   // Menu commands have already been discovered by knownAgents(); they may use
   // a custom executable instead of the provider's usual PATH entry.
-  if (!argv) await checked("node", ["-e", probeCLI, agent], on);
+  if (!argv) await checked("node", ["-e", probeCLI, agent === "antigravity" ? "agy" : agent], on);
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const config = { agent, task, cwd: cwd || undefined, enabled: true, exceptions,
     ...(native ? { native: true, ...(argv ? { argv } : {}), ...(source ? { source } : {}) } : {}),
@@ -57,6 +58,18 @@ export async function prepare({ agent, task = "", argv, cwd, exceptions, on, res
     directory = `${appHome()}/data/unattended/runs/${id}`;
     await writeTextFile(`${directory}/task.json`, JSON.stringify(config), null);
     runner = `${appHome()}/mods/unattended/${native ? "native" : "runner"}.mjs`;
+  }
+  if (agent === "antigravity") {
+    let installer = `${appHome()}/mods/recovery/install.mjs`;
+    if (on) {
+      for (const file of ["install.mjs", "hook.mjs", "core.mjs", "model.mjs"]) {
+        const text = await readTextFile(`${appHome()}/mods/recovery/${file}`);
+        if (text === null) throw new Error(`Missing Antigravity hook installer: ${file}`);
+        await checked("node", ["-e", remoteWrite, JSON.stringify({ dir: directory, file, text })], on);
+      }
+      installer = `${directory}/install.mjs`;
+    }
+    await checked("node", [installer, "--antigravity", ...(on ? [] : [appHome()])], on);
   }
   return { id, agent, task, directory, on: on ?? null, ...(native ? { native: true, source } : {}), ...(resumeSessionId ? { resumeSessionId, source } : {}), ...(resumeOriginal ? { resumeOriginal: true, source } : {}), argv: ["node", runner, ...(native && source ? ["--watch"] : []), "--config", `${directory}/task.json`] };
 }
@@ -98,7 +111,7 @@ export async function originalTerminal(address, on) {
   const local = on && address.startsWith(`${on}/`) ? address.slice(on.length + 1) : address;
   if (!/^t[0-9a-z]+$/.test(local)) throw new Error("Invalid original terminal");
   const term = JSON.parse(await checked("hc", ["get", local, "--json"], on));
-  return { address: term.address, created_ms: term.created_ms, pid: term.pid, cwd: term.cwd, app: term.status?.app,
+  return { address: term.address, created_ms: term.created_ms, pid: term.pid, cwd: term.cwd, app: term.status?.app || (/^(agy|antigravity)(\.exe)?$/i.test(term.foreground?.name) ? "antigravity" : undefined),
     ...(term.labels?.["herdr.unattended.control"] ? { controlPath: term.labels["herdr.unattended.control"] } : {}) };
 }
 

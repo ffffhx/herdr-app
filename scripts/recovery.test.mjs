@@ -356,3 +356,29 @@ test("a concurrently replaced conversation cancels pending input without overwri
   assert.equal(c.doc.records["t1:1"].state, "ready");
   assert.equal(c.doc.records["t1:1"].attempt, null);
 });
+
+test("Antigravity tool decisions follow the live terminal and current exception policy", async t => {
+  const { antigravityDecision } = await import("../defaults/mods/recovery/hook.mjs");
+  const directory = mkdtempSync(join(tmpdir(), "herdr-agy-decision-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const control = join(directory, "control.json");
+  const terminal = term({ labels: { "herdr.unattended": "on", "herdr.unattended.control": control } });
+  const core = { call: async () => terminal };
+  const state = { agent: "antigravity", native: true, ready: true, running: true, terminal: terminal.address,
+    sourceCreated: terminal.created_ms, sourcePid: terminal.pid, agentPid: 42, updated: Date.now(), pid: process.pid };
+  const save = (file, value) => writeFileSync(join(directory, file), JSON.stringify(value));
+  const decide = (name, args, pid = 42) => antigravityDecision(core, { conversationId: id, toolCall: { name, args } },
+    terminal.address, async () => ({ pid }));
+  save("state.json", state);
+  save("control.json", { enabled: true, exceptions: ["Git Push"] });
+  assert.deepEqual(await decide("run_command", { CommandLine: "npm test" }), { decision: "auto_approve" });
+  assert.deepEqual(await decide("run_command", { CommandLine: "git push" }), { decision: "force_ask" });
+  assert.deepEqual(await decide("ask_question", {}), {});
+  assert.deepEqual(await decide("run_command", {}, 43), {});
+  save("state.json", { ...state, updated: Date.now() - 60000 });
+  assert.deepEqual(await decide("run_command", {}), {});
+  save("state.json", state);
+  save("control.json", { enabled: false, exceptions: [] });
+  assert.deepEqual(await decide("run_command", {}), {});
+  assert.equal(JSON.parse(readFileSync(join(directory, "events.jsonl"), "utf8")).tool, "run_command");
+});

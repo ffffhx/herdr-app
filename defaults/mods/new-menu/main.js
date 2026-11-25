@@ -39,7 +39,7 @@ export default class NewMenu extends View {
     });
   }
   start(agent, space) {
-    if (!["codex", "claude"].includes(agent.key)) {
+    if (!["codex", "claude", "antigravity"].includes(agent.key)) {
       run("tab.new", { name: agent.name, space: space?.id, argv: agent.run });
       return;
     }

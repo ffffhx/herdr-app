@@ -868,13 +868,13 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
 
 ### Unattended agents
 
-Creating Codex or Claude Code from the + menu (including its number shortcuts)
+Creating Codex, Claude Code or Antigravity from the + menu (including its number shortcuts)
 enables unattended mode by default, using saved automatic-approval exceptions.
 It opens an empty native conversation, preserving the configured launch arguments
 and working folder. Other agents retain their normal launch behavior.
 The + menu's **Unattended agents** opens the `unattended` mod to enter a task,
 edit exceptions or manage recent runs.
-New tasks start the normal interactive Codex or Claude Code terminal with a
+New tasks start the normal interactive Codex, Claude Code or Antigravity terminal with a
 background automatic approval observer. Node.js 20+ and a signed-in agent CLI
 are required on the task machine; local and SSH spaces use that machine's
 configuration and credentials. Global agent permissions are unchanged.
@@ -883,13 +883,19 @@ configuration and credentials. Global agent permissions are unchanged.
 herdr-app do tab.new --name "Unattended agents" --mod unattended
 ```
 
-For an existing Codex or Claude Code terminal, choose **Switch to unattended**
+For an existing Codex, Claude Code or Antigravity terminal, choose **Switch to unattended**
 in its tab or pane's Herdr right-click menu. Confirm automatic approval once.
 The same terminal process, tab, pane, conversation history, scrollback and draft
 stay in place. The observer does not interrupt the agent, request its session ID,
 restart it, clear its composer or send a new task. It also works while the agent
 is working or waiting for approval. In a split tab, the menu names each eligible
 terminal separately and targets the clicked tab even when it is inactive.
+
+Antigravity (`agy`) uses its native `PreToolUse` hook. It checks the terminal's
+live observer and current policy before each tool request. Matching exception
+keywords request manual review. Automatic decisions appear in the run journal.
+An existing CLI must load the hook to process new requests. A permission card
+already on screen still needs an answer in the terminal.
 
 The observer checks the exact terminal address, creation time, PID and reported
 agent. It keeps one `hc events --terminal` subscription: status changes trigger
