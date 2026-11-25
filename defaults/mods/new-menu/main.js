@@ -79,9 +79,14 @@ export default class NewMenu extends View {
     const localProfiles = !space?.machine ? savedProfiles() : [];
     const rawInstalled = this.agents.filter(a => a.installed);
     const hasAntigravity = !space?.machine && rawInstalled.some(a => a.key === "antigravity");
-    const installed = rawInstalled.flatMap(a => a.key === "antigravity" && localProfiles.length
-      ? [a, ...localProfiles.map(p => ({ ...a, rowId: `antigravity-profile-${p.id}`, name: `${a.name} · ${p.name}`, profile: { id: p.id, name: p.name } }))]
-      : [a]);
+    const agyBase = rawInstalled.find(a => a.key === "antigravity");
+    const profileAgents = agyBase && localProfiles.length
+      ? localProfiles.map(p => ({ ...agyBase, rowId: `antigravity-profile-${p.id}`, name: `${agyBase.name} · ${p.name}`, profile: { id: p.id, name: p.name } }))
+      : [];
+    const otherInstalled = profileAgents.length
+      ? [...rawInstalled.filter(a => a.key !== "antigravity"), agyBase]
+      : rawInstalled;
+    const installed = [...profileAgents, ...otherInstalled];
     const choices = [...installed, ...this.agents.filter(a => !a.installed).slice(0, 2)];
     const extraRows = hasAntigravity ? 1 : 0;
     return v_flex().min_h(0).w_full().h(Math.min(522, 198 + (Math.max(1, choices.length) + extraRows) * 31)).bg(t.popover).p(5).text_size(12.8)
