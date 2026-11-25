@@ -386,17 +386,25 @@ test("event clients reconnect after exit, accept fresh snapshots and close their
   await sleep(50); assert.equal(children.length, 2); assert(children.every(c => c.killed));
 });
 
-test("Antigravity launches its interactive task as one literal argument", async t => {
+test("Antigravity launches with session-scoped skip-permissions and literal task argument", async t => {
   const directory = mkdtempSync(join(tmpdir(), "herdr-agy-argv-")), path = join(directory, "task.json");
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   for (const task of ["", "中文 $(literal)\n--version"]) {
     writeFileSync(path, JSON.stringify({ agent: "antigravity", task, cwd: directory }));
     await native(path, { platform: "darwin", launch: (program, args) => {
       assert.equal(program, "agy");
-      assert.deepEqual(args, task ? ["--prompt-interactive", task] : []);
+      assert.deepEqual(args, task ? ["--dangerously-skip-permissions", "--prompt-interactive", task] : ["--dangerously-skip-permissions"]);
       const child = new EventEmitter();
       queueMicrotask(() => child.emit("exit", 0));
       return child;
     }, observe: async () => {} });
   }
+  writeFileSync(path, JSON.stringify({ agent: "antigravity", enabled: false, task: "", cwd: directory }));
+  await native(path, { platform: "darwin", launch: (program, args) => {
+    assert.equal(program, "agy");
+    assert.deepEqual(args, []);
+    const child = new EventEmitter();
+    queueMicrotask(() => child.emit("exit", 0));
+    return child;
+  }, observe: async () => {} });
 });

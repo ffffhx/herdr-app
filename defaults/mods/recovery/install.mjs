@@ -37,8 +37,10 @@ export function mergeAntigravityHooks(config, command) {
     }
   }
   const handler = { type: "command", command, timeout: 10 };
-  result["herdr-recovery"] = { SessionStart: [handler], PreInvocation: [handler], Stop: [handler],
-    PreToolUse: [{ matcher: "*", hooks: [handler] }] };
+  // Antigravity's PreToolUse hook requires an explicit decision (allow/deny/ask/force_ask);
+  // returning {} is treated as a hard deny, which breaks non-unattended sessions.
+  // Register only lifecycle capture hooks globally.
+  result["herdr-recovery"] = { SessionStart: [handler], PreInvocation: [handler], Stop: [handler] };
   return result;
 }
 export function install(home, env = process.env, platform = process.platform, userHome = homedir(), onlyAgent) {

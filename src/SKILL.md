@@ -36,11 +36,10 @@ visible for the person. Use **Turn automatic approval off** in the same right-cl
 menu or the Unattended agents panel. An **Unattended** badge on the original tab
 and pane header follows the approval state. All slash commands in native terminals
 keep their agent-defined meaning.
-Antigravity (`agy`) uses its native `PreToolUse` hook. It checks the terminal's
-live observer and current policy before each tool request. Matching exception
-keywords request manual review. Automatic decisions appear in the run journal.
-An existing CLI must load the hook to process new requests. A permission card
-already on screen still needs an answer in the terminal.
+Antigravity (`agy`) unattended sessions launch with `--dangerously-skip-permissions`
+so session-scoped automatic approval works without installing a global `PreToolUse`
+hook (which would intercept non-unattended Antigravity sessions). Global `hooks.json`
+registers only lifecycle capture hooks (`SessionStart`, `PreInvocation`, `Stop`).
 
 For multiple simultaneous Google AI accounts on the local machine, open
 **Antigravity accounts** from the `+` menu (or

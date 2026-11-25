@@ -106,7 +106,8 @@ test("prepareProfile isolates .gemini, sets AGY_CLI_FORCE_FILE_TOKEN_STORAGE=1, 
   assert.equal(prepared.hooksResult?.state, "installed");
   assert.equal(prepared.statusLineResult?.state, "installed");
   const profileHooks = JSON.parse(readFileSync(join(prepared.paths.configDir, "hooks.json"), "utf8"));
-  assert.equal(profileHooks["herdr-recovery"].PreToolUse[0].matcher, "*");
+  assert.equal(profileHooks["herdr-recovery"].SessionStart[0].type, "command");
+  assert.equal(profileHooks["herdr-recovery"].PreToolUse, undefined);
   const profileSettings = JSON.parse(readFileSync(join(prepared.paths.agyHome, "settings.json"), "utf8"));
   assert.equal(profileSettings.statusLine.type, "command");
 

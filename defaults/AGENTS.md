@@ -893,9 +893,10 @@ restart it, clear its composer or send a new task. It also works while the agent
 is working or waiting for approval. In a split tab, the menu names each eligible
 terminal separately and targets the clicked tab even when it is inactive.
 
-Antigravity (`agy`) uses its native `PreToolUse` hook. It checks the terminal's
-live observer and current policy before each tool request. Matching exception
-keywords request manual review. Automatic decisions appear in the run journal.
+Antigravity (`agy`) unattended sessions launch with `--dangerously-skip-permissions`
+so session-scoped automatic approval works without installing a global `PreToolUse`
+hook (which would intercept non-unattended Antigravity sessions). Global `hooks.json`
+registers only lifecycle capture hooks (`SessionStart`, `PreInvocation`, `Stop`).
 
 ### Antigravity multi-account profiles
 

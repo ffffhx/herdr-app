@@ -195,7 +195,8 @@ test("remote Antigravity launch stages and installs its hook on the task machine
   const entry = await prepare({ agent: "antigravity", argv: ["agy"], native: true, exceptions: [], on: "test-machine" });
   assert(entry.argv[1].endsWith("native.mjs"));
   const hooks = JSON.parse(readFileSync(join(config, "hooks.json"), "utf8"));
-  assert.equal(hooks["herdr-recovery"].PreToolUse[0].matcher, "*");
+  assert.equal(hooks["herdr-recovery"].SessionStart[0].type, "command");
+  assert.equal(hooks["herdr-recovery"].PreToolUse, undefined);
   assert(!existsSync(join(home, ".codex", "hooks.json")));
 });
 

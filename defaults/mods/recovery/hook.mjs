@@ -161,34 +161,35 @@ export async function capture(core, agent, rawPayload, terminal = process.env.HC
     return doc;
   });
 }
-// The provider calls this before prompting. An empty response delegates to
-// its configured policy, including when the terminal or observer has exited.
+// Antigravity's PreToolUse contract requires an explicit decision (allow/deny/ask/force_ask);
+// an empty {} response is treated as a hard deny. Always fall back to "ask" rather than {}.
 export async function antigravityDecision(core, payload, terminal, verify = term => verifyProcess(term, "antigravity")) {
+  const fallback = { decision: "ask" };
   const call = payload.toolCall;
   if (!/^t[0-9a-z]+$/.test(terminal) || !UUID.test(payload.conversationId || "")
     || (payload.rootConversationId && payload.rootConversationId !== payload.conversationId)
-    || !call || typeof call.name !== "string" || !call.name || !call.args || typeof call.args !== "object") return {};
+    || !call || typeof call.name !== "string" || !call.name || !call.args || typeof call.args !== "object") return fallback;
   const term = await core.call("terminal.get", { terminal });
   const control = term.labels?.["herdr.unattended.control"];
   if (term.address !== terminal || term.state !== "live" || term.labels?.["herdr.unattended"] !== "on"
-    || !control || basename(control) !== "control.json") return {};
+    || !control || basename(control) !== "control.json") return fallback;
   const owner = await verify(term);
-  if (!owner?.pid) return {};
+  if (!owner?.pid) return fallback;
   const directory = dirname(control);
   const state = JSON.parse(readFileSync(join(directory, "state.json"), "utf8"));
   if ((state.agentPid && state.agentPid !== owner.pid) || state.agent !== "antigravity" || !state.native || !state.ready || !state.running || state.terminal !== terminal
     || state.sourceCreated !== term.created_ms || state.sourcePid !== term.pid || !Number.isFinite(state.updated)
-    || Date.now() - state.updated > 15000 || !Number.isInteger(state.pid) || state.pid <= 0) return {};
+    || Date.now() - state.updated > 15000 || !Number.isInteger(state.pid) || state.pid <= 0) return fallback;
   process.kill(state.pid, 0);
   const policy = JSON.parse(readFileSync(control, "utf8"));
-  if (policy.enabled !== true || !Array.isArray(policy.exceptions) || policy.exceptions.some(v => typeof v !== "string")) return {};
+  if (policy.enabled !== true || !Array.isArray(policy.exceptions) || policy.exceptions.some(v => typeof v !== "string")) return fallback;
   const context = JSON.stringify(call).toLowerCase();
   if (policy.exceptions.some(v => v.trim() && context.includes(v.trim().toLowerCase()))) return { decision: "force_ask" };
-  if (["ask_question", "notify_user"].includes(call.name) || /(?:hand back|return control|交还控制|归还控制)/i.test(context)) return {};
+  if (["ask_question", "notify_user"].includes(call.name) || /(?:hand back|return control|交还控制|归还控制)/i.test(context)) return fallback;
   appendFileSync(join(directory, "events.jsonl"), JSON.stringify({ time: new Date().toISOString(), type: "decision",
     source: "automatic", kind: "antigravity/PreToolUse", terminal, conversation: payload.conversationId,
     tool: call.name, step: payload.stepIdx }) + "\n", { mode: 0o600 });
-  return { decision: "auto_approve" };
+  return { decision: "allow" };
 }
 // Older Node 20 releases lack import.meta.main. macOS may launch via /var, a symlink to /private/var.
 if (import.meta.main ?? (process.argv[1] && existsSync(process.argv[1]) && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url)) {
@@ -203,7 +204,9 @@ if (import.meta.main ?? (process.argv[1] && existsSync(process.argv[1]) && pathT
   }
   // Outside a core-owned terminal this hook does nothing, including no server start.
   const event = parsed?.hookEventName || parsed?.hook_event_name;
-  let response = event === "Stop" ? { decision: "allow" } : {};
+  let response = event === "Stop" ? { decision: "allow" }
+    : agent === "antigravity" && event === "PreToolUse" ? { decision: "ask" }
+    : {};
   if (inTerminal && parsed) {
     const core = new Core();
     try {

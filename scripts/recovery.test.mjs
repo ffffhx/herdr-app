@@ -125,8 +125,13 @@ test("hook setup preserves foreign settings, is idempotent, and keeps unreadable
   const result = install(home, { CODEX_HOME: root, CLAUDE_CONFIG_DIR: join(home, "absent"), ANTIGRAVITY_CONFIG_DIR: join(home, "absent-agy") });
   assert.equal(result[0].state, "error");
   assert.equal(readFileSync(join(root, "hooks.json"), "utf8"), "broken-json");
-  const agyMerged = mergeAntigravityHooks({ linter: { PostToolUse: [{ matcher: "run_command", hooks: [{ command: "lint" }] }] } }, command);
+  const agyMerged = mergeAntigravityHooks({
+    linter: { PostToolUse: [{ matcher: "run_command", hooks: [{ command: "lint" }] }] },
+    "herdr-recovery": { PreToolUse: [{ matcher: "*", hooks: [{ command: "old" }] }] },
+  }, command);
   assert.equal(agyMerged.linter.PostToolUse[0].matcher, "run_command");
+  assert.equal(agyMerged["herdr-recovery"].PreToolUse, undefined);
+  assert.equal(agyMerged["herdr-recovery"].SessionStart[0].command, command);
   assert.deepEqual(mergeAntigravityHooks(agyMerged, command), agyMerged);
 });
 test("parallel recovery and disconnects never replay an uncertain send", async () => {
@@ -268,6 +273,11 @@ test("hook launchers support spaces, apostrophes and Unicode on the running plat
   });
   assert.equal(stopRun.status, 0, stopRun.stderr);
   assert.deepEqual(JSON.parse(stopRun.stdout), { decision: "allow" });
+  const preToolRun = spawnSync(process.platform === "win32" ? "powershell.exe" : "sh", agyArgs, {
+    env, input: JSON.stringify({ conversationId: id, hookEventName: "PreToolUse", toolCall: { name: "read_file", args: {} } }), encoding: "utf8", windowsHide: true,
+  });
+  assert.equal(preToolRun.status, 0, preToolRun.stderr);
+  assert.deepEqual(JSON.parse(preToolRun.stdout), { decision: "ask" });
   const cliBrain = join(root, ".gemini/antigravity-cli/brain", id, ".system_generated/logs");
   mkdirSync(cliBrain, { recursive: true });
   const realTranscript = join(cliBrain, "transcript.jsonl");
@@ -371,14 +381,14 @@ test("Antigravity tool decisions follow the live terminal and current exception 
     terminal.address, async () => ({ pid }));
   save("state.json", state);
   save("control.json", { enabled: true, exceptions: ["Git Push"] });
-  assert.deepEqual(await decide("run_command", { CommandLine: "npm test" }), { decision: "auto_approve" });
+  assert.deepEqual(await decide("run_command", { CommandLine: "npm test" }), { decision: "allow" });
   assert.deepEqual(await decide("run_command", { CommandLine: "git push" }), { decision: "force_ask" });
-  assert.deepEqual(await decide("ask_question", {}), {});
-  assert.deepEqual(await decide("run_command", {}, 43), {});
+  assert.deepEqual(await decide("ask_question", {}), { decision: "ask" });
+  assert.deepEqual(await decide("run_command", {}, 43), { decision: "ask" });
   save("state.json", { ...state, updated: Date.now() - 60000 });
-  assert.deepEqual(await decide("run_command", {}), {});
+  assert.deepEqual(await decide("run_command", {}), { decision: "ask" });
   save("state.json", state);
   save("control.json", { enabled: false, exceptions: [] });
-  assert.deepEqual(await decide("run_command", {}), {});
+  assert.deepEqual(await decide("run_command", {}), { decision: "ask" });
   assert.equal(JSON.parse(readFileSync(join(directory, "events.jsonl"), "utf8")).tool, "run_command");
 });

@@ -206,7 +206,8 @@ export async function native(configPath, { launch = spawn, observe = watch, plat
   if (!["codex", "claude", "antigravity"].includes(config.agent)) throw new Error("Unknown native agent");
   const argv = config.argv ?? [config.agent === "antigravity" ? "agy" : config.agent];
   if (!Array.isArray(argv) || !argv.length || argv.some(a => typeof a !== "string") || !argv[0]) throw new Error("Invalid native agent command");
-  const args = [...argv.slice(1), ...(config.task?.trim() ? (config.agent === "antigravity" ? ["--prompt-interactive", config.task] : [config.task]) : [])];
+  const agyAuto = config.agent === "antigravity" && config.enabled !== false && !argv.includes("--dangerously-skip-permissions");
+  const args = [...argv.slice(1), ...(agyAuto ? ["--dangerously-skip-permissions"] : []), ...(config.task?.trim() ? (config.agent === "antigravity" ? ["--prompt-interactive", config.task] : [config.task]) : [])];
   let spawnEnv = null;
   if (config.agent === "antigravity" && config.profile?.id) {
     // Load dynamically so remote SSH unattended staging stays self-contained.
@@ -219,7 +220,7 @@ export async function native(configPath, { launch = spawn, observe = watch, plat
   const keepParent = () => {}; // The native TUI handles the console's Ctrl+C.
   process.on("SIGINT", keepParent);
   const child = platform === "win32"
-    ? launch("powershell.exe", ["-NoLogo", "-NoProfile", "-Command", "$nativeTask = Get-Content -LiteralPath $env:HERDR_UNATTENDED_TASK_FILE -Raw -Encoding UTF8 | ConvertFrom-Json; $nativeArgv = @($nativeTask.agent); if ($nativeTask.agent -eq 'antigravity') { $nativeArgv = @('agy') }; if ($nativeTask.argv) { $nativeArgv = @($nativeTask.argv) }; $nativeArgs = @($nativeArgv | Select-Object -Skip 1); if ($nativeTask.task -and $nativeTask.task.Trim()) { if ($nativeTask.agent -eq 'antigravity') { $nativeArgs += '--prompt-interactive' }; $nativeArgs += $nativeTask.task }; & $nativeArgv[0] @nativeArgs; exit $LASTEXITCODE"],
+    ? launch("powershell.exe", ["-NoLogo", "-NoProfile", "-Command", "$nativeTask = Get-Content -LiteralPath $env:HERDR_UNATTENDED_TASK_FILE -Raw -Encoding UTF8 | ConvertFrom-Json; $nativeArgv = @($nativeTask.agent); if ($nativeTask.agent -eq 'antigravity') { $nativeArgv = @('agy') }; if ($nativeTask.argv) { $nativeArgv = @($nativeTask.argv) }; $nativeArgs = @($nativeArgv | Select-Object -Skip 1); if ($nativeTask.agent -eq 'antigravity' -and $nativeTask.enabled -ne $false -and -not ($nativeArgs -contains '--dangerously-skip-permissions')) { $nativeArgs += '--dangerously-skip-permissions' }; if ($nativeTask.task -and $nativeTask.task.Trim()) { if ($nativeTask.agent -eq 'antigravity') { $nativeArgs += '--prompt-interactive' }; $nativeArgs += $nativeTask.task }; & $nativeArgv[0] @nativeArgs; exit $LASTEXITCODE"],
       { cwd: config.cwd, env: { ...childEnvironment(spawnEnv ?? env, "win32"), HERDR_UNATTENDED_TASK_FILE: resolve(configPath) }, windowsHide: true, stdio: "inherit" })
     : launch(argv[0], args, { cwd: config.cwd, ...(spawnEnv ? { env: spawnEnv } : {}), stdio: "inherit" });
   const controller = new AbortController();
