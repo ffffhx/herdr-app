@@ -198,3 +198,25 @@ test("remote Antigravity launch stages and installs its hook on the task machine
   assert.equal(hooks["herdr-recovery"].PreToolUse[0].matcher, "*");
   assert(!existsSync(join(home, ".codex", "hooks.json")));
 });
+
+test("local Antigravity profile launch validates profile ID, stores profile in task.json, and calls profile preparer", async () => {
+  const home = mkdtempSync(join(tmpdir(), "herdr-agy-profile-launch-"));
+  const calls = [];
+  const api = {
+    appHome: () => home,
+    readTextFile: async path => existsSync(path) ? readFileSync(path, "utf8") : null,
+    writeTextFile: async (path, text) => { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, text); },
+    exec: async (command, args) => {
+      calls.push([command, ...args]);
+      if (args[0] === "--version") return { code: 0, stdout: "v22.1.0", stderr: "" };
+      return { code: 0, stdout: "{}", stderr: "" };
+    },
+  };
+  const { prepare } = new Function(...Object.keys(api), `${source}; return {prepare};`)(...Object.values(api));
+  const entry = await prepare({ agent: "antigravity", argv: ["agy"], native: true, cwd: home, exceptions: [], profile: { id: "ultra", name: "Ultra" } });
+  const saved = JSON.parse(readFileSync(join(entry.directory, "task.json"), "utf8"));
+  assert.deepEqual(saved.profile, { id: "ultra", name: "Ultra" });
+  assert.deepEqual(entry.profile, { id: "ultra", name: "Ultra" });
+  assert(calls.some(c => c[0] === "node" && c[1].endsWith("/mods/antigravity-profiles/runner.mjs") && c.includes("--prepare") && c.includes("ultra")));
+  await assert.rejects(prepare({ agent: "antigravity", argv: ["agy"], native: true, cwd: home, exceptions: [], profile: { id: "../bad", name: "Bad" } }), /Invalid Antigravity profile/);
+});

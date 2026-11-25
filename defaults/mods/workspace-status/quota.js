@@ -16,10 +16,18 @@ export function quotaTarget(focus, paneList, agentList, spaceList, terminalList 
   const remote = Boolean(spaceList.find(s => s.id === focus.space)?.machine || terminal.includes("/"));
   const source = terminalList.find(t => t.address === terminal);
   const term = source && { address: source.address, pid: source.pid, created_ms: source.created_ms, argv: source.argv,
-    labels: { "herdr.unattended.control": source.labels?.["herdr.unattended.control"], "herdr.claude.launch": source.labels?.["herdr.claude.launch"] } };
+    labels: {
+      "herdr.unattended.control": source.labels?.["herdr.unattended.control"],
+      "herdr.claude.launch": source.labels?.["herdr.claude.launch"],
+      "herdr.antigravity.profile": source.labels?.["herdr.antigravity.profile"],
+      "herdr.antigravity.profile_name": source.labels?.["herdr.antigravity.profile_name"],
+    } };
   const sessionScoped = provider === "claude" || provider === "antigravity";
+  const scopeTag = provider === "antigravity"
+    ? (source?.labels?.["herdr.antigravity.profile"] || "")
+    : (source?.labels?.["herdr.claude.launch"] || "");
   return { provider, remote, term, key: `${remote ? "remote" : "local"}:${provider}`
-    + (sessionScoped ? `:${terminal}:${source?.pid || ""}:${source?.created_ms || ""}:${source?.labels?.["herdr.claude.launch"] || ""}` : "") };
+    + (sessionScoped ? `:${terminal}:${source?.pid || ""}:${source?.created_ms || ""}:${scopeTag}` : "") };
 }
 
 const current = () => quotaTarget(focused(), panes(), agents(), spaces(), terminals());
@@ -71,8 +79,10 @@ export class Quota {
     let status = target.remote ? "remote" : data?.status || "loading";
     if (localOnly && status === "ok" && (!windows.length || Date.now() - data.updatedAt > 3600000)) status = "waiting";
     const balance = data?.provider === "deepseek";
+    const agyProfile = antigravity ? (data?.profileName || target.term?.labels?.["herdr.antigravity.profile_name"] || data?.profile || target.term?.labels?.["herdr.antigravity.profile"] || null) : null;
+    const agyBase = agyProfile ? `Antigravity (${agyProfile})` : "Antigravity";
     const name = balance ? "DeepSeek" : official ? usageText("Claude Official")
-      : antigravity ? (data?.pool === "3p" ? "Antigravity 3P" : "Antigravity")
+      : antigravity ? (data?.pool === "3p" ? `${agyBase} 3P` : agyBase)
       : target.provider === "codex" ? "Codex" : "Claude";
     const messages = {
       loading: tr("Checking quota…"), remote: tr("Remote quota unavailable"),

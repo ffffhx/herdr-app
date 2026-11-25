@@ -201,18 +201,27 @@ export async function watch(configPath, { call = hc, signal, waitForAgent = fals
 // New tasks also use the real agent UI, with an approval observer alongside it.
 // Task text stays data. On Windows PowerShell reads it from JSON, so quotes,
 // newlines and shell syntax in the task never become part of a command string.
-export async function native(configPath, { launch = spawn, observe = watch, platform = process.platform } = {}) {
+export async function native(configPath, { launch = spawn, observe = watch, platform = process.platform, env = process.env, prepareAgyProfile, labelProfile } = {}) {
   const config = JSON.parse(readFileSync(configPath, "utf8"));
   if (!["codex", "claude", "antigravity"].includes(config.agent)) throw new Error("Unknown native agent");
   const argv = config.argv ?? [config.agent === "antigravity" ? "agy" : config.agent];
   if (!Array.isArray(argv) || !argv.length || argv.some(a => typeof a !== "string") || !argv[0]) throw new Error("Invalid native agent command");
   const args = [...argv.slice(1), ...(config.task?.trim() ? (config.agent === "antigravity" ? ["--prompt-interactive", config.task] : [config.task]) : [])];
+  let spawnEnv = null;
+  if (config.agent === "antigravity" && config.profile?.id) {
+    // Load dynamically so remote SSH unattended staging stays self-contained.
+    const profiles = (!prepareAgyProfile || !labelProfile) ? await import("../antigravity-profiles/profiles.mjs") : null;
+    const appHome = profiles ? profiles.defaultAppHome(env) : (env.HERDR_APP_HOME || "");
+    const prepared = (prepareAgyProfile ?? profiles.prepareProfile)({ appHome, id: config.profile.id, name: config.profile.name, baseEnv: env, platform });
+    (labelProfile ?? profiles.labelTerminalProfile)(prepared.id, prepared.name, { env: prepared.env, platform });
+    spawnEnv = prepared.env;
+  }
   const keepParent = () => {}; // The native TUI handles the console's Ctrl+C.
   process.on("SIGINT", keepParent);
   const child = platform === "win32"
     ? launch("powershell.exe", ["-NoLogo", "-NoProfile", "-Command", "$nativeTask = Get-Content -LiteralPath $env:HERDR_UNATTENDED_TASK_FILE -Raw -Encoding UTF8 | ConvertFrom-Json; $nativeArgv = @($nativeTask.agent); if ($nativeTask.agent -eq 'antigravity') { $nativeArgv = @('agy') }; if ($nativeTask.argv) { $nativeArgv = @($nativeTask.argv) }; $nativeArgs = @($nativeArgv | Select-Object -Skip 1); if ($nativeTask.task -and $nativeTask.task.Trim()) { if ($nativeTask.agent -eq 'antigravity') { $nativeArgs += '--prompt-interactive' }; $nativeArgs += $nativeTask.task }; & $nativeArgv[0] @nativeArgs; exit $LASTEXITCODE"],
-      { cwd: config.cwd, env: { ...childEnvironment(), HERDR_UNATTENDED_TASK_FILE: resolve(configPath) }, windowsHide: true, stdio: "inherit" })
-    : launch(argv[0], args, { cwd: config.cwd, stdio: "inherit" });
+      { cwd: config.cwd, env: { ...childEnvironment(spawnEnv ?? env, "win32"), HERDR_UNATTENDED_TASK_FILE: resolve(configPath) }, windowsHide: true, stdio: "inherit" })
+    : launch(argv[0], args, { cwd: config.cwd, ...(spawnEnv ? { env: spawnEnv } : {}), stdio: "inherit" });
   const controller = new AbortController();
   const closed = new Promise((resolve, reject) => { child.on("error", reject); child.on("exit", code => { controller.abort(); resolve(code ?? 1); }); });
   const monitoring = observe(configPath, { waitForAgent: true, signal: controller.signal });

@@ -224,6 +224,8 @@ For Antigravity, `mods/workspace-status/antigravity-usage.cjs` installs a versio
 status line (`stack_with_default: true`), and saving whitelisted Gemini/3P window
 snapshots under `data/antigravity-usage` bound to `HC_TERMINAL_ID`, core PID and
 creation time. Isolated Herdr instances require an explicit `ANTIGRAVITY_CLI_HOME`.
+When an Antigravity terminal runs under an isolated account profile, its local
+quota snapshot carries only that profile's label (`Antigravity (<name>)`).
 Remote agents do not borrow the local account. Node.js is required.
 
 Explicit Claude launchers can register using
@@ -894,6 +896,23 @@ terminal separately and targets the clicked tab even when it is inactive.
 Antigravity (`agy`) uses its native `PreToolUse` hook. It checks the terminal's
 live observer and current policy before each tool request. Matching exception
 keywords request manual review. Automatic decisions appear in the run journal.
+
+### Antigravity multi-account profiles
+
+Local spaces with `agy` installed can run multiple Google AI accounts side by side
+using the `antigravity-profiles` mod (`+` menu -> **Antigravity accounts…**, or
+`herdr-app do tab.new --name "Antigravity accounts" --mod antigravity-profiles`).
+Profiles are listed in shared `"antigravity.profiles"` and stored under
+`data/antigravity-profiles/<id>/home/`. Each profile runs the unmodified official
+`agy` CLI with `AGY_CLI_FORCE_FILE_TOKEN_STORAGE=1` and a shadow `HOME` whose
+`.gemini/` directory is isolated per account, avoiding macOS Keychain conflicts
+while linking the user's repositories, git, SSH and XDG directories (plus shared
+`GEMINI.md`, `AGENTS.md`, `skills` and `mcp_config.json` from `~/.gemini/config`).
+Configured profiles appear in the `+` menu and the Unattended agents panel,
+install their own local `hooks.json` and `statusLine` helper without touching
+`~/.gemini`, display per-account local quota labels, and resume through
+`mods/antigravity-profiles/runner.mjs` during session recovery. Herdr never reads
+or copies OAuth tokens.
 An existing CLI must load the hook to process new requests. A permission card
 already on screen still needs an answer in the terminal.
 

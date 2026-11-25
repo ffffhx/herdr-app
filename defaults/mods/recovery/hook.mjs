@@ -119,8 +119,8 @@ async function verifyProcess(term, agent) {
   }
   return true;
 }
-export async function capture(core, agent, rawPayload, terminal = process.env.HC_TERMINAL_ID, verifyRoot = term => verifyProcess(term, agent)) {
-  const payload = normalizePayload(agent, rawPayload);
+export async function capture(core, agent, rawPayload, terminal = process.env.HC_TERMINAL_ID, verifyRoot = term => verifyProcess(term, agent), env = process.env) {
+  const payload = normalizePayload(agent, rawPayload, homedir(), env);
   if (!/^t[0-9a-z]+$/.test(terminal || "") || !["SessionStart", "PreInvocation", "UserPromptSubmit", "Stop", "StatusLine"].includes(payload.hook_event_name)) return;
   if (!rootTranscript(agent, payload)) return;
   const term = await core.call("terminal.get", { terminal });
@@ -131,6 +131,12 @@ export async function capture(core, agent, rawPayload, terminal = process.env.HC
   const generation = server.holder?.instance;
   if (!generation) return;
   const key = keyOf(term), now = Date.now();
+  const profileId = agent === "antigravity"
+    ? ([env.HERDR_ANTIGRAVITY_PROFILE, term.labels?.["herdr.antigravity.profile"]].find(v => typeof v === "string" && /^[a-z0-9][a-z0-9_-]{0,31}$/.test(v)) || null)
+    : null;
+  const profileName = profileId
+    ? String(env.HERDR_ANTIGRAVITY_PROFILE_NAME || term.labels?.["herdr.antigravity.profile_name"] || profileId).trim().slice(0, 40)
+    : null;
   await core.update(DOC, doc => {
     doc ||= { version: 1, records: {} };
     doc.records ||= {};
@@ -142,7 +148,10 @@ export async function capture(core, agent, rawPayload, terminal = process.env.HC
     // this session; a continuation keeps it when the descriptor is gone.
     const launcher = runLauncher(term.labels?.["herdr.unattended.control"], agent)
       ?? (previous?.sessionId === payload.session_id ? previous?.launcher : null) ?? null;
+    const keptProfile = profileId ?? (previous?.sessionId === payload.session_id ? previous?.profile : null) ?? null;
+    const keptProfileName = profileName ?? (previous?.sessionId === payload.session_id ? previous?.profileName : null) ?? null;
     doc.records[key] = { ...previous, key, terminal, created: term.created_ms, pid: term.pid, generation, launcher,
+      ...(keptProfile ? { profile: keptProfile, profileName: keptProfileName || keptProfile } : {}),
       attempt: previous?.sessionId === payload.session_id ? previous.attempt : null,
       agent, agentPid: verified.pid, executable: verified.executable || previous?.executable, sessionId: payload.session_id, transcript: payload.transcript_path, cwd: payload.cwd || term.cwd,
       captured: now, closed: false, enabled: previous?.enabled !== false, state: "ready", error: null,

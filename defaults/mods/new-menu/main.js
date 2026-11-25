@@ -4,6 +4,13 @@ import { tr, theme, spaces, panes, knownAgents, run, openOverlay, closeOverlay, 
 
 // The last agents each machine reported, shown at once while knownAgents() checks again.
 const KNOWN = "new-menu.agents";
+const AGY_PROFILES = "antigravity.profiles";
+
+function savedProfiles() {
+  if (typeof shared !== "function") return [];
+  const list = shared(AGY_PROFILES);
+  return Array.isArray(list) ? list.filter(p => p && typeof p.id === "string" && typeof p.name === "string") : [];
+}
 
 function shortcut(name) {
   const k = keys().find(b => b.section === "global" && b.action === name);
@@ -45,7 +52,7 @@ export default class NewMenu extends View {
     }
     const folder = panes().find(p => p.focused && space?.tabs.some(tab => tab.id === p.tab))?.cwd || space?.folder;
     openOverlay({ mod: "unattended", kind: "dialog", width: 420, height: 200,
-      props: { space: space?.id, agent: agent.key, launch: agent.run, name: agent.name, folder } });
+      props: { space: space?.id, agent: agent.key, launch: agent.run, name: agent.name, folder, ...(agent.profile ? { profile: agent.profile } : {}) } });
   }
   row(id, icon, name, action, hint = "", enabled = true) {
     const t = theme();
@@ -57,9 +64,15 @@ export default class NewMenu extends View {
   render() {
     const t = theme();
     const space = spaces().find(s => s.active);
-    const installed = this.agents.filter(a => a.installed);
+    const localProfiles = !space?.machine ? savedProfiles() : [];
+    const rawInstalled = this.agents.filter(a => a.installed);
+    const hasAntigravity = !space?.machine && rawInstalled.some(a => a.key === "antigravity");
+    const installed = rawInstalled.flatMap(a => a.key === "antigravity" && localProfiles.length
+      ? [a, ...localProfiles.map(p => ({ ...a, rowId: `antigravity-profile-${p.id}`, name: `${a.name} · ${p.name}`, profile: { id: p.id, name: p.name } }))]
+      : [a]);
     const choices = [...installed, ...this.agents.filter(a => !a.installed).slice(0, 2)];
-    return v_flex().min_h(0).w_full().h(Math.min(491, 198 + Math.max(1, choices.length) * 31)).bg(t.popover).p(5).text_size(12.8)
+    const extraRows = hasAntigravity ? 1 : 0;
+    return v_flex().min_h(0).w_full().h(Math.min(522, 198 + (Math.max(1, choices.length) + extraRows) * 31)).bg(t.popover).p(5).text_size(12.8)
       .id("new-menu").track_focus(this.handle)
       .on_key_down((e) => {
         if (e.modifiers.control || e.modifiers.platform || e.modifiers.alt) return;
@@ -71,10 +84,12 @@ export default class NewMenu extends View {
       .child(this.row("terminal", svg("icons/shell.svg").size(14), tr("Terminal"), () => run("tab.new", { space: space?.id }), shortcut("tab.new")))
       .child(div().px(9).pt(8).pb(4).text_size(11).text_color(t.dim).child(tr("Start an agent")))
       .child(v_flex().flex_1().min_h(0).overflow_y_scrollbar()
-        .children(choices.map((a, i) => this.row(a.key, a.tint ? svg(a.icon).size(14).text_color(t.foreground) : image(a.icon).size(14), a.name,
+        .children(choices.map((a, i) => this.row(a.rowId || a.key, a.tint ? svg(a.icon).size(14).text_color(t.foreground) : image(a.icon).size(14), a.name,
           () => this.start(a, space), a.installed ? (i < 9 ? String(i + 1) : "") : tr("not installed"), a.installed)))
         .when(this.agents.length === 0, el => el.child(div().px(9).py(6).text_color(t.dim).child(this.failed ? tr("Could not load agents") : tr("Checking installed agents…")))))
       .child(div().h(1).mx(4).my(5).bg(t.border))
+      .when(hasAntigravity, el => el.child(this.row("antigravity-accounts", image("icons/antigravity.svg").size(14), tr("Antigravity accounts…"),
+        () => run("tab.new", { name: tr("Antigravity accounts"), space: space?.id, mod: "antigravity-profiles", props: { space: space?.id, folder: panes().find(p => p.focused)?.cwd } }), "", Boolean(space))))
       .child(this.row("unattended", svg("mods/workspace-chrome/clock.svg").size(14), tr("Unattended agents"), () => run("tab.new", { name: tr("Unattended agents"), space: space?.id, mod: "unattended", props: { space: space?.id, folder: panes().find(p => p.focused)?.cwd } }), "", Boolean(space)))
       .child(this.row("space", div().w(14).child("+"), tr("New space"), () => run("space.new"), shortcut("space.new")))
       .child(this.row("worktree", svg("mods/workspace-chrome/branch.svg").size(14), tr("New worktree…"), () => openOverlay({ mod: "worktree", kind: "dialog", width: 460, height: 280, props: { space: space?.id, folder: panes().find(p => p.focused)?.cwd, action: "new" } }), "", Boolean(space)))

@@ -188,6 +188,18 @@ fn module(values: BTreeMap<String, Value>, calls: Rc<RefCell<Calls>>) -> HostMod
                     Some(json!({"code":0,"stdout":"d\u{0}src\u{0}f\u{0}README.md\u{0}","stderr":""}))
                 }
                 "exec"
+                    if first == "node"
+                        && a.get(1)
+                            .map(from_host)
+                            .and_then(|v| v.as_array().cloned())
+                            .is_some_and(|args| {
+                                args.first().and_then(Value::as_str) == Some("/fixture/app/mods/antigravity-profiles/runner.mjs")
+                                    && args.get(1).and_then(Value::as_str) == Some("--list")
+                            }) =>
+                {
+                    Some(json!({"code":0,"stdout":"{\"profiles\":[]}","stderr":""}))
+                }
+                "exec"
                     if first == "git"
                         && [
                             json!(["rev-parse", "--show-toplevel"]),
@@ -242,7 +254,18 @@ fn describe_with_values(
     values: BTreeMap<String, Value>,
     setup: Option<&str>,
 ) -> anyhow::Result<String> {
-    let calls = Rc::new(RefCell::new(Calls::default()));
+    describe_with_shared(cx, staged, entry, values, BTreeMap::new(), setup)
+}
+
+fn describe_with_shared(
+    cx: &mut TestAppContext,
+    staged: &Staged,
+    entry: &str,
+    values: BTreeMap<String, Value>,
+    shared: BTreeMap<String, Value>,
+    setup: Option<&str>,
+) -> anyhow::Result<String> {
+    let calls = Rc::new(RefCell::new(Calls { shared, ..Default::default() }));
     static NEXT_STORE: AtomicU64 = AtomicU64::new(0);
     let policy = Policy::new()
         .with_storage_path(staged.0.join(format!("store-{}.json", NEXT_STORE.fetch_add(1, Ordering::Relaxed))))
@@ -916,4 +939,37 @@ fn active_agent_tabs_rows_and_split_headers_use_accent_highlight(cx: &mut TestAp
     split_values.insert("props".into(), json!({"pane":"p2","terminal":"t2"}));
     let unfocused_pane = describe_with_values(cx, &staged, "mods/pane", split_values, None).unwrap();
     assert!(!unfocused_pane.contains(&format!("{accent}1f")), "unfocused split pane should not tint header: {unfocused_pane}");
+}
+
+#[gpui::test]
+fn antigravity_profiles_panel_and_new_menu_render_configured_accounts(cx: &mut TestAppContext) {
+    cx.update(gpui_shell::init);
+    let staged = Staged::new();
+    let tree = describe(
+        cx,
+        &staged,
+        "mods/antigravity-profiles",
+        true,
+        props(),
+        updates("current", "current"),
+        Some("this.profiles = [{id:'pro',name:'Pro'},{id:'ultra',name:'Ultra'}]; this.statusById = {pro:{id:'pro',name:'Pro',signedIn:true},ultra:{id:'ultra',name:'Ultra',signedIn:false}};"),
+    )
+    .unwrap();
+    assert!(tree.contains("Antigravity · Pro") && tree.contains("Antigravity · Ultra"), "{tree}");
+    assert!(tree.contains("Signed in") && tree.contains("Not signed in"), "{tree}");
+
+    let menu_tree = describe_with_shared(
+        cx,
+        &staged,
+        "mods/new-menu",
+        fixture(true, props(), updates("current", "current")),
+        BTreeMap::from([(
+            "antigravity.profiles".into(),
+            json!([{"id":"pro","name":"Pro"},{"id":"ultra","name":"Ultra"}]),
+        )]),
+        Some("this.agents = [{key:'antigravity',name:'Antigravity',icon:'icons/antigravity.svg',tint:false,installed:true,run:['agy']}];"),
+    )
+    .unwrap();
+    assert!(menu_tree.contains("Antigravity · Pro") && menu_tree.contains("Antigravity · Ultra"), "{menu_tree}");
+    assert!(menu_tree.contains("Antigravity accounts"), "{menu_tree}");
 }

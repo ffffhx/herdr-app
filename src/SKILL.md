@@ -42,6 +42,15 @@ keywords request manual review. Automatic decisions appear in the run journal.
 An existing CLI must load the hook to process new requests. A permission card
 already on screen still needs an answer in the terminal.
 
+For multiple simultaneous Google AI accounts on the local machine, open
+**Antigravity accounts** from the `+` menu (or
+`herdr-app do tab.new --name "Antigravity accounts" --mod antigravity-profiles`).
+Each account profile runs native `agy` with `AGY_CLI_FORCE_FILE_TOKEN_STORAGE=1`
+and an isolated `.gemini` directory inside `data/antigravity-profiles/<id>/home`,
+keeping OAuth tokens out of macOS Keychain while sharing repositories, git and SSH.
+Configured profiles appear in the `+` menu, carry per-account local quota labels,
+and preserve their profile on unattended launch and session recovery.
+
 Observers subscribe to terminal state events, with a 10-second fallback and
 automatic reconnection. Policy changes wake them immediately. State files update
 on change or a 5-second heartbeat, rather than on a half-second polling loop.

@@ -3,6 +3,7 @@ import { basename, dirname, join } from "node:path";
 
 export const DOC = "herdr-agent-sessions";
 export const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+export const PROFILE_ID = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 // Explicit Claude entrypoints own the provider environment (and, for the
 // official one, the exit guard). A resumed session must keep them.
 const LAUNCHERS = ["claude-official", "claude-deepseek"];
@@ -41,7 +42,7 @@ export function shellOf(term) {
   return ["powershell", "pwsh", "bash", "zsh", "sh", "dash", "fish", "ksh"].includes(name) ? name : null;
 }
 export const managed = term => /^t[0-9a-z]+$/.test(term.address) && Boolean(term.labels?.["herdr.space"]) && term.keep;
-export function resumeArgv(record) {
+export function resumeArgv(record, home = null, nodePath = process.execPath) {
   if (!UUID.test(record.sessionId)) throw new Error("The saved conversation ID is invalid");
   const launcher = launcherArgv(record.launcher, record.agent);
   if (launcher) return [...launcher, "--resume", record.sessionId];
@@ -51,11 +52,22 @@ export function resumeArgv(record) {
   if (!expected.includes(base)) throw new Error("The saved agent executable does not match the integration");
   if (record.agent === "codex") return [program, "--no-daemon", "resume", record.sessionId];
   if (record.agent === "claude") return [program, "--resume", record.sessionId];
-  if (record.agent === "antigravity") return [program, "--conversation", record.sessionId];
+  if (record.agent === "antigravity") {
+    if (record.profile) {
+      if (!PROFILE_ID.test(record.profile)) throw new Error("The saved Antigravity profile is invalid");
+      if (!home) throw new Error("An app home is required to resume an isolated Antigravity profile");
+      const runner = join(home, "mods", "antigravity-profiles", "runner.mjs");
+      const args = [nodePath, runner, "--profile", record.profile];
+      if (record.profileName) args.push("--name", String(record.profileName).trim().slice(0, 40));
+      args.push("--home", home, "--", program, "--conversation", record.sessionId);
+      return args;
+    }
+    return [program, "--conversation", record.sessionId];
+  }
   throw new Error("This agent does not have a verified resume integration");
 }
-export function commandLine(record, shell) {
-  const argv = resumeArgv(record);
+export function commandLine(record, shell, home = null, nodePath = process.execPath) {
+  const argv = resumeArgv(record, home, nodePath);
   if (["powershell", "pwsh"].includes(shell)) return "& " + argv.map(s => "'" + s.replaceAll("'", "''") + "'").join(" ");
   if (["bash", "zsh", "sh", "dash", "fish", "ksh"].includes(shell)) return argv.map(s => "'" + s.replaceAll("'", "'\\''") + "'").join(" ");
   throw new Error("Automatic recovery is unavailable in this shell");

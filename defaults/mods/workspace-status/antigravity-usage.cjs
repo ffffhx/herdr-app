@@ -8,6 +8,7 @@ const { execFileSync, spawnSync } = require("node:child_process");
 const TTL = 60 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const SIMPLE_TOKEN = /^[A-Za-z0-9_./:@+-]+$/;
+const PROFILE_ID = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 
 function appHome(env = process.env, userHome = os.homedir()) {
   return env.HERDR_APP_HOME || path.join(env.XDG_CONFIG_HOME || path.join(userHome, ".config"), "herdr-app");
@@ -229,15 +230,20 @@ function capture(payload, { env = process.env, platform = process.platform, user
       }
     }
   }
+  const profile = PROFILE_ID.test(env.HERDR_ANTIGRAVITY_PROFILE || "") ? env.HERDR_ANTIGRAVITY_PROFILE : null;
+  const profileName = profile ? String(env.HERDR_ANTIGRAVITY_PROFILE_NAME || profile).trim().slice(0, 40) : null;
   atomic(targetFile, {
     version: 1, provider: "antigravity", pool: usage.pool, windows: usage.windows, updatedAt: usage.updatedAt,
+    ...(profile ? { profile, profileName } : {}),
     ...(capturedHash ? { capturedHash } : {}),
   });
   return true;
 }
 
 function readUsage(home, term, now = Date.now()) {
-  const waiting = { provider: "antigravity", status: "waiting", windows: [] };
+  const labelProfile = PROFILE_ID.test(term?.labels?.["herdr.antigravity.profile"] || "") ? term.labels["herdr.antigravity.profile"] : null;
+  const labelProfileName = labelProfile ? String(term?.labels?.["herdr.antigravity.profile_name"] || labelProfile).trim().slice(0, 40) : null;
+  const waiting = { provider: "antigravity", status: "waiting", windows: [], ...(labelProfile ? { profile: labelProfile, profileName: labelProfileName } : {}) };
   if (!identity(term)) return waiting;
   let record;
   try { record = load(recordPath(home, term)); } catch { return waiting; }
@@ -245,11 +251,14 @@ function readUsage(home, term, now = Date.now()) {
   const updated = record.updatedAt;
   if (!Number.isFinite(updated) || updated <= 0 || updated > now + 5000) return waiting;
   const pool = record.pool === "3p" ? "3p" : "gemini";
-  if (now - updated > TTL) return { ...waiting, pool, status: "stale", updatedAt: updated };
+  const profile = PROFILE_ID.test(record.profile || "") ? record.profile : labelProfile;
+  const profileName = profile ? String(record.profileName || labelProfileName || profile).trim().slice(0, 40) : null;
+  const meta = profile ? { profile, profileName } : {};
+  if (now - updated > TTL) return { ...waiting, ...meta, pool, status: "stale", updatedAt: updated };
   const windows = (Array.isArray(record.windows) ? record.windows : []).filter(w => Number.isSafeInteger(w?.minutes) && w.minutes > 0
     && typeof w.remaining === "number" && Number.isFinite(w.remaining) && w.remaining >= 0 && w.remaining <= 100
     && typeof w.resetsAt === "number" && Number.isFinite(w.resetsAt) && w.resetsAt > now);
-  return { provider: "antigravity", pool, status: windows.length ? "ok" : "waiting", windows, updatedAt: updated };
+  return { provider: "antigravity", ...meta, pool, status: windows.length ? "ok" : "waiting", windows, updatedAt: updated };
 }
 
 function expandLeadingHome(command, userHome = os.homedir()) {

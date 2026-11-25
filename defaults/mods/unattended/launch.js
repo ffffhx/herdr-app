@@ -32,10 +32,15 @@ async function checked(command, args, on) {
   return result.stdout.trim();
 }
 
-export async function prepare({ agent, task = "", argv, cwd, exceptions, on, resumeSessionId, source, resumeOriginal, native = false }) {
+export async function prepare({ agent, task = "", argv, cwd, exceptions, on, resumeSessionId, source, resumeOriginal, native = false, profile = null }) {
   const supported = ["codex", "claude"].includes(agent) || (native && agent === "antigravity");
   if (!supported || (!native && !task.trim())) throw new Error("Choose an agent and enter a task");
   if (argv !== undefined && (!native || !Array.isArray(argv) || !argv.length || argv.some(a => typeof a !== "string") || !argv[0])) throw new Error("Invalid native agent command");
+  const normalizedProfile = profile && agent === "antigravity" && !on
+    ? (typeof profile.id === "string" && /^[a-z0-9][a-z0-9_-]{0,31}$/.test(profile.id)
+      ? { id: profile.id, name: String(profile.name || profile.id).trim().slice(0, 40) || profile.id }
+      : (() => { throw new Error("Invalid Antigravity profile"); })())
+    : null;
   const version = await checked("node", ["--version"], on);
   if (Number(/^v(\d+)/.exec(version)?.[1] ?? 0) < 20) throw new Error("Node.js 20 or newer is required on the task machine");
   // Menu commands have already been discovered by knownAgents(); they may use
@@ -44,6 +49,7 @@ export async function prepare({ agent, task = "", argv, cwd, exceptions, on, res
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const config = { agent, task, cwd: cwd || undefined, enabled: true, exceptions,
     ...(native ? { native: true, ...(argv ? { argv } : {}), ...(source ? { source } : {}) } : {}),
+    ...(normalizedProfile ? { profile: normalizedProfile } : {}),
     ...(resumeSessionId ? { resumeSessionId, source } : {}), ...(resumeOriginal ? { resumeOriginal: true, source } : {}) };
   let directory, runner;
   if (on) {
@@ -60,18 +66,23 @@ export async function prepare({ agent, task = "", argv, cwd, exceptions, on, res
     runner = `${appHome()}/mods/unattended/${native ? "native" : "runner"}.mjs`;
   }
   if (agent === "antigravity") {
-    let installer = `${appHome()}/mods/recovery/install.mjs`;
-    if (on) {
-      for (const file of ["install.mjs", "hook.mjs", "core.mjs", "model.mjs"]) {
-        const text = await readTextFile(`${appHome()}/mods/recovery/${file}`);
-        if (text === null) throw new Error(`Missing Antigravity hook installer: ${file}`);
-        await checked("node", ["-e", remoteWrite, JSON.stringify({ dir: directory, file, text })], on);
+    if (normalizedProfile) {
+      const profileRunner = `${appHome()}/mods/antigravity-profiles/runner.mjs`;
+      await checked("node", [profileRunner, "--prepare", "--profile", normalizedProfile.id, "--name", normalizedProfile.name, "--home", appHome()], null);
+    } else {
+      let installer = `${appHome()}/mods/recovery/install.mjs`;
+      if (on) {
+        for (const file of ["install.mjs", "hook.mjs", "core.mjs", "model.mjs"]) {
+          const text = await readTextFile(`${appHome()}/mods/recovery/${file}`);
+          if (text === null) throw new Error(`Missing Antigravity hook installer: ${file}`);
+          await checked("node", ["-e", remoteWrite, JSON.stringify({ dir: directory, file, text })], on);
+        }
+        installer = `${directory}/install.mjs`;
       }
-      installer = `${directory}/install.mjs`;
+      await checked("node", [installer, "--antigravity", ...(on ? [] : [appHome()])], on);
     }
-    await checked("node", [installer, "--antigravity", ...(on ? [] : [appHome()])], on);
   }
-  return { id, agent, task, directory, on: on ?? null, ...(native ? { native: true, source } : {}), ...(resumeSessionId ? { resumeSessionId, source } : {}), ...(resumeOriginal ? { resumeOriginal: true, source } : {}), argv: ["node", runner, ...(native && source ? ["--watch"] : []), "--config", `${directory}/task.json`] };
+  return { id, agent, task, directory, on: on ?? null, ...(normalizedProfile ? { profile: normalizedProfile } : {}), ...(native ? { native: true, source } : {}), ...(resumeSessionId ? { resumeSessionId, source } : {}), ...(resumeOriginal ? { resumeOriginal: true, source } : {}), argv: ["node", runner, ...(native && source ? ["--watch"] : []), "--config", `${directory}/task.json`] };
 }
 
 export async function observe(entry) {

@@ -174,6 +174,18 @@ test("Antigravity sessions keep per-terminal local quota and 3P pool labels with
   assert.match(text(h.quota.render(h.cx, {})), /Antigravity 5h 85% left Weekly 95% left/);
   h.quota.cache["local:antigravity:t1:10:100:"] = { provider: "antigravity", status: "ok", windows: [{ remaining: 85, minutes: 300, resetsAt: now - 1 }], updatedAt: now, attemptedAt: now };
   assert.match(text(h.quota.render(h.cx, {})), /Antigravity Waiting for usage update/);
+
+  // Profile-scoped Antigravity terminals show their account label and keep separate cache keys.
+  h.setTerminals([
+    { address: "t1", pid: 10, created_ms: 100, labels: { "herdr.antigravity.profile": "pro", "herdr.antigravity.profile_name": "Pro" } },
+    { address: "t2", pid: 20, created_ms: 200, labels: { "herdr.antigravity.profile": "ultra", "herdr.antigravity.profile_name": "Ultra" } },
+  ]);
+  h.quota.cache["local:antigravity:t1:10:100:pro"] = { provider: "antigravity", profile: "pro", profileName: "Pro", pool: "gemini", status: "ok", windows: [{ remaining: 85, minutes: 300, resetsAt: now + 60000 }], updatedAt: now, attemptedAt: now };
+  h.quota.cache["local:antigravity:t2:20:200:ultra"] = { provider: "antigravity", profile: "ultra", profileName: "Ultra", pool: "3p", status: "ok", windows: [{ remaining: 100, minutes: 300, resetsAt: now + 60000 }], updatedAt: now, attemptedAt: now };
+  h.setFocus({ terminal: "t1" });
+  assert.match(text(h.quota.render(h.cx, {})), /Antigravity \(Pro\) 5h 85% left/);
+  h.setFocus({ terminal: "t2" });
+  assert.match(text(h.quota.render(h.cx, {})), /Antigravity \(Ultra\) 3P 5h 100% left/);
 });
 
 test("status bar shows remaining quota, last update and reset time; a click refreshes", async () => {

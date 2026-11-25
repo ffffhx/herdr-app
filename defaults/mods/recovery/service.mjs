@@ -46,7 +46,7 @@ export class Recovery {
       // Never clear a composer or send a prompt. This starts only a native
       // resume command in a newly recovered shell, with the exact saved ID.
       sent = true;
-      await this.core.call("terminal.send", { terminal: term.address, text: commandLine({ ...record, ...(launcher ? { launcher } : {}) }, shellOf(fresh)) });
+      await this.core.call("terminal.send", { terminal: term.address, text: commandLine({ ...record, ...(launcher ? { launcher } : {}) }, shellOf(fresh), this.home) });
       await this.change(key, r => r.attempt?.stamp !== stamp ? r : ({ ...r, attempt: { ...r.attempt, state: "sent" } }));
     } catch (error) {
       await this.change(key, r => r.attempt?.stamp !== stamp ? r : ({ ...r, state: "failed", error: error.message, attempt: { ...r.attempt, state: sent ? "unknown" : "not-sent" } }));
@@ -162,6 +162,7 @@ export class Recovery {
     const launcher = launcherArgv(record.launcher, record.agent) ?? runLauncher(record.unattendedControl, record.agent);
     const config = { agent: record.agent, cwd: record.cwd, native: true, recovered: true, enabled: true, exceptions: policy.exceptions,
       ...(launcher ? { argv: launcher } : {}),
+      ...(record.agent === "antigravity" && record.profile ? { profile: { id: record.profile, name: record.profileName || record.profile } } : {}),
       source: { address: term.address, created_ms: term.created_ms, pid: term.pid, cwd: record.cwd, app: record.agent } };
     atomic(join(directory, "task.json"), config);
     const stamp = randomUUID();

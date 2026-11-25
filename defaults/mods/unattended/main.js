@@ -16,6 +16,7 @@ export default class Unattended extends View {
     this.sourceAddress = props()?.source ?? null;
     this.agent = Object.hasOwn(NAMES, props()?.agent) ? props().agent : "codex";
     this.launch = props()?.launch ?? null;
+    this.profile = props()?.profile ?? null;
     this.busy = false; this.error = ""; this.states = {};
     this.confirmHandle = cx.focus_handle();
     if (this.sourceAddress) {
@@ -110,12 +111,15 @@ export default class Unattended extends View {
     if (this.busy || (!this.launch && !this.task.value().trim())) return;
     this.busy = true; this.error = "";
     const exceptions = this.exceptions.value().split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const profile = this.agent === "antigravity" && !this.on && this.profile?.id ? this.profile : null;
     const config = { agent: this.agent, task: this.task.value(), cwd: this.folder.value(), exceptions, on: this.on, native: true,
-      ...(this.launch ? { argv: this.launch } : {}) };
+      ...(this.launch ? { argv: this.launch } : {}),
+      ...(profile ? { profile } : {}) };
     cx.spawn(async cx => {
       try {
         const entry = await prepare(config);
-        run("tab.new", { space: this.space, name: props()?.name || NAMES[entry.agent], folder: config.cwd || undefined, argv: entry.argv });
+        const tabName = props()?.name || (entry.profile ? `${NAMES[entry.agent]} · ${entry.profile.name}` : NAMES[entry.agent]);
+        run("tab.new", { space: this.space, name: tabName, folder: config.cwd || undefined, argv: entry.argv });
         setShared(HISTORY, [entry, ...this.entries()].slice(0, 20));
         setShared("unattended.exceptions", exceptions);
         if (this.launch && props()?.overlay) closeOverlay(props().overlay);
@@ -155,6 +159,12 @@ export default class Unattended extends View {
         .child(this.button("unattended-claude", "Claude Code", cx => { this.agent = "claude"; cx.notify(); }, this.agent === "claude", !this.sourceAddress && !this.busy))
         .child(this.button("unattended-antigravity", "Antigravity", cx => { this.agent = "antigravity"; cx.notify(); }, this.agent === "antigravity", !this.sourceAddress && !this.busy))
         .child(div().flex_1()).child(div().text_color(t.dim).child(this.on ?? tr("This computer"))))
+      .when(this.agent === "antigravity" && !this.on && Array.isArray(shared("antigravity.profiles")) && shared("antigravity.profiles").length > 0, el =>
+        el.child(h_flex().gap(8).items_center()
+          .child(div().text_size(12).font_medium().text_color(t.dim).child(tr("Account")))
+          .child(this.button("unattended-agy-profile-default", tr("Default"), cx => { this.profile = null; cx.notify(); }, !this.profile, !this.busy))
+          .children((shared("antigravity.profiles") ?? []).map(p =>
+            this.button(`unattended-agy-profile-${p.id}`, p.name, cx => { this.profile = { id: p.id, name: p.name }; cx.notify(); }, this.profile?.id === p.id, !this.busy)))))
       .child(label("Working folder"))
       .child(input(Input.new(this.folder)).h(36))
       .child(label("Task"))
