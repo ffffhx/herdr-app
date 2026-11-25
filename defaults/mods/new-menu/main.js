@@ -1,6 +1,6 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { tr, theme, spaces, panes, knownAgents, run, openOverlay, closeOverlay, props, window, keys, shared, setShared } from "herdr";
+import { tr, theme, spaces, panes, knownAgents, run, openOverlay, closeOverlay, props, window, keys, shared, setShared, readTextFile, appHome } from "herdr";
 
 // The last agents each machine reported, shown at once while knownAgents() checks again.
 const KNOWN = "new-menu.agents";
@@ -42,6 +42,18 @@ export default class NewMenu extends View {
         setShared(KNOWN, { ...shared(KNOWN), [where]: this.agents });
       }
       catch { this.failed = true; }
+      if (!machine && typeof readTextFile === "function" && typeof appHome === "function") {
+        try {
+          const raw = await readTextFile(`${appHome()}/data/antigravity-profiles/profiles.json`);
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (Array.isArray(parsed?.profiles)) {
+            const list = parsed.profiles
+              .filter(p => p && typeof p.id === "string" && typeof p.name === "string")
+              .map(({ id, name, createdAt }) => ({ id, name, ...(createdAt ? { createdAt } : {}) }));
+            setShared(AGY_PROFILES, list);
+          }
+        } catch {}
+      }
       cx.notify();
     });
   }
