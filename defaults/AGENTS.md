@@ -984,7 +984,7 @@ mistake delivery of an approval for completion of the task.
 The bundled `recovery` mod restores local Codex, Claude Code and Antigravity
 (`agy`) conversations after their terminal process is lost (reboot, logout or
 holder crash). Closing only the window leaves terminals running; reopening
-connects to those same processes. The status bar and tab/pane menus open
+connects to those same processes. Tab, pane and space menus open
 **Session recovery**: `herdr-app do tab.new --name "Session recovery" --mod recovery`.
 
 It requires Node.js 20+. A hidden core worker merges Herdr hooks into the local

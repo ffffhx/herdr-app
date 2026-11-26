@@ -848,6 +848,7 @@ fn status_bar_shows_the_real_palette_key(cx: &mut TestAppContext) {
     let tree = describe_with_values(cx, &staged, "mods/workspace-status", bound, None).unwrap();
     assert!(tree.contains("Ctrl+P"), "hint must show the real binding: {tree}");
     assert!(!tree.contains("Shift P"), "stale hardcoded hint: {tree}");
+    assert!(!tree.contains("session-recovery") && !tree.contains("Session recovery"), "status bar must not show session recovery label: {tree}");
 
     let mut unbound = fixture(true, props(), updates("current", "current"));
     unbound.insert("keys".into(), json!([{"section":"global","keys":"ctrl-k","action":"app.help"}]));
