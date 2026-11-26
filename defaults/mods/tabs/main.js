@@ -1,5 +1,5 @@
 import { View, div, svg, image } from "gpui-kit";
-import { h_flex } from "gpui-base";
+import { h_flex, Scrollbar } from "gpui-base";
 import { tr, spaces, panes, terminals, run, openOverlay, theme, window, shared, layout, settings } from "herdr";
 
 function find(node, id) {
@@ -97,13 +97,11 @@ export default class Tabs extends View {
     };
     return h_flex().size_full().min_w(0).px(10).pl(lightsPadding).gap(3).items_center().bg(t.chrome).border_b(1).border_color(t.border)
       .on_mouse_up("left", () => { this.pressed = null; })
-      .on_scroll_wheel(e => {
-        if (Math.abs(e.delta.y) < 1) return;
-        const at = shown.findIndex(c => c.active);
-        const next = shown[at + (e.delta.y > 0 ? -1 : 1)];
-        if (at >= 0 && next) run("tab.select", { id: next.id });
-      })
-      .child(h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().gap(3).overflow_x_scrollbar().children(shown.map(item)))
+      .child(
+        div().relative().flex_1().min_w(0).h_full().overflow_hidden()
+          .child(h_flex().id("tab-scroll").size_full().items_center().gap(3).overflow_x_scroll().children(shown.map(item)))
+          .child(Scrollbar.horizontal("tab-scroll").viewport_from_layout().absolute().inset_0()),
+      )
       .child(button("tab-new", "+", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 })))
       .when(enabled.includes("files"), el => el.child(panelButton("files", tr("Files"), "mods/files/file.svg")))
       .when(enabled.includes("changes"), el => el.child(panelButton("changes", tr("Changes"), "mods/changes/changes.svg")))

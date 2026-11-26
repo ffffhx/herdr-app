@@ -977,3 +977,113 @@ fn antigravity_profiles_panel_and_new_menu_render_configured_accounts(cx: &mut T
     let default_pos = menu_tree.find("\"antigravity\"").unwrap_or_else(|| menu_tree.find("id=antigravity ").unwrap_or(usize::MAX));
     assert!(pro_pos < ultra_pos && ultra_pos < default_pos, "configured profiles must appear before default Antigravity: {menu_tree}");
 }
+
+#[gpui::test]
+fn tab_bar_scroll_pans_titles_without_switching_tabs(cx: &mut TestAppContext) {
+    use gpui::{Modifiers, MouseButton, MouseDownEvent, MouseUpEvent, ParentElement as _, ScrollDelta, ScrollWheelEvent, Styled as _, TouchPhase, point, px, size};
+    use std::ops::Deref;
+
+    cx.update(gpui_shell::init);
+    let staged = Staged::new();
+    let tabs: Vec<Value> = (1..=8)
+        .map(|i| {
+            json!({
+                "id": format!("tab{i}"),
+                "index": i,
+                "name": format!("Antigravity Agent {i}"),
+                "active": i == 1,
+                "status": "idle",
+                "panes": 1,
+                "zoomed": false,
+                "settled": false,
+                "settled_at": null,
+                "changed_at": null,
+                "working_since": null
+            })
+        })
+        .collect();
+    let mut values = fixture(true, props(), updates("current", "current"));
+    values.insert("window".into(), json!({"platform":"macos","titlebar":"system","buttons":false,"maximized":false,"fullscreen":false,"active":true}));
+    values.insert("spaces".into(), json!([{
+        "id":"s1","index":1,"name":"Local","folder":"/fixture/project","machine":null,"branch":"main","active":true,"status":"idle","tabs": tabs
+    }]));
+
+    let tree = describe_with_values(cx, &staged, "mods/tabs", values.clone(), None).unwrap();
+    assert!(!tree.contains("on_scroll_wheel"), "tab bar must not hijack wheel events to switch tabs: {tree}");
+    assert!(tree.contains("overflow_x_scroll") && !tree.contains("overflow_x_scrollbar"), "tab strip must allow vertical wheel to pan horizontally: {tree}");
+    assert!(tree.contains("Scrollbar \"tab-scroll\"") && tree.contains(":viewport_from_layout"), "tab strip must keep its horizontal scrollbar: {tree}");
+
+    struct Mounted(gpui::Entity<gpui_shell::ShellRoot>);
+    impl gpui::Render for Mounted {
+        fn render(&mut self, _: &mut gpui::Window, _: &mut gpui::Context<Self>) -> impl gpui::IntoElement {
+            gpui::div().w(px(360.)).h(px(40.)).child(self.0.clone())
+        }
+    }
+
+    let calls = Rc::new(RefCell::new(Calls::default()));
+    let policy = Policy::new()
+        .with_storage_path(staged.0.join("tab-scroll-store.json"))
+        .with_capabilities(Capabilities::new().storage(true).read_roots([staged.0.clone()]))
+        .with_host_module(module(values, calls.clone()))
+        .unwrap();
+    gpui_shell::policy::set_default(policy);
+    let runtime = ShellRuntime::new_isolated().unwrap();
+    let window = cx.add_window(|window, cx| Mounted(runtime.try_load(&staged.0.join("mods/tabs"), window, cx).unwrap()));
+    let mut visual = gpui::VisualTestContext::from_window(*window.deref(), cx);
+    visual.simulate_resize(size(px(360.), px(40.)));
+    visual.update(|window, cx| window.draw(cx).clear(cx));
+    visual.update(|window, cx| window.draw(cx).clear(cx));
+
+    let pos = point(px(60.), px(20.));
+    let click = |visual: &mut gpui::VisualTestContext| {
+        visual.simulate_event(MouseDownEvent {
+            button: MouseButton::Left,
+            position: pos,
+            modifiers: Modifiers::none(),
+            click_count: 1,
+            first_mouse: false,
+        });
+        visual.simulate_event(MouseUpEvent {
+            button: MouseButton::Left,
+            position: pos,
+            modifiers: Modifiers::none(),
+            click_count: 1,
+        });
+        visual.run_until_parked();
+    };
+
+    // Vertical wheel pans the strip right without switching the active tab.
+    visual.simulate_event(ScrollWheelEvent {
+        position: pos,
+        delta: ScrollDelta::Pixels(point(px(0.), px(-320.))),
+        modifiers: Modifiers::none(),
+        touch_phase: TouchPhase::Moved,
+    });
+    visual.update(|window, cx| window.draw(cx).clear(cx));
+    visual.run_until_parked();
+    assert!(calls.borrow().effects.is_empty(), "vertical scrolling must not select another tab: {:?}", calls.borrow().effects);
+
+    click(&mut visual);
+    let after_vertical = calls.borrow().effects.clone();
+    assert_eq!(after_vertical.len(), 1, "expected click to select a scrolled-in tab: {after_vertical:?}");
+    assert_eq!(after_vertical[0].0, "run");
+    assert_eq!(after_vertical[0].1[0], json!("tab.select"));
+    assert_ne!(after_vertical[0].1[1], json!({"id": "tab1"}), "vertical wheel should have scrolled tab1 out of view: {after_vertical:?}");
+
+    // Horizontal wheel pans the strip back to the start without switching tabs.
+    calls.borrow_mut().effects.clear();
+    visual.simulate_event(ScrollWheelEvent {
+        position: pos,
+        delta: ScrollDelta::Pixels(point(px(320.), px(0.))),
+        modifiers: Modifiers::none(),
+        touch_phase: TouchPhase::Moved,
+    });
+    visual.update(|window, cx| window.draw(cx).clear(cx));
+    visual.run_until_parked();
+    assert!(calls.borrow().effects.is_empty(), "horizontal scrolling must not select another tab: {:?}", calls.borrow().effects);
+
+    click(&mut visual);
+    let after_horizontal = calls.borrow().effects.clone();
+    assert_eq!(after_horizontal.len(), 1, "expected click to select tab1 again: {after_horizontal:?}");
+    assert_eq!(after_horizontal[0].1[1], json!({"id": "tab1"}), "horizontal wheel should have scrolled back to tab1: {after_horizontal:?}");
+}
