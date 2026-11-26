@@ -212,7 +212,8 @@ only when expanded.
 
 The main layout's status bar follows the focused local Codex, Claude or Antigravity
 (`agy`) agent. Codex quota uses the computer's CLI login and inherited `CODEX_HOME`,
-refreshing every 30 seconds. Claude official and Antigravity quotas only read local
+refreshing every 30 seconds. Each Codex quota window shows its next reported reset
+in local time beside the remaining percentage. Claude official and Antigravity quotas only read local
 `statusLine` snapshots: five-hour/weekly remaining percentages, reset times and the
 last received time. They do not read OAuth credentials/Keychain, request usage APIs,
 or infer subscription quota from tokens/cost. Missing, reset or hour-old windows

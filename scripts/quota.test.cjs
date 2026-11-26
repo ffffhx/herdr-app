@@ -190,10 +190,14 @@ test("Antigravity sessions keep per-terminal local quota and 3P pool labels with
 
 test("status bar shows remaining quota, last update and reset time; a click refreshes", async () => {
   const h = harness(), now = Date.now();
-  h.quota.cache["local:codex"] = { status: "ok", windows: [{ remaining: 94, minutes: 10080, resetsAt: now + 86400000 }], updatedAt: now, attemptedAt: now };
+  const year = new Date(now).getFullYear() + 1;
+  h.quota.cache["local:codex"] = { status: "ok", windows: [
+    { remaining: 81, minutes: 300, resetsAt: new Date(year, 0, 2, 3, 4).getTime() },
+    { remaining: 94, minutes: 10080, resetsAt: new Date(year, 0, 8, 16, 35).getTime() },
+  ], updatedAt: now, attemptedAt: now };
   const row = h.quota.render(h.cx, {});
   const text = node => typeof node === "string" ? node : node.children.map(text).join(" ");
-  assert.match(text(row), /Codex Weekly 94% left/);
+  assert.equal(text(row), "Codex 5h 81% left · resets 1/2 03:04 Weekly 94% left · resets 1/8 16:35");
   assert.match(row.tip, /Updated:/);
   assert.match(row.tip, /Weekly resets:/);
   assert.equal(h.requests.length, 0);
@@ -201,7 +205,7 @@ test("status bar shows remaining quota, last update and reset time; a click refr
   assert.equal(h.requests.length, 1);
   h.requests[0].resolve({ code: 0, stdout: JSON.stringify({ status: "ok", windows: [{ remaining: 93, minutes: 10080 }] }) });
   await Promise.all(h.tasks);
-  assert.match(text(h.quota.render(h.cx, {})), /93% left/);
+  assert.equal(text(h.quota.render(h.cx, {})), "Codex Weekly 93% left");
 });
 
 test("remote focus never probes the local account; rate limits back off for two minutes", () => {

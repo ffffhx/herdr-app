@@ -127,8 +127,15 @@ export class Quota {
       }
       for (const w of windows) {
         const remaining = Math.floor(w.remaining);
+        let label = tr("{0} {1}% left", [windowLabel(w.minutes), String(remaining)]);
+        if (target.provider === "codex" && w.resetsAt > Date.now()) {
+          const reset = new Date(w.resetsAt);
+          const twoDigits = value => String(value).padStart(2, "0");
+          const time = `${reset.getMonth() + 1}/${reset.getDate()} ${twoDigits(reset.getHours())}:${twoDigits(reset.getMinutes())}`;
+          label = tr("{0} · resets {1}", [label, time]);
+        }
         row.child(div().text_color(stale ? t.dim : remaining <= 20 ? t.blocked : t.muted)
-          .child(tr("{0} {1}% left", [windowLabel(w.minutes), String(remaining)])));
+          .child(label));
       }
       if (stale) row.child(tr("Stale"));
     } else row.child(div().text_color(t.dim).child(messages[status] || messages.unavailable));

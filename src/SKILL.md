@@ -182,7 +182,8 @@ those files or the generated guide. The app rewrites them on start.
   The main layout's `workspace-status` shows local Codex, Claude or Antigravity
   (`agy`) subscription quota or the official DeepSeek API account's monetary
   balance, refreshes periodically and on click, and puts reset times or balance
-  details in its tooltip. Claude official and Antigravity quotas read local
+  details in its tooltip. Codex also shows each window's next reset beside its
+  remaining percentage in local time. Claude official and Antigravity quotas read local
   `statusLine` snapshots bound to the live terminal; isolated instances require
   an explicit `ANTIGRAVITY_CLI_HOME` to install Antigravity's statusLine helper.
   DeepSeek uses the launcher's settings; other Claude API providers show an
