@@ -2,14 +2,15 @@ import { mkdirSync, readFileSync, existsSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
+import { commandLine, codexRunOptions } from "./resume.mjs";
 import { Core } from "./core.mjs";
-import { DOC, keyOf, managed, agentOf, shellOf, commandLine, emptyPrompt, eligible, duplicateSessions, launcherArgv, runLauncher } from "./model.mjs";
+import { DOC, keyOf, managed, agentOf, shellOf, emptyPrompt, eligible, duplicateSessions, launcherArgv, runLauncher } from "./model.mjs";
 import { install, atomic } from "./install.mjs";
 import { rootTranscript, verifyResume } from "./hook.mjs";
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const alive = pid => { if (!Number.isInteger(pid) || pid < 1) return false; try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } };
-const sources = () => ["service.mjs", "model.mjs", "core.mjs", "install.mjs", "hook.mjs"].map(file => readFileSync(new URL(file, import.meta.url), "utf8")).join("\0");
+const sources = () => ["service.mjs", "resume.mjs", "../unattended/codex-args.mjs", "model.mjs", "core.mjs", "install.mjs", "hook.mjs"].map(file => readFileSync(new URL(file, import.meta.url), "utf8")).join("\0");
 export class Recovery {
   constructor(core, home, { now = Date.now, sleep = delay, verify = verifyResume } = {}) { Object.assign(this, { core, home, now, sleep, verify }); this.shellSince = new Map(); }
   async change(key, change) {
@@ -162,6 +163,7 @@ export class Recovery {
     const launcher = launcherArgv(record.launcher, record.agent) ?? runLauncher(record.unattendedControl, record.agent);
     const config = { agent: record.agent, cwd: record.cwd, native: true, recovered: true, enabled: true, exceptions: policy.exceptions,
       ...(launcher ? { argv: launcher } : {}),
+      ...(record.agent === "codex" ? { savedCodexOptions: codexRunOptions(record.unattendedControl) } : {}),
       ...(record.agent === "antigravity" && record.profile ? { profile: { id: record.profile, name: record.profileName || record.profile } } : {}),
       source: { address: term.address, created_ms: term.created_ms, pid: term.pid, cwd: record.cwd, app: record.agent } };
     atomic(join(directory, "task.json"), config);

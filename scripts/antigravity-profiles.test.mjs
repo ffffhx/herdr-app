@@ -32,7 +32,7 @@ import {
 } from "../defaults/mods/antigravity-profiles/profiles.mjs";
 import { runIsolated } from "../defaults/mods/antigravity-profiles/runner.mjs";
 import { capture } from "../defaults/mods/recovery/hook.mjs";
-import { commandLine, resumeArgv } from "../defaults/mods/recovery/model.mjs";
+import { commandLine, resumeArgv } from "../defaults/mods/recovery/resume.mjs";
 import { native } from "../defaults/mods/unattended/native.mjs";
 
 const require = createRequire(import.meta.url);

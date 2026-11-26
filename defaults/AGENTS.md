@@ -898,10 +898,13 @@ Antigravity (`agy`) unattended sessions launch with `--dangerously-skip-permissi
 so session-scoped automatic approval works without installing a global `PreToolUse`
 hook (which would intercept non-unattended Antigravity sessions). Global `hooks.json`
 registers only lifecycle capture hooks (`SessionStart`, `PreInvocation`, `Stop`).
-Codex unattended sessions launch and recover with `-s workspace-write -a on-request`
-unless an explicit sandbox, approval, preset or profile flag is supplied, so
-escalated commands render native confirmation cards instead of being silently
-rejected under Codex's default `:workspace` granular policy.
+The standard unattended Codex launcher uses `-s workspace-write -a on-request`.
+With an empty exceptions list it enables network access inside the workspace
+sandbox, so routine network commands run directly. With saved exceptions it
+keeps network escalation and leaves matching approval cards for the user.
+Recovery reads the saved run policy. Attaching an observer to a running TUI
+keeps that process's launch permissions; toggling the observer controls answers
+to future approval cards. Explicit Codex permission options belong to the launcher.
 
 ### Antigravity multi-account profiles
 

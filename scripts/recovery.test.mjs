@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, existsSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { eligible, keyOf, duplicateSessions, commandLine, emptyPrompt, launcherArgv, runLauncher, DOC } from "../defaults/mods/recovery/model.mjs";
+import { commandLine, resumeArgv, codexRunOptions } from "../defaults/mods/recovery/resume.mjs";
+import { eligible, keyOf, duplicateSessions, emptyPrompt, launcherArgv, runLauncher, DOC } from "../defaults/mods/recovery/model.mjs";
 import { rootTranscript, rootProcess, resumedProcess, capture, resolveAntigravityTranscript } from "../defaults/mods/recovery/hook.mjs";
 import { mergeHooks, mergeAntigravityHooks, install } from "../defaults/mods/recovery/install.mjs";
 import { Recovery, requestRetry } from "../defaults/mods/recovery/service.mjs";
@@ -35,6 +36,32 @@ test("only a lost managed terminal with an exact original conversation can resum
   for (const r of [record({ closed: true }), record({ enabled: false }), record({ sessionId: "latest" }), record({ pid: 20, generation: "new" }), record({ attempt: { pid: 20, generation: "new" } })]) assert(!eligible(term(), r, "new"));
   assert(eligible(term(), record({ pid: 20 }), "new"), "reused OS PID after reboot is still loss");
 });
+test("Codex recovery derives network from the saved launcher and current control, also after a second recovery", t => {
+  const run = mkdtempSync(join(tmpdir(), "herdr-codex-policy-"));
+  t.after(() => rmSync(run, { recursive: true, force: true }));
+  const control = join(run, "control.json");
+  const r = record({ unattended: true, unattendedControl: control });
+  const setPolicy = policy => writeFileSync(control, JSON.stringify(policy));
+  const setTask = fields => writeFileSync(join(run, "task.json"), JSON.stringify({ native: true, agent: "codex", ...fields }));
+  setPolicy({ enabled: true, exceptions: [] });
+  setTask({ argv: ["codex", "--no-daemon"] });
+  const normal = resumeArgv(r);
+  assert.deepEqual(normal, ["codex", "--no-daemon", "-s", "workspace-write", "-a", "on-request", "-c", "sandbox_workspace_write.network_access=true", "resume", id]);
+  setTask({ source: term(), recovered: true, savedCodexOptions: codexRunOptions(control) });
+  assert.deepEqual(resumeArgv(r), normal);
+  setPolicy({ enabled: true, exceptions: ["publish"] });
+  assert(resumeArgv(r).includes("sandbox_workspace_write.network_access=false"));
+  setPolicy({ enabled: false, exceptions: [] });
+  assert.deepEqual(resumeArgv(r), ["codex", "--no-daemon", "resume", id]);
+  setPolicy({ enabled: true, exceptions: [] });
+  setTask({ source: term() });
+  assert(!resumeArgv(r).includes("sandbox_workspace_write.network_access=true"));
+  setTask({ argv: ["codex", "-s", "read-only", "--profile", "custom", "some old prompt"] });
+  assert.deepEqual(resumeArgv(r), ["codex", "--no-daemon", "-s", "read-only", "--profile", "custom", "resume", id]);
+  writeFileSync(control, "{");
+  assert(!resumeArgv(r).includes("sandbox_workspace_write.network_access=true"));
+});
+
 test("duplicates, unrelated programs, shell injection and already-claimed input are rejected", () => {
   const rows = [term(), term({ address: "t2" })], records = { "t1:1": record(), "t2:1": record({ key: "t2:1" }) };
   assert(!eligible(rows[0], records["t1:1"], "new", duplicateSessions(records, rows)));

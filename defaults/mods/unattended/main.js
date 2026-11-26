@@ -52,7 +52,7 @@ export default class Unattended extends View {
             return;
           } catch (error) { if (props()?.disable) throw error; }
         }
-        const config = { agent, source, native: true, cwd: source.cwd, exceptions: agent === "antigravity" ? shared("unattended.exceptions") ?? [] : [], on: this.on,
+        const config = { agent, source, native: true, cwd: source.cwd, exceptions: agent !== "claude" ? shared("unattended.exceptions") ?? [] : [], on: this.on,
           task: tr("Automatic approval in the existing terminal") };
         const entry = await prepare(config);
         await observe(entry);

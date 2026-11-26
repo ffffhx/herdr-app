@@ -1,10 +1,11 @@
 // Automatic confirmation beside a native TUI. Never replace its renderer,
 // interrupt its turn, clear its composer, or submit a replacement task.
-import { createReadStream, statSync, readFileSync, writeFileSync, renameSync, mkdirSync, appendFileSync, watchFile, unwatchFile, watch as watchDirectory } from "node:fs";
+import { createReadStream, existsSync, realpathSync, statSync, readFileSync, writeFileSync, renameSync, mkdirSync, appendFileSync, watchFile, unwatchFile, watch as watchDirectory } from "node:fs";
 import { createInterface } from "node:readline";
 import { dirname, resolve, join, basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
+import { codexLaunchArgs } from "./codex-args.mjs";
 import { hc, lockSession } from "./sessions.mjs";
 import { childEnvironment } from "./transport.mjs";
 import { exceptionFor, needsHandBack } from "./policy.mjs";
@@ -148,14 +149,23 @@ export async function watch(configPath, { call = hc, signal, waitForAgent = fals
     // Watch the directory so atomic replacement of control.json stays visible.
     // Some macOS environments reject directory watches asynchronously. Watch
     // the policy file by stat in that case, including across atomic renames.
-    const onPolicy = () => wakeups.wake("policy");
+    let lastControl = readFileSync(controlPath, "utf8");
+    const onPolicy = () => {
+      // macOS can deliver the initial rename after the watch starts, or
+      // coalesce multiple directory changes into a nameless notification.
+      let current;
+      try { current = readFileSync(controlPath, "utf8"); } catch { /* tick checks the missing policy */ }
+      if (current === lastControl) return;
+      lastControl = current;
+      wakeups.wake("policy");
+    };
     const pollPolicy = () => {
       controlWatch?.close();
       watchFile(controlPath, { interval: 500, persistent: false }, onPolicy);
       controlWatch = { close: () => unwatchFile(controlPath, onPolicy) };
     };
     try {
-      controlWatch = watchDirectory(directory, (_event, file) => { if (!file || basename(String(file)) === "control.json") wakeups.wake("policy"); });
+      controlWatch = watchDirectory(directory, (_event, file) => { if (!file || basename(String(file)) === "control.json") onPolicy(); });
       controlWatch.on("error", pollPolicy);
     } catch { pollPolicy(); }
     let term = await call(["get", terminal]);
@@ -198,28 +208,6 @@ export async function watch(configPath, { call = hc, signal, waitForAgent = fals
   return error ? 1 : 0;
 }
 
-export function codexLaunchArgs(rawArgs, enabled = true) {
-  if (enabled === false) return [...rawArgs];
-  let preset = false, hasApproval = false, hasSandbox = false;
-  for (let i = 0; i < rawArgs.length; i++) {
-    const arg = rawArgs[i];
-    if (["--dangerously-bypass-approvals-and-sandbox", "--yolo", "--full-auto", "--approve-for-me", "-p", "--profile"].includes(arg)
-      || arg.startsWith("--profile=")) preset = true;
-    if (arg === "-a" || arg === "--ask-for-approval" || arg.startsWith("--ask-for-approval=")) hasApproval = true;
-    if (arg === "-s" || arg === "--sandbox" || arg.startsWith("--sandbox=")) hasSandbox = true;
-    const cfg = (arg === "-c" || arg === "--config") ? rawArgs[i + 1] : arg.startsWith("--config=") ? arg.slice(9) : null;
-    if (typeof cfg === "string") {
-      if (/^approval_policy\s*=/.test(cfg)) hasApproval = true;
-      if (/^sandbox_mode\s*=/.test(cfg)) hasSandbox = true;
-    }
-  }
-  if (preset) return [...rawArgs];
-  const extra = [...(hasSandbox ? [] : ["-s", "workspace-write"]), ...(hasApproval ? [] : ["-a", "on-request"])];
-  if (!extra.length) return [...rawArgs];
-  const sub = rawArgs.findIndex(a => a === "resume" || a === "fork");
-  return sub >= 0 ? [...rawArgs.slice(0, sub), ...extra, ...rawArgs.slice(sub)] : [...rawArgs, ...extra];
-}
-
 // New tasks also use the real agent UI, with an approval observer alongside it.
 // Task text stays data. On Windows PowerShell reads it from JSON, so quotes,
 // newlines and shell syntax in the task never become part of a command string.
@@ -229,8 +217,10 @@ export async function native(configPath, { launch = spawn, observe = watch, plat
   const argv = config.argv ?? [config.agent === "antigravity" ? "agy" : config.agent];
   if (!Array.isArray(argv) || !argv.length || argv.some(a => typeof a !== "string") || !argv[0]) throw new Error("Invalid native agent command");
   const agyAuto = config.agent === "antigravity" && config.enabled !== false && !argv.includes("--dangerously-skip-permissions");
-  const baseArgs = config.agent === "codex" ? codexLaunchArgs(argv.slice(1), config.enabled) : argv.slice(1);
-  const args = [...baseArgs, ...(agyAuto ? ["--dangerously-skip-permissions"] : []), ...(config.task?.trim() ? (config.agent === "antigravity" ? ["--prompt-interactive", config.task] : [config.task]) : [])];
+  const baseArgs = config.agent === "codex" ? codexLaunchArgs(argv.slice(1), config.enabled, config.exceptions) : argv.slice(1);
+  const cliArgs = [...baseArgs, ...(agyAuto ? ["--dangerously-skip-permissions"] : [])];
+  const hasTask = Boolean(config.task?.trim());
+  if (hasTask && config.agent === "antigravity") cliArgs.push("--prompt-interactive");
   let spawnEnv = null;
   if (config.agent === "antigravity" && config.profile?.id) {
     // Load dynamically so remote SSH unattended staging stays self-contained.
@@ -242,10 +232,16 @@ export async function native(configPath, { launch = spawn, observe = watch, plat
   }
   const keepParent = () => {}; // The native TUI handles the console's Ctrl+C.
   process.on("SIGINT", keepParent);
+  // PowerShell receives the same computed argv as Unix. Task text stays in the file
+  // (it can exceed the Windows environment limit and contain shell metacharacters).
   const child = platform === "win32"
-    ? launch("powershell.exe", ["-NoLogo", "-NoProfile", "-Command", "$nativeTask = Get-Content -LiteralPath $env:HERDR_UNATTENDED_TASK_FILE -Raw -Encoding UTF8 | ConvertFrom-Json; $nativeArgv = @($nativeTask.agent); if ($nativeTask.agent -eq 'antigravity') { $nativeArgv = @('agy') }; if ($nativeTask.argv) { $nativeArgv = @($nativeTask.argv) }; $nativeArgs = @($nativeArgv | Select-Object -Skip 1); if ($nativeTask.agent -eq 'codex' -and $nativeTask.enabled -ne $false) { $codexPreset = $false; $codexHasA = $false; $codexHasS = $false; for ($i = 0; $i -lt $nativeArgs.Count; $i++) { $ca = $nativeArgs[$i]; if ($ca -in @('--dangerously-bypass-approvals-and-sandbox','--yolo','--full-auto','--approve-for-me','-p','--profile') -or $ca.StartsWith('--profile=')) { $codexPreset = $true }; if ($ca -in @('-a','--ask-for-approval') -or $ca.StartsWith('--ask-for-approval=')) { $codexHasA = $true }; if ($ca -in @('-s','--sandbox') -or $ca.StartsWith('--sandbox=')) { $codexHasS = $true }; $codexCfg = $null; if (($ca -in @('-c','--config')) -and ($i + 1 -lt $nativeArgs.Count)) { $codexCfg = $nativeArgs[$i + 1] } elseif ($ca.StartsWith('--config=')) { $codexCfg = $ca.Substring(9) }; if ($null -ne $codexCfg) { if ($codexCfg -match '^approval_policy\\s*=') { $codexHasA = $true }; if ($codexCfg -match '^sandbox_mode\\s*=') { $codexHasS = $true } } }; if (-not $codexPreset) { $codexExtra = @(); if (-not $codexHasS) { $codexExtra += @('-s','workspace-write') }; if (-not $codexHasA) { $codexExtra += @('-a','on-request') }; if ($codexExtra.Count -gt 0) { $subIdx = [Array]::FindIndex([string[]]$nativeArgs, [Predicate[string]]{ param($x) $x -eq 'resume' -or $x -eq 'fork' }); if ($subIdx -ge 0) { $before = if ($subIdx -gt 0) { $nativeArgs[0..($subIdx - 1)] } else { @() }; $nativeArgs = @($before) + $codexExtra + @($nativeArgs[$subIdx..($nativeArgs.Count - 1)]) } else { $nativeArgs = @($nativeArgs) + $codexExtra } } } }; if ($nativeTask.agent -eq 'antigravity' -and $nativeTask.enabled -ne $false -and -not ($nativeArgs -contains '--dangerously-skip-permissions')) { $nativeArgs += '--dangerously-skip-permissions' }; if ($nativeTask.task -and $nativeTask.task.Trim()) { if ($nativeTask.agent -eq 'antigravity') { $nativeArgs += '--prompt-interactive' }; $nativeArgs += $nativeTask.task }; & $nativeArgv[0] @nativeArgs; exit $LASTEXITCODE"],
-      { cwd: config.cwd, env: { ...childEnvironment(spawnEnv ?? env, "win32"), HERDR_UNATTENDED_TASK_FILE: resolve(configPath) }, windowsHide: true, stdio: "inherit" })
-    : launch(argv[0], args, { cwd: config.cwd, ...(spawnEnv ? { env: spawnEnv } : {}), stdio: "inherit" });
+    ? launch("powershell.exe", ["-NoLogo", "-NoProfile", "-Command",
+      "$taskData = Get-Content -LiteralPath $env:HERDR_UNATTENDED_TASK_FILE -Raw -Encoding UTF8 | ConvertFrom-Json; " +
+      "$launch = @(ConvertFrom-Json -InputObject $env:HERDR_UNATTENDED_ARGV); $program = $launch[0]; $arguments = @($launch | Select-Object -Skip 1); " +
+      "if ($taskData.task -and $taskData.task.Trim()) { $arguments += $taskData.task }; & $program @arguments; exit $LASTEXITCODE"],
+      { cwd: config.cwd, env: { ...childEnvironment(spawnEnv ?? env, "win32"), HERDR_UNATTENDED_TASK_FILE: resolve(configPath),
+        HERDR_UNATTENDED_ARGV: JSON.stringify([argv[0], ...cliArgs]) }, windowsHide: true, stdio: "inherit" })
+    : launch(argv[0], hasTask ? [...cliArgs, config.task] : cliArgs, { cwd: config.cwd, ...(spawnEnv ? { env: spawnEnv } : {}), stdio: "inherit" });
   const controller = new AbortController();
   const closed = new Promise((resolve, reject) => { child.on("error", reject); child.on("exit", code => { controller.abort(); resolve(code ?? 1); }); });
   const monitoring = observe(configPath, { waitForAgent: true, signal: controller.signal });
@@ -253,7 +249,7 @@ export async function native(configPath, { launch = spawn, observe = watch, plat
   finally { controller.abort(); await monitoring; process.off("SIGINT", keepParent); }
 }
 
-if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+if (import.meta.main ?? (process.argv[1] && existsSync(process.argv[1]) && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url)) {
   const path = process.argv[process.argv.indexOf("--config") + 1];
   (process.argv.includes("--watch") ? watch(path) : native(path))
     .then(code => { process.exitCode = code; }).catch(error => { console.error(`[Herdr] ${error.message}`); process.exitCode = 1; });

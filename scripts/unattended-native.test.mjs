@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, mkdtempSync, writeFileSync, renameSync, rmSync } from "node:fs";
+import { readFileSync, mkdtempSync, writeFileSync, renameSync, symlinkSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { codexLaunchArgs, native, nativeConfirmation, NativeApprovals, watch } from "../defaults/mods/unattended/native.mjs";
+import { codexLaunchArgs } from "../defaults/mods/unattended/codex-args.mjs";
+import { native, nativeConfirmation, NativeApprovals, watch } from "../defaults/mods/unattended/native.mjs";
 import { eventFilter, subscribeTerminal } from "../defaults/mods/unattended/events.mjs";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
@@ -57,6 +58,50 @@ test("Codex launch arguments inject workspace-write and on-request without overr
   assert.deepEqual(codexLaunchArgs(["--no-daemon", "--dangerously-bypass-approvals-and-sandbox"]), ["--no-daemon", "--dangerously-bypass-approvals-and-sandbox"]);
   assert.deepEqual(codexLaunchArgs(["--no-daemon", "--approve-for-me"]), ["--no-daemon", "--approve-for-me"]);
   assert.deepEqual(codexLaunchArgs(["--no-daemon", "-c", "approval_policy=\"never\""]), ["--no-daemon", "-c", "approval_policy=\"never\"", "-s", "workspace-write"]);
+});
+
+test("default unattended network access follows the exceptions, including direct resume and fork", () => {
+  const guarded = ["-s", "workspace-write", "-a", "on-request"];
+  const network = ["-c", "sandbox_workspace_write.network_access=true"];
+  const id = "01234567-1234-1234-1234-123456789abc";
+  for (const tail of [[], ["resume", id], ["fork", id]]) {
+    assert.deepEqual(codexLaunchArgs(["--no-daemon", ...tail], true, []), ["--no-daemon", ...guarded, ...network, ...tail]);
+  }
+  assert.deepEqual(codexLaunchArgs([], true, ["git push"]), [...guarded, "-c", "sandbox_workspace_write.network_access=false"]);
+  for (const opts of [["--yolo"], ["-s", "danger-full-access"], ["-a", "never"], ["--profile", "custom"]]) {
+    assert.throws(() => codexLaunchArgs(opts, true, ["publish"]), /conflict/);
+  }
+  assert.deepEqual(codexLaunchArgs(["--profile=custom"], true, []), ["--profile=custom"]);
+  assert.deepEqual(codexLaunchArgs(["--no-daemon"], false, []), ["--no-daemon"]);
+});
+
+test("an unattended executable reached through a symlink actually enters its CLI", { skip: process.platform === "win32" }, async t => {
+  const dir = mkdtempSync(join(tmpdir(), "herdr-native-alias-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const alias = join(dir, "native.mjs");
+  symlinkSync(new URL("../defaults/mods/unattended/native.mjs", import.meta.url), alias);
+  const task = join(dir, "invalid.json");
+  writeFileSync(task, JSON.stringify({ agent: "unknown" }));
+  const child = spawn(process.execPath, [alias, "--config", task]);
+  let stderr = "";
+  child.stderr.on("data", data => { stderr += data; });
+  const code = await new Promise((resolve, reject) => { child.on("error", reject); child.on("close", resolve); });
+  assert.equal(code, 1);
+  assert.match(stderr, /Unknown native agent/);
+});
+
+test("Windows passes the computed network policy and task to PowerShell separately", async t => {
+  const dir = mkdtempSync(join(tmpdir(), "herdr-win-argv-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const path = join(dir, "task.json");
+  writeFileSync(path, JSON.stringify({ agent: "codex", task: "$(literal)", exceptions: [], cwd: dir }));
+  await native(path, { platform: "win32", launch: (exe, args, { env }) => {
+    assert.equal(exe, "powershell.exe");
+    assert(!args.join(" ").includes("$(literal)"));
+    assert.equal(env.HERDR_UNATTENDED_TASK_FILE, path);
+    assert.deepEqual(JSON.parse(env.HERDR_UNATTENDED_ARGV), ["codex", ...codexLaunchArgs([], true, [])]);
+    const child = new EventEmitter(); queueMicrotask(() => child.emit("exit", 0)); return child;
+  }, observe: async () => {} });
 });
 
 // Native Codex 0.166.0 and Claude Code 2.1.312 cards captured on Windows.
