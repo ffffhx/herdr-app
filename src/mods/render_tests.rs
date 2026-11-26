@@ -1009,6 +1009,11 @@ fn tab_bar_scroll_pans_titles_without_switching_tabs(cx: &mut TestAppContext) {
         "id":"s1","index":1,"name":"Local","folder":"/fixture/project","machine":null,"branch":"main","active":true,"status":"idle","tabs": tabs
     }]));
 
+    values.get_mut("panes").unwrap().as_array_mut().unwrap().push(json!({
+        "pane":"p8", "terminal":"t8", "tab":"tab8", "title":"fix-profilepilot-ci",
+        "program":{"name":"Codex","agent":true}, "status":"working"
+    }));
+
     let tree = describe_with_values(cx, &staged, "mods/tabs", values.clone(), None).unwrap();
     assert!(!tree.contains("on_scroll_wheel"), "tab bar must not hijack wheel events to switch tabs: {tree}");
     assert!(tree.contains("overflow_x_scroll") && !tree.contains("overflow_x_scrollbar"), "tab strip must allow vertical wheel to pan horizontally: {tree}");
@@ -1022,18 +1027,31 @@ fn tab_bar_scroll_pans_titles_without_switching_tabs(cx: &mut TestAppContext) {
     }
 
     let calls = Rc::new(RefCell::new(Calls::default()));
+    calls.borrow_mut().shared.insert("workspace.panels".into(), json!([]));
+    let spaces = Rc::new(RefCell::new(values["spaces"].clone()));
+    let published_spaces = spaces.clone();
+    let host = module(values.clone(), calls.clone()).function("spaces", move |_| Ok(to_host(&published_spaces.borrow())));
     let policy = Policy::new()
         .with_storage_path(staged.0.join("tab-scroll-store.json"))
         .with_capabilities(Capabilities::new().storage(true).read_roots([staged.0.clone()]))
-        .with_host_module(module(values, calls.clone()))
+        .with_host_module(host)
         .unwrap();
     gpui_shell::policy::set_default(policy);
     let runtime = ShellRuntime::new_isolated().unwrap();
     let window = cx.add_window(|window, cx| Mounted(runtime.try_load(&staged.0.join("mods/tabs"), window, cx).unwrap()));
     let mut visual = gpui::VisualTestContext::from_window(*window.deref(), cx);
     visual.simulate_resize(size(px(360.), px(40.)));
-    visual.update(|window, cx| window.draw(cx).clear(cx));
-    visual.update(|window, cx| window.draw(cx).clear(cx));
+    let paint = |visual: &mut gpui::VisualTestContext| {
+        // Scroll requests consume the layout bounds and apply on the next frame.
+        for _ in 0..3 {
+            visual.update(|window, cx| {
+                window.simulate_next_frame(cx);
+                window.draw(cx).clear(cx);
+            });
+            visual.run_until_parked();
+        }
+    };
+    paint(&mut visual);
 
     let pos = point(px(60.), px(20.));
     let click = |visual: &mut gpui::VisualTestContext| {
@@ -1064,6 +1082,10 @@ fn tab_bar_scroll_pans_titles_without_switching_tabs(cx: &mut TestAppContext) {
     visual.run_until_parked();
     assert!(calls.borrow().effects.is_empty(), "vertical scrolling must not select another tab: {:?}", calls.borrow().effects);
 
+    // A background status refresh must preserve the user's manual pan.
+    window.update(cx, |mounted, _, cx| runtime.refresh(&mounted.0, cx).unwrap()).unwrap();
+    visual.update(|window, cx| window.draw(cx).clear(cx));
+    visual.run_until_parked();
     click(&mut visual);
     let after_vertical = calls.borrow().effects.clone();
     assert_eq!(after_vertical.len(), 1, "expected click to select a scrolled-in tab: {after_vertical:?}");
@@ -1087,4 +1109,65 @@ fn tab_bar_scroll_pans_titles_without_switching_tabs(cx: &mut TestAppContext) {
     let after_horizontal = calls.borrow().effects.clone();
     assert_eq!(after_horizontal.len(), 1, "expected click to select tab1 again: {after_horizontal:?}");
     assert_eq!(after_horizontal[0].1[1], json!({"id": "tab1"}), "horizontal wheel should have scrolled back to tab1: {after_horizontal:?}");
+
+    // A sidebar pane.focus publishes a new active tab without touching the strip.
+    // Keep the same mounted view and viewport, so a stale offset hides tab8.
+    {
+        let mut spaces = spaces.borrow_mut();
+        let tabs = spaces[0]["tabs"].as_array_mut().unwrap();
+        tabs[0]["active"] = json!(false);
+        tabs[7]["active"] = json!(true);
+        tabs[7]["name"] = json!("Codex");
+        tabs[7]["named"] = json!(false);
+        tabs[7]["status"] = json!("working");
+    }
+    let assert_agent_visible = |cx: &mut TestAppContext, visual: &mut gpui::VisualTestContext| {
+        calls.borrow_mut().effects.clear();
+        window.update(cx, |mounted, _, cx| runtime.refresh(&mounted.0, cx).unwrap()).unwrap();
+        paint(visual);
+        assert!(calls.borrow().effects.is_empty(), "revealing a tab must not dispatch another command");
+        visual.simulate_click(point(px(280.), px(20.)), Modifiers::none());
+        visual.run_until_parked();
+        assert_eq!(
+            calls.borrow().effects,
+            vec![("run".into(), vec![json!("tab.select"), json!({"id":"tab8"})])],
+            "the focused agent's tab must be visible and clickable",
+        );
+    };
+    assert_agent_visible(cx, &mut visual);
+    // Pan away and click the already-focused agent again.
+    visual.simulate_event(ScrollWheelEvent {
+        position: pos,
+        delta: ScrollDelta::Pixels(point(px(2000.), px(0.))),
+        modifiers: Modifiers::none(),
+        touch_phase: TouchPhase::Moved,
+    });
+    visual.update(|window, cx| window.draw(cx).clear(cx));
+    calls.borrow_mut().shared.insert("tabs.revealAgent".into(), json!({"tab":"tab8","serial":1}));
+    assert_agent_visible(cx, &mut visual);
+
+    values.insert("spaces".into(), spaces.borrow().clone());
+    let selected = describe_with_values(cx, &staged, "mods/tabs", values, None).unwrap();
+    assert!(selected.contains("fix-profilepilot-ci") && selected.contains("spinner.svg"), "{selected}");
+    assert!(selected.contains("close-tab8") && !selected.contains("close-tab1"), "{selected}");
+
+    // The close icon is at the trailing edge of the active tab.
+    calls.borrow_mut().effects.clear();
+    visual.simulate_click(point(px(303.), px(20.)), Modifiers::none());
+    visual.run_until_parked();
+    let closes: Vec<_> = calls.borrow().effects.iter().filter(|(_, args)| args[0] == "tab.close").cloned().collect();
+    assert_eq!(closes, vec![("run".into(), vec![json!("tab.close"), json!({"id":"tab8"})])]);
+
+    // Selecting the original tab again scrolls the strip back to its start.
+    {
+        let mut spaces = spaces.borrow_mut();
+        let tabs = spaces[0]["tabs"].as_array_mut().unwrap();
+        tabs[0]["active"] = json!(true);
+        tabs[7]["active"] = json!(false);
+    }
+    window.update(cx, |mounted, _, cx| runtime.refresh(&mounted.0, cx).unwrap()).unwrap();
+    paint(&mut visual);
+    calls.borrow_mut().effects.clear();
+    click(&mut visual);
+    assert_eq!(calls.borrow().effects, vec![("run".into(), vec![json!("tab.select"), json!({"id":"tab1"})])]);
 }

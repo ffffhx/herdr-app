@@ -26,6 +26,13 @@ function toggleSidebar() {
   run("layout.resize", { id: "sidebar", px: narrow() ? (shared("sidebar.width") ?? 268) : window()?.platform === "macos" ? 76 : 44 });
 }
 
+// A click can revisit the active pane after its tab was manually scrolled away.
+function focusAgent(agent) {
+  run("pane.focus", { pane: agent.pane });
+  const serial = (shared("tabs.revealAgent")?.serial ?? 0) + 1;
+  setShared("tabs.revealAgent", { tab: agent.tab, serial });
+}
+
 const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}]+/u, "").trim();
 
 function lead(tab, all = panes()) {
@@ -307,7 +314,7 @@ export default class Agents extends View {
           .border_color(a.focused ? t.accent : "#00000000")
           .when(a.focused, (el) => el.bg(tint(t.accent, "24")).font_semibold())
           .when(!a.focused, (el) => el.hover((s) => s.bg(t.hover)))
-          .on_click(() => run("pane.focus", { pane: a.pane }))
+          .on_click(() => focusAgent(a))
           .child(div().flex_1().min_w(0).whitespace_nowrap().text_right().text_color(a.focused ? t.foreground : t.muted).child(String(i + 1)))
           .child(h_flex().w(14).flex_none().items_center().justify_center().child(this.status(t, a, true)));
       }
@@ -353,7 +360,7 @@ export default class Agents extends View {
           else if (this.hovered === a.address) this.hovered = null;
           cx.notify();
         })
-        .on_click(() => run("pane.focus", { pane: a.pane }))
+        .on_click(() => focusAgent(a))
         .when(Boolean(pic), el => el.child(div().id(`agent-fold-${a.address}`).when(!a.focused, d => d.opacity(0.8))
           .when(subs.length > 0, el => el.on_click((_e, cx) => {
             cx.stop_propagation();

@@ -1,5 +1,5 @@
 import { View, div, svg, image } from "gpui-kit";
-import { h_flex, Scrollbar } from "gpui-base";
+import { h_flex, Scrollbar, ScrollHandle } from "gpui-base";
 import { tr, spaces, panes, terminals, run, openOverlay, theme, window, shared, layout, settings } from "herdr";
 
 function find(node, id) {
@@ -11,9 +11,26 @@ function find(node, id) {
   return null;
 }
 
+// Same as the agents mod: drops a status glyph, keeps a leading bracket or quote.
+const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}\p{Ps}\p{Pi}]+/u, "").replace(/^\[ [!.] \] /, "").trim();
+
+// A tab Herdr named (unnamed, or after its program) follows its agent's live
+// title, as the agents list does; a name the person gave stays.
+function label(tab, lead) {
+  const prog = lead?.program?.name;
+  const base = /^tb\d+$/.test(tab.name) ? prog ?? tr("Terminal") : tab.name;
+  if (!lead?.program?.agent) return base;
+  const live = clean(lead.title);
+  // clean() would strip a path's leading ~ or /: test the title with only its status glyph gone.
+  const path = /^[~/]|^[A-Za-z]:\\/.test((lead.title ?? "").replace(/^[^\p{L}\p{N}~/]+/u, ""));
+  const telling = live && live !== lead.terminal && live !== prog && !path && !live.includes("@") && live.toLowerCase() !== lead.program.key;
+  return (tab.name === prog || tab.named === false) && telling ? live : base;
+}
+
 export default class Tabs extends View {
   init() {
     this.pressed = null;
+    this.scroll = ScrollHandle.new();
     this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
   }
 
@@ -52,14 +69,32 @@ export default class Tabs extends View {
     const activeBadgeBg = tint(t.accent, "2b");
     const space = spaces().find(p => p.active);
     const shown = space?.tabs ?? [];
+    const active = shown.findIndex(tab => tab.active);
+    const selected = shown[active]?.id;
+    const request = shared("tabs.revealAgent");
+    const reveal = request?.tab === selected ? request?.serial : undefined;
+    if (selected !== this.selected || active !== this.selectedIndex || reveal !== this.reveal) {
+      this.selected = selected;
+      this.selectedIndex = active;
+      this.reveal = reveal;
+      if (active >= 0) this.scroll.scroll_to_item(active);
+    }
+    // The selected title, or any title before it, can grow after the focus change.
+    const revealOnResize = (_size, cx) => {
+      if (active >= 0) { this.scroll.scroll_to_item(active); cx.notify(); }
+    };
     const stop = (_e, cx) => cx.stop_propagation();
     const button = (id, label, action) => div().id(id).size(26).flex_none().flex().items_center().justify_center().rounded(6).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
       .on_mouse_down("left", stop).on_click(action).child(label);
+    const allPanes = panes(), allTerminals = terminals();
     const item = (c, i) => {
-      const program = panes().find(p => p.tab === c.id && p.program?.agent)?.program ?? panes().find(p => p.tab === c.id)?.program;
-      const name = /^tb\d+$/.test(c.name) ? program?.name ?? tr("Terminal") : c.name;
-      const unattended = panes().filter(p => p.tab === c.id).some(p => terminals().some(t => t.address === (p.shown ?? p.terminal) && t.state !== "finished" && t.labels?.["herdr.unattended"] === "on"));
+      const members = allPanes.filter(p => p.tab === c.id);
+      const agent = members.find(p => p.focused && p.program?.agent) ?? members.find(p => p.program?.agent);
+      const program = agent?.program ?? members[0]?.program;
+      const name = label(c, agent ?? members[0]);
+      const unattended = members.some(p => allTerminals.some(t => t.address === (p.shown ?? p.terminal) && t.state !== "finished" && t.labels?.["herdr.unattended"] === "on"));
       return h_flex().id(`tab-${c.id}`).h(29).px(10).gap(7).rounded(7).items_center().flex_none().text_size(12.8)
+        .when(i <= active, el => el.on_size_change(revealOnResize))
         .border(1.5).border_color(c.active ? t.accent : "#00000000").bg(c.active ? activeBg : t.chrome).text_color(c.active ? t.foreground : t.muted)
         .when(c.active, el => el.font_semibold())
         .when(!c.active, el => el.hover(s => s.bg(t.hover).text_color(t.foreground)))
@@ -99,7 +134,8 @@ export default class Tabs extends View {
       .on_mouse_up("left", () => { this.pressed = null; })
       .child(
         div().relative().flex_1().min_w(0).h_full().overflow_hidden()
-          .child(h_flex().id("tab-scroll").size_full().items_center().gap(3).overflow_x_scroll().children(shown.map(item)))
+          .child(h_flex().id("tab-scroll").size_full().items_center().gap(3).overflow_x_scroll().track_scroll(this.scroll)
+            .on_size_change(revealOnResize).children(shown.map(item)))
           .child(Scrollbar.horizontal("tab-scroll").viewport_from_layout().absolute().inset_0()),
       )
       .child(button("tab-new", "+", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 })))
