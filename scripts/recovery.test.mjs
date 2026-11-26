@@ -39,6 +39,7 @@ test("duplicates, unrelated programs, shell injection and already-claimed input 
   const rows = [term(), term({ address: "t2" })], records = { "t1:1": record(), "t2:1": record({ key: "t2:1" }) };
   assert(!eligible(rows[0], records["t1:1"], "new", duplicateSessions(records, rows)));
   assert.equal(commandLine(record(), "powershell"), `& 'codex' '--no-daemon' 'resume' '${id}'`);
+  assert.equal(commandLine(record({ unattended: true }), "powershell"), `& 'codex' '--no-daemon' '-s' 'workspace-write' '-a' 'on-request' 'resume' '${id}'`);
   assert.equal(commandLine(record({ agent: "claude" }), "zsh"), `'claude' '--resume' '${id}'`);
   assert.equal(commandLine(record({ agent: "antigravity" }), "powershell"), `& 'agy' '--conversation' '${id}'`);
   assert.equal(commandLine(record({ agent: "antigravity", executable: "D:\\Tools\\AntigravityCLI\\bin\\agy.exe" }), "powershell"), `& 'D:\\Tools\\AntigravityCLI\\bin\\agy.exe' '--conversation' '${id}'`);

@@ -3,21 +3,25 @@ import assert from "node:assert/strict";
 import { readFileSync, mkdtempSync, writeFileSync, renameSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { native, nativeConfirmation, NativeApprovals, watch } from "../defaults/mods/unattended/native.mjs";
+import { codexLaunchArgs, native, nativeConfirmation, NativeApprovals, watch } from "../defaults/mods/unattended/native.mjs";
 import { eventFilter, subscribeTerminal } from "../defaults/mods/unattended/events.mjs";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import { spawn } from "node:child_process";
 
-test("native menu launch preserves arguments and leaves an empty conversation on Unix", async t => {
+test("native menu launch preserves explicit profiles and enables on-request approvals for default Codex on Unix", async t => {
   const directory = mkdtempSync(join(tmpdir(), "herdr-native-command-")), path = join(directory, "task.json");
   t.after(() => rmSync(directory, { recursive: true, force: true }));
-  for (const argv of [undefined, ["/custom/codex", "--no-daemon", "--profile", "my profile"]]) {
+  for (const [argv, expected] of [
+    [undefined, ["-s", "workspace-write", "-a", "on-request"]],
+    [["/custom/codex", "--no-daemon"], ["--no-daemon", "-s", "workspace-write", "-a", "on-request"]],
+    [["/custom/codex", "--no-daemon", "--profile", "my profile"], ["--no-daemon", "--profile", "my profile"]],
+  ]) {
     writeFileSync(path, JSON.stringify({ agent: "codex", argv, task: "", cwd: directory }));
     let observed = false;
     const code = await native(path, { platform: "linux", launch: (command, args, options) => {
       assert.equal(command, argv?.[0] ?? "codex");
-      assert.deepEqual(args, argv?.slice(1) ?? []);
+      assert.deepEqual(args, expected);
       assert.equal(options.cwd, directory);
       const child = new EventEmitter(); queueMicrotask(() => child.emit("exit", 0)); return child;
     }, observe: async (_path, options) => { observed = true; assert.equal(options.waitForAgent, true); } });
@@ -39,9 +43,20 @@ test("Windows native launch passes configured arguments and task text as literal
       child.stderr.on("data", data => { stderr += data; }); return child;
     }, observe: async () => { observed = true; } });
     assert.equal(code, 0, stderr);
-    assert.deepEqual(JSON.parse(readFileSync(output, "utf8")), [...args, ...(task ? [task] : [])]);
+    assert.deepEqual(JSON.parse(readFileSync(output, "utf8")), [...args, "-s", "workspace-write", "-a", "on-request", ...(task ? [task] : [])]);
     assert(observed);
   }
+});
+
+test("Codex launch arguments inject workspace-write and on-request without overriding explicit flags or subcommands", () => {
+  assert.deepEqual(codexLaunchArgs(["--no-daemon"]), ["--no-daemon", "-s", "workspace-write", "-a", "on-request"]);
+  assert.deepEqual(codexLaunchArgs(["--no-daemon"], false), ["--no-daemon"]);
+  assert.deepEqual(codexLaunchArgs(["--no-daemon", "resume", "thread-1"]), ["--no-daemon", "-s", "workspace-write", "-a", "on-request", "resume", "thread-1"]);
+  assert.deepEqual(codexLaunchArgs(["--no-daemon", "-a", "never"]), ["--no-daemon", "-a", "never", "-s", "workspace-write"]);
+  assert.deepEqual(codexLaunchArgs(["--no-daemon", "-s", "danger-full-access"]), ["--no-daemon", "-s", "danger-full-access", "-a", "on-request"]);
+  assert.deepEqual(codexLaunchArgs(["--no-daemon", "--dangerously-bypass-approvals-and-sandbox"]), ["--no-daemon", "--dangerously-bypass-approvals-and-sandbox"]);
+  assert.deepEqual(codexLaunchArgs(["--no-daemon", "--approve-for-me"]), ["--no-daemon", "--approve-for-me"]);
+  assert.deepEqual(codexLaunchArgs(["--no-daemon", "-c", "approval_policy=\"never\""]), ["--no-daemon", "-c", "approval_policy=\"never\"", "-s", "workspace-write"]);
 });
 
 // Native Codex 0.166.0 and Claude Code 2.1.312 cards captured on Windows.

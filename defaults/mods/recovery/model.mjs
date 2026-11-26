@@ -50,7 +50,7 @@ export function resumeArgv(record, home = null, nodePath = process.execPath) {
   const base = basename(program.replaceAll("\\", "/")).replace(/\.exe$/i, "").toLowerCase();
   const expected = record.agent === "antigravity" ? ["agy", "antigravity"] : [record.agent];
   if (!expected.includes(base)) throw new Error("The saved agent executable does not match the integration");
-  if (record.agent === "codex") return [program, "--no-daemon", "resume", record.sessionId];
+  if (record.agent === "codex") return [program, "--no-daemon", ...(record.unattended ? ["-s", "workspace-write", "-a", "on-request"] : []), "resume", record.sessionId];
   if (record.agent === "claude") return [program, "--resume", record.sessionId];
   if (record.agent === "antigravity") {
     if (record.profile) {

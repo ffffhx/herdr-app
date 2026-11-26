@@ -40,6 +40,10 @@ Antigravity (`agy`) unattended sessions launch with `--dangerously-skip-permissi
 so session-scoped automatic approval works without installing a global `PreToolUse`
 hook (which would intercept non-unattended Antigravity sessions). Global `hooks.json`
 registers only lifecycle capture hooks (`SessionStart`, `PreInvocation`, `Stop`).
+Codex unattended sessions launch and recover with `-s workspace-write -a on-request`
+unless an explicit sandbox, approval, preset or profile flag is supplied, so
+escalated commands prompt the native observer instead of failing silently under
+`:workspace` granular policy.
 
 For multiple simultaneous Google AI accounts on the local machine, open
 **Antigravity accounts** from the `+` menu (or
