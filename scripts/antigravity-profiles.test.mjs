@@ -324,6 +324,8 @@ test("new-menu displays configured local Antigravity profiles and opens unattend
   const tree = view.render();
   const find = (node, id) => node?.elementId === id ? node : node?.nodes?.map(child => find(child, id)).find(Boolean);
 
+  assert.ok(find(tree, "antigravity-profile-pro"));
+  assert.equal(find(tree, "antigravity"), undefined);
   find(tree, "antigravity-profile-ultra").handlers.on_click();
   assert.deepEqual(overlays[0], {
     mod: "unattended",
@@ -350,4 +352,22 @@ test("new-menu displays configured local Antigravity profiles and opens unattend
       props: { space: "s1", folder: "/project/sub" },
     },
   ]);
+
+  sharedMap.get("antigravity.profiles").push({ id: "ultra-2", name: "Ultra" });
+  const expanded = view.render();
+  for (const id of ["ultra", "ultra-2"]) {
+    const row = find(expanded, `antigravity-profile-${id}`);
+    assert.ok(row.nodes.some(node => node.nodes.includes(`Antigravity · Ultra (${id})`)));
+  }
+  expanded.handlers.on_key_down({ key: "3", modifiers: {} });
+  assert.deepEqual(overlays.at(-1).props.profile, { id: "ultra-2", name: "Ultra" });
+  assert.equal(find(expanded, "antigravity"), undefined);
+
+  space.machine = "remote";
+  const remote = view.render();
+  assert.ok(find(remote, "antigravity"));
+  assert.equal(find(remote, "antigravity-profile-pro"), undefined);
+  space.machine = null;
+  sharedMap.set("antigravity.profiles", []);
+  assert.ok(find(view.render(), "antigravity"));
 });

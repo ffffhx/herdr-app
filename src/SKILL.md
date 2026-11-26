@@ -47,7 +47,8 @@ For multiple simultaneous Google AI accounts on the local machine, open
 Each account profile runs native `agy` with `AGY_CLI_FORCE_FILE_TOKEN_STORAGE=1`
 and an isolated `.gemini` directory inside `data/antigravity-profiles/<id>/home`,
 keeping OAuth tokens out of macOS Keychain while sharing repositories, git and SSH.
-Configured profiles appear in the `+` menu, carry per-account local quota labels,
+Once a local profile is configured, the `+` menu shows one launcher per account.
+Same-name launchers show their profile IDs. Profiles carry per-account local quota labels
 and preserve their profile on unattended launch and session recovery.
 
 Observers subscribe to terminal state events, with a 10-second fallback and

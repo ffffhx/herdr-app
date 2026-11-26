@@ -78,15 +78,18 @@ export default class NewMenu extends View {
     const space = spaces().find(s => s.active);
     const localProfiles = !space?.machine ? savedProfiles() : [];
     const rawInstalled = this.agents.filter(a => a.installed);
-    const hasAntigravity = !space?.machine && rawInstalled.some(a => a.key === "antigravity");
     const agyBase = rawInstalled.find(a => a.key === "antigravity");
-    const profileAgents = agyBase && localProfiles.length
-      ? localProfiles.map(p => ({ ...agyBase, rowId: `antigravity-profile-${p.id}`, name: `${agyBase.name} · ${p.name}`, profile: { id: p.id, name: p.name } }))
-      : [];
-    const otherInstalled = profileAgents.length
-      ? [...rawInstalled.filter(a => a.key !== "antigravity"), agyBase]
-      : rawInstalled;
-    const installed = [...profileAgents, ...otherInstalled];
+    const hasAntigravity = !space?.machine && Boolean(agyBase);
+    let installed = rawInstalled;
+    if (agyBase && localProfiles.length) {
+      const profileAgents = localProfiles.map(({ id, name }) => {
+        const duplicate = localProfiles.some(p => p.id !== id && p.name === name);
+        const label = `${agyBase.name} · ${name}`;
+        return { ...agyBase, rowId: `antigravity-profile-${id}`, name: label,
+          menuLabel: duplicate ? `${label} (${id})` : label, profile: { id, name } };
+      });
+      installed = [...profileAgents, ...rawInstalled.filter(a => a.key !== "antigravity")];
+    }
     const choices = [...installed, ...this.agents.filter(a => !a.installed).slice(0, 2)];
     const extraRows = hasAntigravity ? 1 : 0;
     return v_flex().min_h(0).w_full().h(Math.min(522, 198 + (Math.max(1, choices.length) + extraRows) * 31)).bg(t.popover).p(5).text_size(12.8)
@@ -101,7 +104,7 @@ export default class NewMenu extends View {
       .child(this.row("terminal", svg("icons/shell.svg").size(14), tr("Terminal"), () => run("tab.new", { space: space?.id }), shortcut("tab.new")))
       .child(div().px(9).pt(8).pb(4).text_size(11).text_color(t.dim).child(tr("Start an agent")))
       .child(v_flex().flex_1().min_h(0).overflow_y_scrollbar()
-        .children(choices.map((a, i) => this.row(a.rowId || a.key, a.tint ? svg(a.icon).size(14).text_color(t.foreground) : image(a.icon).size(14), a.name,
+        .children(choices.map((a, i) => this.row(a.rowId || a.key, a.tint ? svg(a.icon).size(14).text_color(t.foreground) : image(a.icon).size(14), a.menuLabel || a.name,
           () => this.start(a, space), a.installed ? (i < 9 ? String(i + 1) : "") : tr("not installed"), a.installed)))
         .when(this.agents.length === 0, el => el.child(div().px(9).py(6).text_color(t.dim).child(this.failed ? tr("Could not load agents") : tr("Checking installed agents…")))))
       .child(div().h(1).mx(4).my(5).bg(t.border))

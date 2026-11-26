@@ -910,7 +910,9 @@ Profiles are listed in shared `"antigravity.profiles"` and stored under
 `.gemini/` directory is isolated per account, avoiding macOS Keychain conflicts
 while linking the user's repositories, git, SSH and XDG directories (plus shared
 `GEMINI.md`, `AGENTS.md`, `skills` and `mcp_config.json` from `~/.gemini/config`).
-Configured profiles appear in the `+` menu and the Unattended agents panel,
+The local `+` menu shows the default Antigravity launcher until an account is
+added, then shows one launcher per profile. Profiles with the same name display
+their IDs in the menu. Configured profiles appear in the Unattended agents panel,
 install their own local `hooks.json` and `statusLine` helper without touching
 `~/.gemini`, display per-account local quota labels, and resume through
 `mods/antigravity-profiles/runner.mjs` during session recovery. Herdr never reads

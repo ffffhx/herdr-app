@@ -974,8 +974,8 @@ fn antigravity_profiles_panel_and_new_menu_render_configured_accounts(cx: &mut T
     assert!(menu_tree.contains("Antigravity accounts"), "{menu_tree}");
     let pro_pos = menu_tree.find("antigravity-profile-pro").unwrap();
     let ultra_pos = menu_tree.find("antigravity-profile-ultra").unwrap();
-    let default_pos = menu_tree.find("\"antigravity\"").unwrap_or_else(|| menu_tree.find("id=antigravity ").unwrap_or(usize::MAX));
-    assert!(pro_pos < ultra_pos && ultra_pos < default_pos, "configured profiles must appear before default Antigravity: {menu_tree}");
+    assert!(pro_pos < ultra_pos, "{menu_tree}");
+    assert!(!menu_tree.contains("text \"Antigravity\""), "{menu_tree}");
 }
 
 #[gpui::test]
